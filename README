@@ -7,3 +7,9 @@ emanuele.beozzo@studenti.unitn.it, Emanuele Beozzo, 201637
 federico.izzo@studenti.unitn.it, Federico Izzo, 201931
 samuele.bortolotti@studenti.unitn.it, Samuele Bortolotti, 201647
 
+-------------------------------------------------------------------
+Makefile help:
+  * build: compiles the program and creates an executable file named
+    counter
+  * clean: removes all file creted during build operation
+  * help: print this file
