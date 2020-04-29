@@ -1,8 +1,8 @@
 FLAGS=$(-std=gnu90)
-wrapping.o: ./src/wrapping.c ./src/wrapping.h
-	gcc $(FLAGS) -c ./src/wrapping.c
+wrapping.o: ./src/wrapping/wrapping.c ./src/wrapping/wrapping.h
+	gcc $(FLAGS) -c ./src/wrapping/wrapping.c
 
-main.o: ./src/main.c ./src/wrapping.h
+main.o: ./src/main.c ./src/wrapping/wrapping.h
 	gcc $(FLAGS) -c ./src/main.c
 
 .SILENT:

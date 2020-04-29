@@ -89,6 +89,6 @@ int parentWrite(const int fd[], const char *msg);
  * returns:
  *    number of bytes read in case of success, otherwise -1
  */
-int readChild(const int fd[], char *dst);
+int childRead(const int fd[], char *dst);
 
 #endif 

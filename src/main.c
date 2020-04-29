@@ -20,6 +20,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "wrapping.h"
+#include "analyzer/analyzer.h"
+#include "manager/manager.h"
+#include "reporter/reporter.h"
+#include "worker/worker.h"
+#include "wrapping/wrapping.h"
 
-int main(int argc, char *argv[]) { return 0; }
+int main(int argc, char *argv[]) {
+  /* Worker w; */
+  /* newWorker(3); */
+  return 0;
+}

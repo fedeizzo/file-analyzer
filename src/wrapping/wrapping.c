@@ -44,6 +44,7 @@ int readDescriptor(const int fd, char dst[]) {
     bytesRead = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during reading descriptor: %d", fd);
+    printError(msgErr);
   }
   return bytesRead;
 }
@@ -54,6 +55,7 @@ int writeDescriptor(const int fd, char msg[]) {
     code = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during writing descriptor: %d", fd);
+    printError(msgErr);
   }
   return code;
 }
@@ -83,7 +85,7 @@ int parentWrite(const int fd[], const char *msg) {
   return rc_t;
 }
 
-int readChild(const int fd[], char *dst) {
+int childRead(const int fd[], char *dst) {
   int rc_t = 0;
   int rc_cl = closeDescriptor(fd[WRITE_PIPE]);
   int bytesRead = readDescriptor(fd[READ_PIPE], dst);
