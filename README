@@ -13,3 +13,25 @@ Makefile help:
     counter
   * clean: removes all file creted during build operation
   * help: print this file
+
+Directories logic:
+.
+|-- Makefile             contains rules for the project
+|-- README               this file
+`-- src 
+    |-- analyzer         process that handle the analysis
+    |   |-- analyzer.c
+    |   `-- analyzer.h
+    |-- main.c           main file
+    |-- manager          process that manage workers processes
+    |   |-- manager.c
+    |   `-- manager.h
+    |-- reporter         process that communicate between main and analyzer processes
+    |   |-- reporter.c
+    |   `-- reporter.h
+    |-- worker           process that read files
+    |   |-- worker.c
+    |   `-- worker.h
+    `-- wrapping         wrapping system call functions
+        |-- wrapping.c
+        `-- wrapping.h
