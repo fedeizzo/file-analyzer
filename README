@@ -9,10 +9,23 @@ samuele.bortolotti@studenti.unitn.it, Samuele Bortolotti, 201647
 
 -------------------------------------------------------------------
 Makefile help:
-  * build: compiles the program and creates an executable file named
-    counter
-  * clean: removes all file creted during build operation
-  * help: print this file
+  * build    : compiles the program and creates an executable file named
+               counter
+  * clean    : removes all file creted during build operation
+  * help     : print this file
+
+Project logic:
+  * analyzer : analyzer forks managers and keeps anonymous pipes with them
+               in order to stay informed
+  * manager  : manager forks mulpiple workers and keeps anonymous pipes with
+               them in order to get the stats gatered from files
+  * reporter : reporters mantains mantains two pipes:
+                 * analyzer <-> reporter: in order to gathers data and computes
+                   a report
+                 * reporter <-> main: in oreder to sends report to the user
+  * worker   : worker reads and computes the statistic operations on a portion
+               of a file assignet to it 
+  * wrapping : utility functions
 
 Directories logic:
 .
