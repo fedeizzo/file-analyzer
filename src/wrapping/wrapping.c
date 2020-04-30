@@ -34,6 +34,19 @@ int openFile(const char *path, const int mode) {
   return code;
 }
 
+int moveCursorFile(const int fd, const int position) {
+  int rc_t = 0;
+  int rc_se = lseek(fd, position, SEEK_SET);
+  if (rc_se == -1) {
+    char *msgErr = (char *)malloc(MAXLEN_ERR);
+    sprintf(msgErr, "during move cursor in descriptor: %d", fd);
+    printError(msgErr);
+  }
+  rc_t = rc_se;
+
+  return rc_t;
+}
+
 int readChar(const int fd, char *dst) {
   int bytesRead = read(fd, dst, 1);
   if (bytesRead == -1) {
@@ -58,6 +71,7 @@ int closeDescriptor(const int fd) {
 int readDescriptor(const int fd, char dst[], const int len) {
   int bytesRead = read(fd, dst, len);
   /* printf("\tho letto: %d\n", bytesRead); */
+  // TODO free msg in all functions of this file
   if (bytesRead == -1) {
     bytesRead = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);

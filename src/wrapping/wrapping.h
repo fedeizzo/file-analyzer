@@ -22,6 +22,18 @@ void printError(const char *msg);
 int openFile(const char *path, const int mode);
 
 /**
+ * Wrap function to move cursor inside a file
+ *
+ * args:
+ *    const char fd: file descriptor
+ *    const int position: offset
+ *
+ * returns:
+ *    new position of the cursor in case of success, otherwise -1
+ */
+int moveCursorFile(const int fd, const int position);
+
+/**
  * Wrap function to read a char from a descriptor
  *
  * args:
