@@ -1,61 +1,158 @@
-#include "queue.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "queue_new.h"
 
-void Inizializza(ListaDiElem *ListaPtr) {
-  /* Lista è la variabile locale che punta alla "testa di lista".
-La funzione assegna alla testa di lista" il valore NULL
-corrispondente al valore di lista vuota.
-NB: Passaggio per indirizzo */
-  { *ListaPtr = NULL; }
+void initList(List *list){
+	list->head = NULL;	
+	list->tail = NULL;
+	list->size = 0;
 }
 
-int IsListaVuota(ListaDiElem Lista)
-/* Produce il valore true se la lista passata come parametro
-è vuota, false in caso contrario, a Lista viene passato
-il valore contenuto nella variabile testa di lista.
-Lista punta pertanto al primo elemento della lista considerata */
-{
-
-  if (Lista == NULL)
-    return 1;
-  else
-    return 0;
-}
-void InserisciInTesta(ListaDiElem *ListaPtr, TipoElemento Elem) {
-  ListaDiElem Punt;
-  /* Allocazione Nuovo Elemento ed inizializzazione puntatore*/
-  if (!(Punt = (ElemLista *)malloc(sizeof(ElemLista)))) {
-    printf("errore allocazione mem InserisciInTesta\n");
-    exit(1);
-  }
-  Punt->Info = Elem;
-  Punt->Prox = *ListaPtr;
-  *ListaPtr = Punt;
+bool isEmptyList(const List *list){ 
+	bool ret = false;
+	if(list->size <= 0){
+		ret = true;
+	}
+	return ret; 
 }
 
-int Cancella(ListaDiElem *ListaPtr, TipoElemento Elem) {
-  if ((*ListaPtr)->Info.first == Elem.first &&
-      (*ListaPtr)->Info.second == Elem.second) { // elemento trovato in testa
-    ListaDiElem ptr = *ListaPtr;   // Aggancia il nodo da rimuovere
-    *ListaPtr = (*ListaPtr)->Prox; // Sfila il nodo
-    free(ptr);                     // Libera il nodo
-    return 1;
-  } else { // Ricerca e cancella elemento nella lista
-    // Come nel caso inserimento usa due puntatori di servizio
-    ListaDiElem Precedente = *ListaPtr, Corrente = (*ListaPtr)->Prox;
-    // Ripeti il ciclo per trovare la posizione corretta nella lista
-    while (Corrente != NULL &&
-           (Corrente->Info.first != Elem.first || Corrente->Info.second)) {
-      Precedente = Corrente;     // Va avanti al
-      Corrente = Corrente->Prox; //...nodo successivo
-    }
-    /* Cancella il nodo a cui punta Corrente*/
-    if (Corrente != NULL) { // Cancella solo se non siamo alla fine lista
-      Precedente->Prox = Corrente->Prox;
-      free(Corrente);
-      return 1;
-    }
-  }
-  return 0;
+int enqueue(List *list, void *data){
+	int ret = 0;
+	Node *nodo = (Node *) malloc(sizeof(Node)); 
+	if(nodo == NULL){
+		perror("Failure allocating memory\n");
+		ret = MALLOC_FAILURE;	
+	}else{
+		nodo->data = data;
+		nodo->next = NULL;
+		nodo->prev = list->tail;
+		if(isEmptyList(list)){
+			list->head = nodo;
+		}else{
+			list->tail->next = nodo;
+		}
+		list->tail = nodo;
+		list->size++;
+	}
+	return ret;
+}
+
+int push(List *list, void *data){
+	int ret = 0;
+	Node *nodo = (Node *) malloc(sizeof(Node));
+	if(nodo == NULL){
+		perror("Malloc failure\n");
+		ret = MALLOC_FAILURE;
+	}else{
+		nodo->data = data;
+		nodo->prev = NULL;
+		nodo->next = list->head;
+		if(isEmptyList(list)){
+			list->tail = nodo;
+		}else{
+			list->head->prev = nodo;
+		}
+		list->head = nodo;
+		list->size++;
+	}
+	return ret;
+}
+
+void printList(const List *list){
+	Node *tmp_node = list->head;
+	if(isEmptyList(list)){
+		printf("The list is empty\n");
+	}else{
+		printf("In the list there are %d element: \n", list->size);
+		while(tmp_node != NULL){
+			printf("El: %d\n", *((int *)tmp_node->data));
+			tmp_node = tmp_node->next;
+		}
+		printf("End of the list\n");
+	}
+}
+
+void destroyList(List *list){
+	Node *tmp_node;
+	Node *tmp_precedente;
+	if(!isEmptyList(list)){
+		tmp_node = list->head;
+		tmp_precedente = NULL;
+		while(tmp_node != NULL){
+			tmp_precedente = tmp_node;
+			tmp_node = tmp_node->next;	
+			free(tmp_precedente);
+			list->size--;
+		}
+		list->head = NULL;
+		list->tail = NULL;
+	}
+}
+
+bool dequeue(List *list){
+    	bool ret = true;
+    	Node *nodo;
+    	if(isEmptyList(list)){
+        	ret = false;
+    	} else {
+        	nodo = list->head;
+        	list->head = nodo->next;
+        	list->size--;
+        	if(list->size==0){
+            		list->tail = NULL;
+        	} else {
+            		list->head->prev = NULL;
+        	}
+        	free(nodo);
+    	}
+    	return ret;
+}
+
+void * front(const List *list){
+	void *data = NULL;
+	if(!isEmptyList(list)){
+		data = list->head->data;	
+	}
+	return data;
+}
+
+bool pop(List *list){
+	bool ret = true;
+	Node *nodo;
+	if(isEmptyList(list)){
+		ret = false;
+	}else{
+		nodo = list->tail;
+		list->tail = nodo->prev;
+		list->size--;
+		if(isEmptyList(list)){
+			list->head = NULL;	
+		}else{
+			list->tail->next = NULL;
+		}
+		free(nodo);
+	}
+	return ret;
+}
+
+void * tail(const List *list){
+	void *data = NULL;
+	if(!isEmptyList(list)){
+		data = list->tail->data;	
+	}
+	return data; 
+}
+
+bool isIn(List *list, const void *data){
+	bool found = false;
+	Node *tmp_node = list->head;
+	while(!found && tmp_node != NULL){
+		if(tmp_node->data == data){
+			found = true;
+		}		
+		tmp_node = tmp_node->next;
+	}
+	return found;
+}
+
+int random_epic42069(int min, int max){
+	return (rand() % max - min) + min;
 }
