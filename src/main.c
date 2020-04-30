@@ -27,7 +27,36 @@
 #include "wrapping/wrapping.h"
 
 int main(int argc, char *argv[]) {
-  /* Worker w; */
-  /* newWorker(3); */
+  int pipe1[2], pipe2[2];
+  createBidirPipe(pipe1, pipe2);
+  int fd[] = {pipe1[0], pipe1[1], pipe2[0], pipe2[1]};
+  if (fork() > 0) {
+    parentInitBidPipe(fd);
+    parentWriteBidPipe(fd, "./file.txt");
+    char dst[300];
+    while (strcmp(dst, "done") != 0) {
+      parentReadBidPipe(fd, dst);
+      printf("%s", dst);
+    }
+    printf("%s", dst);
+    parentDestroyBidPipe(fd);
+  } else {
+    childInitBidPipe(fd);
+    char path[300];
+    childReadBidPipe(fd, path);
+    int file = openFile(path, O_RDONLY);
+    char charRead;
+    int bytesRead = 0;
+    int flag = 1;
+    while (flag == 1) {
+      bytesRead = readChar(file, &charRead);
+      if (bytesRead == 0) {
+        childWriteBidPipe(fd, "done");
+        flag = 0;
+      } else
+        childWriteBidPipe(fd, &charRead);
+    }
+    childDestroyBidPipe(fd);
+  }
   return 0;
 }
