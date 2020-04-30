@@ -28,7 +28,6 @@
 #include "wrapping/wrapping.h"
 
 int flag = 0;
-ListaDiElem done = NULL;
 void workerDone(int sig) {
   fprintf(stdout, "sono qua detro: %d\n", getpid());
   /* if (done == NULL) */
@@ -39,7 +38,6 @@ void workerDone(int sig) {
 
 int main(int argc, char *argv[]) {
   signal(SIGUSR1, workerDone);
-  Inizializza(&done);
   int pipe1[2], pipe2[2];
   int comm[2];
   createUnidirPipe(comm);
@@ -72,8 +70,6 @@ int main(int argc, char *argv[]) {
     /* } */
     /* fflush(stdout); */
     parentDestroyBidPipe(fd);
-    if (done == NULL)
-      printf("no bene ");
   } else {
     childInitBidPipe(fd);
     childInitUniPipe(comm);

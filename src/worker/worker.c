@@ -10,53 +10,53 @@
 #define READ_CHANNEL 1
 #define MAXLEN 300
 
-int workerExec(const int readPipe[], const int writePipe[],
-               const char *exeFile) {
-  int rc_t = 0;
-  // TODO change close to close descriptor
-  int rc_cl = close(writePipe[READ]);
-  int rc_cl2 = close(readPipe[WRITE]);
-  // TODO create wrapping function for dup2
-  int rc_du = dup2(writePipe[WRITE], 0);
-  int rc_du2 = dup2(readPipe[READ], 1);
-  int rc_cl3 = close(writePipe[WRITE]);
-  int rc_cl4 = close(readPipe[READ]);
-  if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 ||
-      rc_du == -1 || rc_du2 == -1) {
-    rc_t = -1;
-  }
+/* int workerExec(const int readPipe[], const int writePipe[], */
+/*                const char *exeFile) { */
+/*   int rc_t = 0; */
+/*   // TODO change close to close descriptor */
+/*   int rc_cl = close(writePipe[READ]); */
+/*   int rc_cl2 = close(readPipe[WRITE]); */
+/*   // TODO create wrapping function for dup2 */
+/*   int rc_du = dup2(writePipe[WRITE], 0); */
+/*   int rc_du2 = dup2(readPipe[READ], 1); */
+/*   int rc_cl3 = close(writePipe[WRITE]); */
+/*   int rc_cl4 = close(readPipe[READ]); */
+/*   if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 || */
+/*       rc_du == -1 || rc_du2 == -1) { */
+/*     rc_t = -1; */
+/*   } */
 
-  // TODO nel figlio usare descrittore 0 per scriveere e 1 per leggere
-  execlp(exeFile, exeFile, NULL);
+/*   // TODO nel figlio usare descrittore 0 per scriveere e 1 per leggere */
+/*   execlp(exeFile, exeFile, NULL); */
 
-  return rc_t;
-}
+/*   return rc_t; */
+/* } */
 
-// TODO is the same of bidirectional pipe. ???
-int parentInitExecPipe(const int readPipe[], const int writePipe[]) {
-  int rc_t = 0;
-  // TODO change to closeDescriptor
-  int rc_cl = close(readPipe[WRITE]);
-  int rc_cl2 = close(writePipe[READ]);
+/* // TODO is the same of bidirectional pipe. ??? */
+/* int parentInitExecPipe(const int readPipe[], const int writePipe[]) { */
+/*   int rc_t = 0; */
+/*   // TODO change to closeDescriptor */
+/*   int rc_cl = close(readPipe[WRITE]); */
+/*   int rc_cl2 = close(writePipe[READ]); */
 
-  if (rc_cl == -1 || rc_cl2 == -1) {
-    rc_t = -1;
-  }
-  return rc_t;
-}
+/*   if (rc_cl == -1 || rc_cl2 == -1) { */
+/*     rc_t = -1; */
+/*   } */
+/*   return rc_t; */
+/* } */
 
-// TODO is the same of bidirectional pipe. ???
-int parentDestroyExecPipe(int readPipe[], int writePipe[]) {
-  int rc_t = 0;
+/* // TODO is the same of bidirectional pipe. ??? */
+/* int parentDestroyExecPipe(int readPipe[], int writePipe[]) { */
+/*   int rc_t = 0; */
 
-  // TODO change to closeDescriptor
-  int rc_cl = close(readPipe[READ]);
-  int rc_cl2 = close(writePipe[WRITE]);
-  if (rc_cl == -1 || rc_cl2 == -1) {
-    rc_t = -1;
-  }
-  return rc_t;
-}
+/*   // TODO change to closeDescriptor */
+/*   int rc_cl = close(readPipe[READ]); */
+/*   int rc_cl2 = close(writePipe[WRITE]); */
+/*   if (rc_cl == -1 || rc_cl2 == -1) { */
+/*     rc_t = -1; */
+/*   } */
+/*   return rc_t; */
+/* } */
 
 /**
  * Inits worker realated operations

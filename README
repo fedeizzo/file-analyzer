@@ -19,10 +19,12 @@ Project logic:
                in order to stay informed
   * manager  : manager forks mulpiple workers and keeps anonymous pipes with
                them in order to get the stats gatered from files
+  * quue     : a linked list implementation
   * reporter : reporters mantains mantains two pipes:
                  * analyzer <-> reporter: in order to gathers data and computes
                    a report
                  * reporter <-> main: in oreder to sends report to the user
+  * work     : a work
   * worker   : worker reads and computes the statistic operations on a portion
                of a file assignet to it 
   * wrapping : utility functions
@@ -31,7 +33,8 @@ Directories logic:
 .
 |-- Makefile             contains rules for the project
 |-- README               this file
-`-- src 
+|-- file.txt
+`-- src
     |-- analyzer         process that handle the analysis
     |   |-- analyzer.c
     |   `-- analyzer.h
@@ -39,9 +42,15 @@ Directories logic:
     |-- manager          process that manage workers processes
     |   |-- manager.c
     |   `-- manager.h
+    |-- queue            a linked list implementation
+    |   |-- queue.c
+    |   `-- queue.h
     |-- reporter         process that communicate between main and analyzer processes
     |   |-- reporter.c
     |   `-- reporter.h
+    |-- work             a work
+    |   |-- work.c
+    |   `-- work.h
     |-- worker           process that read files
     |   |-- worker.c
     |   `-- worker.h

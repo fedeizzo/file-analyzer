@@ -12,6 +12,9 @@ reporter.o: ./src/reporter/reporter.c ./src/reporter/reporter.h
 queue.o: ./src/queue/queue.c ./src/queue/queue.h
 	gcc $(FLAGS) -c ./src/queue/queue.c
 
+work.o: ./src/work/work.c ./src/work/work.h
+	gcc $(FLAGS) -c ./src/work/work.c
+
 worker.o: ./src/worker/worker.c ./src/worker/worker.h
 	gcc $(FLAGS) -c ./src/worker/worker.c
 
@@ -23,6 +26,7 @@ main.o: ./src/main.c \
 	./src/manager/manager.h \
 	./src/reporter/reporter.h \
 	./src/queue/queue.h \
+	./src/work/work.h \
 	./src/worker/worker.h \
 	./src/wrapping/wrapping.h
 	gcc $(FLAGS) -c ./src/main.c
@@ -36,6 +40,7 @@ build: main.o \
 	manager.o \
 	reporter.o \
 	queue.o \
+	work.o \
 	worker.o \
 	wrapping.o
 	gcc $(FLAGS) -o counter \
@@ -46,6 +51,8 @@ build: main.o \
 		queue.o \
 		worker.o \
 		wrapping.o
+	gcc $(FLAGS) -o worker \
+		worker.o
 
 clean:
 	rm counter \
@@ -54,5 +61,6 @@ clean:
 		manager.o \
 		reporter.o \
 		queue.o \
+		work.o \
 		worker.o \
 		wrapping.o
