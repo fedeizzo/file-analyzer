@@ -39,6 +39,8 @@ int readChar(const int fd, char *dst) {
   if (bytesRead == -1) {
     printError("during readig char from file");
   }
+  // TODO fix this strange thing
+  dst[bytesRead] = '\0';
 
   return bytesRead;
 }
@@ -53,8 +55,9 @@ int closeDescriptor(const int fd) {
   return code;
 }
 
-int readDescriptor(const int fd, char dst[]) {
-  int bytesRead = read(fd, dst, MAXLEN_PIPE);
+int readDescriptor(const int fd, char dst[], const int len) {
+  int bytesRead = read(fd, dst, len);
+  /* printf("\tho letto: %d\n", bytesRead); */
   if (bytesRead == -1) {
     bytesRead = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
@@ -75,33 +78,53 @@ int writeDescriptor(const int fd, const char msg[]) {
   return code;
 }
 
-/* int createUnidirPipe(int fd[]) { */
-/*   int returnCode = pipe(fd); */
-/*   if (returnCode == -1) { */
-/*     fprintf(stderr, "%s", "Error: pipe creation gone wrong\n"); */
-/*   } */
-/*   return returnCode; */
-/* } */
+int createUnidirPipe(int fd[]) {
+  int returnCode = pipe(fd);
+  if (returnCode == -1) {
+    fprintf(stderr, "%s", "Error: pipe creation gone wrong\n");
+  }
+  return returnCode;
+}
 
-/* int parentInitUniPipe(const int fd[]) { */
-/*   int rc_t = 0; */
-/*   int rc_cl = closeDescriptor(fd[READ_PIPE]); */
+int parentInitUniPipe(const int fd[]) {
+  int rc_t = 0;
+  int rc_cl = closeDescriptor(fd[WRITE_UNIDIR]);
 
-/*   if (rc_cl == -1) */
-/*     rc_t = -1; */
+  if (rc_cl == -1)
+    rc_t = -1;
 
-/*   return rc_t; */
-/* } */
+  return rc_t;
+}
 
-/* int childInitUniPipe(const int fd[]) { */
-/*   int rc_t = 0; */
-/*   int rc_cl = closeDescriptor(fd[WRITE_PIPE]); */
+int childInitUniPipe(const int fd[]) {
+  int rc_t = 0;
+  int rc_cl = closeDescriptor(fd[READ_UNIDIR]);
 
-/*   if (rc_cl == -1) */
-/*     rc_t = -1; */
+  if (rc_cl == -1)
+    rc_t = -1;
 
-/*   return rc_t; */
-/* } */
+  return rc_t;
+}
+
+int childWriteUniPipe(const int fd[], const char *msg) {
+  int rc_tl = 0;
+  if (strlen(msg) + 1 > MAXLEN_PIPE) {
+    printError("parent message too long");
+    rc_tl = -1;
+  }
+  int rc_wr = writeDescriptor(fd[WRITE_UNIDIR], msg);
+
+  if (rc_wr == -1)
+    rc_tl = -1;
+  return rc_tl;
+}
+
+int parentReadUniPipe(const int fd[], char *dst) {
+  int bytesRead = readDescriptor(fd[READ_UNIDIR], dst, 5);
+  dst[bytesRead] = '\0';
+
+  return bytesRead;
+}
 
 int createBidirPipe(int pipe1[], int pipe2[]) {
   int code = pipe(pipe1);
@@ -163,6 +186,7 @@ int childWriteBidPipe(const int fd[], const char *msg) {
     rc_tl = -1;
   }
   int rc_wr = writeDescriptor(fd[WRITE_CHILD], msg);
+  /* printf("scrivo in: %d", fd[WRITE_CHILD]); */
 
   if (rc_wr == -1)
     rc_tl = -1;
@@ -183,13 +207,15 @@ int parentWriteBidPipe(const int fd[], const char *msg) {
 }
 
 int childReadBidPipe(const int fd[], char *dst) {
-  int bytesRead = readDescriptor(fd[READ_PARENT], dst);
+  int bytesRead = readDescriptor(fd[READ_PARENT], dst, 300);
 
   return bytesRead;
 }
 
 int parentReadBidPipe(const int fd[], char *dst) {
-  int bytesRead = readDescriptor(fd[READ_CHILD], dst);
+  int bytesRead = readDescriptor(fd[READ_CHILD], dst, 2);
+  dst[bytesRead] = '\0';
+  /* printf("leggo da: %d\n", fd[READ_CHILD]); */
 
   return bytesRead;
 }

@@ -22,39 +22,81 @@
 
 #include "analyzer/analyzer.h"
 #include "manager/manager.h"
+#include "queue/queue.h"
 #include "reporter/reporter.h"
 #include "worker/worker.h"
 #include "wrapping/wrapping.h"
 
+int flag = 0;
+ListaDiElem done = NULL;
+void workerDone(int sig) {
+  fprintf(stdout, "sono qua detro: %d\n", getpid());
+  /* if (done == NULL) */
+  /*   printf("cazxo"); */
+  /* fprintf(stdout, "mi ha chiamato: %d\n", done->Info.first); */
+  flag = 1;
+}
+
 int main(int argc, char *argv[]) {
+  signal(SIGUSR1, workerDone);
+  Inizializza(&done);
   int pipe1[2], pipe2[2];
+  int comm[2];
+  createUnidirPipe(comm);
   createBidirPipe(pipe1, pipe2);
   int fd[] = {pipe1[0], pipe1[1], pipe2[0], pipe2[1]};
   if (fork() > 0) {
+    int parentFlag = 0;
     parentInitBidPipe(fd);
+    parentInitUniPipe(comm);
     parentWriteBidPipe(fd, "./file.txt");
     char dst[300];
-    while (strcmp(dst, "done") != 0) {
-      parentReadBidPipe(fd, dst);
-      printf("%s", dst);
+    char commMsg[300];
+    long long unsigned int table[129];
+    for (int i = 0; i < 129; i++) {
+      table[i] = 0;
     }
-    printf("%s", dst);
+    /* while (strcmp(dst, "done") != 0) { */
+    int bytesRead = 0;
+    while (bytesRead != 0 || parentFlag == 0) {
+      bytesRead = parentReadBidPipe(fd, dst);
+      printf("%s", dst);
+      table[dst[0]]++;
+      if (parentFlag == 0)
+        parentReadUniPipe(comm, commMsg);
+      if (strcmp(commMsg, "done") == 0)
+        parentFlag = 1;
+    }
+    /* for (int i = 31; i < 129; i++) { */
+    /*   printf("%d --- %c → %lli\n", i, (char)i, table[i]); */
+    /* } */
+    /* fflush(stdout); */
     parentDestroyBidPipe(fd);
+    if (done == NULL)
+      printf("no bene ");
   } else {
     childInitBidPipe(fd);
+    childInitUniPipe(comm);
     char path[300];
     childReadBidPipe(fd, path);
     int file = openFile(path, O_RDONLY);
-    char charRead;
+    char charRead[300];
     int bytesRead = 0;
-    int flag = 1;
-    while (flag == 1) {
-      bytesRead = readChar(file, &charRead);
+    int totale = 0;
+    int childFlag = 1;
+    /* while (flag == 1 || totale > 100) { */
+    childWriteUniPipe(comm, "work");
+    while (childFlag == 1) {
+      bytesRead = readChar(file, charRead);
+      totale += bytesRead;
+      /* if (bytesRead == 0 || totale > 100) { */
       if (bytesRead == 0) {
-        childWriteBidPipe(fd, "done");
-        flag = 0;
-      } else
-        childWriteBidPipe(fd, &charRead);
+        childWriteUniPipe(comm, "done");
+        childFlag = 0;
+        /* kill(getppid(), SIGUSR1); */
+      } else {
+        childWriteBidPipe(fd, charRead);
+      }
     }
     childDestroyBidPipe(fd);
   }

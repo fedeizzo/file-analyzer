@@ -50,11 +50,12 @@ int closeDescriptor(const int fd);
  * args:
  *    const int fd: descriptor
  *    char dst[]: destination of the reading operation
+ *    len: length to read
  * 
  * returns:
  *    number of bytes read in case of success, otherwise -1
  */
-int readDescriptor(const int fd, char dst[]);
+int readDescriptor(const int fd, char dst[], const int len);
 
 /**
  * Wrap function to write to a descriptor
@@ -111,6 +112,8 @@ int parentInitUniPipe(const int fd[]);
  *    0 in case of success, otherwise -1
  */
 int childInitUniPipe(const int fd[]);
+int childWriteUniPipe(const int fd[], const char *msg);
+int parentReadUniPipe(const int fd[], char *dst);
 
 /**
  * Wrap function to create an anonymous bidirectional pipe

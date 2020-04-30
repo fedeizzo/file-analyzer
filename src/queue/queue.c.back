@@ -1,0 +1,58 @@
+#include "queue.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+Queue init(const int size) {
+  Queue q = malloc(sizeof(*q));
+  q->array = malloc(size * sizeof(int));
+  if (q == NULL)
+    return NULL;
+  q->front = 0;
+  q->back = 0;
+  q->size = 0;
+  q->maxSize = size;
+  return q;
+}
+
+int enqueue(Queue q, int v) {
+  if (q == NULL)
+    return 0;
+  if (q->size == q->maxSize)
+    return 0;
+  q->array[q->back] = v;
+  q->back++;
+  if (q->back == q->maxSize)
+    q->back = 0;
+  q->size++;
+  return 1;
+}
+
+int dequeue(Queue q, int *v) {
+  if (q == NULL)
+    return 0;
+  if (q->size == 0)
+    return 0;
+  *v = q->array[q->front];
+  q->front++;
+  if (q->front == q->maxSize)
+    q->front = 0;
+  q->size--;
+  return 1;
+}
+
+int front(Queue q, int *v) {
+  if (q == NULL)
+    return 0;
+  if (q->size == 0)
+    return 0;
+  *v = q->array[q->front];
+  return 1;
+}
+
+int isEmpty(Queue q) {
+  if (q == NULL)
+    return 0;
+  if (q->size == 0)
+    return 1;
+  return 0;
+}
