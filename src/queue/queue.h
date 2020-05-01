@@ -45,7 +45,7 @@ void printList(const List list, void toString(void *));
 /*
  * Delete all the elements in a list
  */
-void destroyAllNode(List list);
+void destroyAllNode(List list, void deleteData(void *));
 /**
  * Dequeue an element
  */
@@ -73,13 +73,23 @@ void * getData(const List list, void *data, int isEqual(void *, void *));
 /**
  * delete a node at specific index
  */
-int deleteAtIndex(List list, const int index);
+int deleteAtIndex(List list, const int index, void deleteData(void *));
 /**
  * function used to delete a specific element from the list which match the function passed as argument
  */
-int deleteNode(const List list, void *data, int isEqual(void *, void *));
+int deleteNode(const List list, void *data, int isEqual(void *, void *), void deleteData(void *));
 /**
  * function that swaps two lists and return SUCCESSES or FAILURE if at least one of them is NULL
  */
 int swap(List first, List second);
+/**
+ * function that removes an element if it matches one passed as an argument based on the argument function
+ * and returns SUCCESS if the element is found or FAILURE if isn't in the list
+ */
+int removeNode(List list, void *data, int isEqual(void *, void *));
+/**
+ * function that destroy all the node and all the data in the list and after that free the list itself
+ * needs a function to delete the other malloc inside the void *data
+ */
+void destroyList(List list, void deleteData(void *));
 #endif
