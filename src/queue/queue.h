@@ -4,11 +4,11 @@
 #include<stdio.h>
 #include<stdlib.h>
 
-typedef char bool;
-#define true 1
-#define false 0
-
-#define MALLOC_FAILURE -1
+#define MALLOC_FAILURE -2
+#define NOT_EMPTY 0
+#define EMPTY -1
+#define SUCCESS 0
+#define FAILURE -1
 
 typedef struct Node {
 	void *data;
@@ -16,54 +16,70 @@ typedef struct Node {
 	struct Node *prev;
 } Node;
 
-typedef struct List{
+typedef struct {
 	int size;
 	Node *head;
 	Node *tail;
-} List;
+} *List;
 
 /**
- * Function that initialize the list structure
+ * Function that create and initialize the function, if fails, returns NULL
  */
-void initList(List *list);
+List newList();
 /**
  * Function that check if the list is empty
  */
-bool isEmptyList(const List *list);
+int isEmptyList(const List list);
 /*
  * Funzione che aggiunge in coda
  */
-int enqueue(List *list, void *data);
+int enqueue(List list, void *data);
 /**
  * Funzione che aggiunge in testa
  */
-int push(List *list, void *data);
+int push(List list, void *data);
 /**
  * Printing a list
  */
-void printList(const List *list);
+void printList(const List list, void toString(void *));
 /*
  * Delete all the elements in a list
  */
-void destroyList(List *list);
+void destroyAllNode(List list);
 /**
  * Dequeue an element
  */
-bool dequeue(List *list);
+int dequeue(List list);
 /**
  * Element in front
  */
-void * front(const List *list);
+void * front(const List list);
 /*
  * Pop an element
  */
-bool pop(List *list);
+int pop(List list);
 /**
  * Tail element
  */
-void * tail(const List *list);
+void * tail(const List list);
 /**
- * Search for an element
+ * Search an Element
  */
-bool isIn(List *list, const void *data);
+int isIn(const List list, void *data, int isEqual(void *, void *));
+/**
+ * Get data from the list which match based on the function passed as an argument 
+ */
+void * getData(const List list, void *data, int isEqual(void *, void *));
+/**
+ * delete a node at specific index
+ */
+int deleteAtIndex(List list, const int index);
+/**
+ * function used to delete a specific element from the list which match the function passed as argument
+ */
+int deleteNode(const List list, void *data, int isEqual(void *, void *));
+/**
+ * function that swaps two lists and return SUCCESSES or FAILURE if at least one of them is NULL
+ */
+int swap(List first, List second);
 #endif
