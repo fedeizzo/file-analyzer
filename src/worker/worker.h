@@ -17,12 +17,13 @@
 // in doing vengono spostati in todo
 typedef struct {
   int pid;
-  char *table;
+  int *table;
   int bytesSent;
   const int workAmount;
   Work doing;
   int pipe[];
 } * Worker;
+
 
   // MACROSTRUUTRA
 /* while true */
