@@ -24,6 +24,16 @@ void printError(const char *msg) {
           getppid());
 }
 
+int checkAllocationError(void *ptr) {
+  int rc_t = 0;
+  if (ptr == NULL) {
+    printError("error during malloc allocation");
+    rc_t = -1;
+  }
+
+  return rc_t;
+}
+
 int openFile(const char *path, const int mode) {
   int code = open(path, mode);
   if (code == -1) {
@@ -34,13 +44,14 @@ int openFile(const char *path, const int mode) {
   return code;
 }
 
-int moveCursorFile(const int fd, const int position) {
+int moveCursorFile(const int fd, const int position, const int absPosition) {
   int rc_t = 0;
-  int rc_se = lseek(fd, position, SEEK_SET);
+  int rc_se = lseek(fd, position, absPosition);
   if (rc_se == -1) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during move cursor in descriptor: %d", fd);
     printError(msgErr);
+    free(msgErr);
   }
   rc_t = rc_se;
 
@@ -53,7 +64,7 @@ int readChar(const int fd, char *dst) {
     printError("during readig char from file");
   }
   // TODO fix this strange thing
-  dst[bytesRead] = '\0';
+  /* dst[bytesRead] = '\0'; */
 
   return bytesRead;
 }
@@ -71,12 +82,14 @@ int closeDescriptor(const int fd) {
 int readDescriptor(const int fd, char dst[], const int len) {
   int bytesRead = read(fd, dst, len);
   /* printf("\tho letto: %d\n", bytesRead); */
+  dst[bytesRead] = '\0';
   // TODO free msg in all functions of this file
   if (bytesRead == -1) {
     bytesRead = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during reading descriptor: %d", fd);
     printError(msgErr);
+    free(msgErr);
   }
   return bytesRead;
 }

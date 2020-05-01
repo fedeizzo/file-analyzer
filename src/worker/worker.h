@@ -15,10 +15,27 @@
 // se successe qualcosa di imprevisto vengono
 // cancellate le tabelle dei worker e tutti i work
 // in doing vengono spostati in todo
-struct Worker {
+typedef struct {
   int pid;
-};
-typedef struct Worker Worker;
+  char *table;
+  int bytesSent;
+  const int workAmount;
+  Work doing;
+  int pipe[];
+} * Worker;
+
+  // MACROSTRUUTRA
+/* while true */
+/*   for w in worker */
+/*     p = w.pipe */
+/*     if (bytesSent == workAmount) */
+/*       commreadDes(p, 4) */
+/*     else */
+/*       c = readDes(p) */
+/*       w.table[c]++ */
+/*       w.bytesSent++ */
+/*   endfor */
+/*   sendToAnalyzer() */
 
 int receiveWork();
 int sendChar(const char msg);

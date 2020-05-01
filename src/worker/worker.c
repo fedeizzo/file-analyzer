@@ -1,13 +1,23 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "../wrapping/wrapping.h"
 #include "worker.h"
 
-#define WRITE_CHANNEL 0
-#define READ_CHANNEL 1
+#define OK 0
+#define WORKING 1
+#define NOT_WORKING -1
+#define CAST_FAILURE -2
+#define READ_DIRECTIVES_FAILURE -3
+#define CURSOR_FAILURE -4
+#define READ_FAILURE -5
+#define WRITE_FAILURE -6
+
+#define WRITE_CHANNEL 1
+#define READ_CHANNEL 0
 #define MAXLEN 300
 
 /* int workerExec(const int readPipe[], const int writePipe[], */
@@ -107,67 +117,105 @@ int errorHandler(const int fd, const int end);
 int main(int argc, char *argv[]) {
   int start;
   int end;
-  int rc_work = 0;
+  int rc_work = OK;
+  int working = WORKING;
 
   int fd = initWork(&start, &end);
-  if (fd == -1) {
+  if (fd < OK) {
     int rc_er = errorHandler(fd, end);
-    if (rc_er == -1)
-      return -1;
+    if (rc_er < OK)
+      working = NOT_WORKING;
   }
 
-  while (1) {
+  while (working == WORKING) {
     rc_work = executeWork(fd, start, end);
-    if (rc_work == -1) {
+    if (rc_work < OK) {
       int rc_er = errorHandler(fd, end);
-      if (rc_er == -1)
-        return -1;
+      if (rc_er < OK)
+        working = NOT_WORKING;
     }
     fd = initWork(&start, &end);
-    if (fd == -1) {
+    if (fd < OK) {
       int rc_er = errorHandler(fd, end);
-      if (rc_er == -1)
-        return -1;
+      if (rc_er < OK)
+        working = NOT_WORKING;
     }
   }
 
-  return 0;
+  return working;
 }
 
 int initWork(int *start, int *end) {
-  char *path;
-  char *bufferStart;
-  char *bufferEnd;
+  int rc_t = 0;
+  char path[MAXLEN];
+  char bufferStart[MAXLEN];
+  char bufferEnd[MAXLEN];
+
+  // TODO fix \0 not read
   readDirectives(path, bufferStart, bufferEnd);
-  // TODO fare verifica sui cast
-  *start = (int)bufferStart;
-  *end = (int)bufferEnd;
+
+  int rc_sc = sscanf(bufferStart, "%d", start);
+  int rc_sc2 = sscanf(bufferEnd, "%d", end);
+
+  if (path[strlen(path) - 1] == '\n') {
+    path[strlen(path) - 1] = '\0';
+  }
 
   int fd = openFile(path, O_RDONLY);
+  rc_t = fd;
 
-  return fd;
+  if (fd == -1)
+    rc_t = READ_DIRECTIVES_FAILURE;
+  if (rc_sc == 0 || rc_sc2 == 0)
+    rc_t = CAST_FAILURE;
+
+  return rc_t;
 }
 
 void readDirectives(char *path, char *bufferStart, char *bufferEnd) {
   // TODO choose max length for path
   // TODO ATTENZIONE mettere i byte terminatori nel manager
-  int pathRead = readDescriptor(READ_CHANNEL, path, MAXLEN);
-  int buffStrRead = readDescriptor(READ_CHANNEL, bufferStart, MAXLEN);
-  int buffEndRead = readDescriptor(READ_CHANNEL, bufferEnd, MAXLEN);
+  char readBuffer[1];
 
-  if (buffEndRead == -1 || buffStrRead == -1 || pathRead == -1) {
-    // TODO fare il free
+  int counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    path[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  path[counter] = '\0';
+
+  counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    bufferStart[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  bufferStart[counter] = '\0';
+
+  counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    bufferEnd[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  bufferEnd[counter] = '\0';
+
+  if (path[0] == '\0' || bufferStart[0] == '\0' || bufferEnd[0] == '\0') {
     char *msgErr = (char *)malloc(300);
-    sprintf(msgErr, "inisde worker with pid: %d", getpid());
-    printError(msgErr);
+    int rc_ca = checkAllocationError(msgErr);
+    if (rc_ca < 0) {
+      printError("I can't allocate memory");
+    } else {
+      sprintf(msgErr, "inisde worker with pid: %d", getpid());
+      printError(msgErr);
+      free(msgErr);
+    }
   }
 }
 
 int executeWork(const int fd, const int start, const int end) {
   int rc_t = 0;
-  int rc_se = moveCursorFile(fd, start);
+  int rc_se = moveCursorFile(fd, start, SEEK_SET);
   if (rc_se == -1)
-    rc_t = rc_se;
+    rc_t = CURSOR_FAILURE;
 
   char charRead[2];
   int bytesRead;
@@ -175,12 +223,13 @@ int executeWork(const int fd, const int start, const int end) {
 
   while (workAmount != 0 && rc_t == 0) {
     bytesRead = readChar(fd, charRead);
-    if (bytesRead == -1) {
-      rc_t = -1;
+    if (bytesRead <= 0) {
+      rc_t = READ_FAILURE;
     } else {
+      // TODO check \0 char after charRead
       int rc_wr = writeDescriptor(WRITE_CHANNEL, charRead);
       if (rc_wr == -1)
-        rc_t = -1;
+        rc_t = WRITE_FAILURE;
       workAmount--;
     }
   }
@@ -188,7 +237,7 @@ int executeWork(const int fd, const int start, const int end) {
   if (workAmount == 0 && rc_t != -1) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
     if (rc_wr == -1)
-      rc_t = -1;
+      rc_t = WRITE_FAILURE;
   }
 
   return rc_t;
@@ -197,19 +246,18 @@ int executeWork(const int fd, const int start, const int end) {
 int errorHandler(const int fd, const int end) {
   int rc_t = 0;
   if (fd == -1)
-    rc_t = -1;
+    rc_t = READ_DIRECTIVES_FAILURE;
 
-  // TODO fix LSEEK_SET
-  int rc_se = moveCursorFile(fd, 0);
+  int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
   if (rc_se == -1)
-    rc_t = rc_se;
+    rc_t = CURSOR_FAILURE;
 
   int workAmount = end - rc_se + 1;
 
   while (workAmount != 0 && rc_t == 0) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "a");
     if (rc_wr == -1)
-      rc_t = -1;
+      rc_t = WRITE_FAILURE;
     else
       workAmount--;
   }
@@ -217,7 +265,7 @@ int errorHandler(const int fd, const int end) {
   if (workAmount == 0 && rc_t != -1) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "erro");
     if (rc_wr == -1)
-      rc_t = -1;
+      rc_t = WRITE_FAILURE;
   }
 
   return rc_t;

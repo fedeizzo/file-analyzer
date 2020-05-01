@@ -10,6 +10,17 @@
 void printError(const char *msg);
 
 /**
+ * Wrap fucntion to check correct allocation with malloc
+ *
+ * args:
+ *    void *ptr: pointer to check
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int checkAllocationError(void * ptr);
+
+/**
  * Wrap function to open a file
  *
  * args:
@@ -31,7 +42,7 @@ int openFile(const char *path, const int mode);
  * returns:
  *    new position of the cursor in case of success, otherwise -1
  */
-int moveCursorFile(const int fd, const int position);
+int moveCursorFile(const int fd, const int position, const int absPosition);
 
 /**
  * Wrap function to read a char from a descriptor

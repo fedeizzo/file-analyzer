@@ -49,13 +49,15 @@ build: main.o \
 		manager.o \
 		reporter.o \
 		queue.o \
-		worker.o \
+		work.o \
 		wrapping.o
 	gcc $(FLAGS) -o worker \
-		worker.o
+		worker.o \
+		wrapping.o
 
 clean:
 	rm counter \
+		worker \
 		main.o \
 		analyzer.o \
 		manager.o \
