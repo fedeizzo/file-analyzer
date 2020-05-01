@@ -4,6 +4,14 @@
 #include "../work/work.h"
 #include "../worker/worker.h"
 
+typedef struct {
+  const char *name;
+  int *table;
+} * Table;
+
+Table newTable(const char *name);
+void destroyTable(Table table);
+
 /**
  * Creates a new worker
  *

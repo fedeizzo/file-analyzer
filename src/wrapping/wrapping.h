@@ -28,7 +28,7 @@ int checkAllocationError(void * ptr);
  *    const int mode: integer represents mode in which file must be opened (es. O_RDONLY)
  *
  * returns:
- *    0 in case of success, otherwise -1
+ *    number of descriptor in case of success, otherwise -1
  */
 int openFile(const char *path, const int mode);
 
@@ -91,6 +91,18 @@ int readDescriptor(const int fd, char dst[], const int len);
  *    0 in case of success, otherwise -1
  */
 int writeDescriptor(const int fd, const char msg[]);
+
+/**
+ * Wrap function for dup2
+ *
+ * args:
+ *    const int writer: the replacement file desciptor
+ *    const int overwritten: the replaced file descriptor
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int createDup(const int writer, const int overwritten);
 
 /**
  * Wrap function to create an anonymous unidirectional pipe

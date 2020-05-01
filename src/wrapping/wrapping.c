@@ -79,6 +79,20 @@ int closeDescriptor(const int fd) {
   return code;
 }
 
+int createDup(const int writer, const int overwritten) {
+  int rc_du = dup2(writer, overwritten);
+
+  if (rc_du == -1) {
+    char *msgErr = (char *)malloc(MAXLEN_ERR);
+    sprintf(msgErr, "during dup creation with descriptors: %d, %d", writer,
+            overwritten);
+    printError(msgErr);
+    free(msgErr);
+  }
+
+  return rc_du;
+}
+
 int readDescriptor(const int fd, char dst[], const int len) {
   int bytesRead = read(fd, dst, len);
   /* printf("\tho letto: %d\n", bytesRead); */
