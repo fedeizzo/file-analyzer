@@ -20,32 +20,6 @@
 #define READ_CHANNEL 0
 #define MAXLEN 300
 
-/* // TODO is the same of bidirectional pipe. ??? */
-/* int parentInitExecPipe(const int readPipe[], const int writePipe[]) { */
-/*   int rc_t = 0; */
-/*   // TODO change to closeDescriptor */
-/*   int rc_cl = close(readPipe[WRITE]); */
-/*   int rc_cl2 = close(writePipe[READ]); */
-
-/*   if (rc_cl == -1 || rc_cl2 == -1) { */
-/*     rc_t = -1; */
-/*   } */
-/*   return rc_t; */
-/* } */
-
-/* // TODO is the same of bidirectional pipe. ??? */
-/* int parentDestroyExecPipe(int readPipe[], int writePipe[]) { */
-/*   int rc_t = 0; */
-
-/*   // TODO change to closeDescriptor */
-/*   int rc_cl = close(readPipe[READ]); */
-/*   int rc_cl2 = close(writePipe[WRITE]); */
-/*   if (rc_cl == -1 || rc_cl2 == -1) { */
-/*     rc_t = -1; */
-/*   } */
-/*   return rc_t; */
-/* } */
-
 /**
  * Inits worker realated operations
  *

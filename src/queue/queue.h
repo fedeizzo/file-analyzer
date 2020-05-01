@@ -10,86 +10,226 @@
 #define SUCCESS 0
 #define FAILURE -1
 
+/**
+ * Handles a node of the list
+ *
+ * fields:
+ *    void *data: the data of the node
+ *    struct Node *next: next node
+ *    struct Node *prev: prev node
+ */
 typedef struct Node {
 	void *data;
 	struct Node *next;
 	struct Node *prev;
 } Node;
 
-typedef struct List{
+/**
+ * Handles a list
+ *
+ * fields:
+ *    int size: the size of the list
+ *    Node *head: the head of the list
+ *    Ndoe *tail: the tail of the list
+ */
+typedef struct {
 	int size;
 	Node *head;
 	Node *tail;
 } *List;
 
 /**
- * Function that create and initialize the function, if fails, returns NULL
+ * Creates and initializes the List 
+ *
+ * returns:
+ *    the list created in case of success, otherwise NULL
  */
 List newList();
+
 /**
- * Function that check if the list is empty
+ * Checks if the list is empty
+ *
+ * returns:
+ *    0 in case is not empty, otherwise -1
  */
 int isEmptyList(const List list);
+
 /*
- * Funzione che aggiunge in coda
+ * Adds element in tail position
+ *
+ * args:
+ *    List list: the list in which insert the element
+ *    void *data: the data to inset
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int enqueue(List list, void *data);
-/**
- * Funzione che aggiunge in testa
+
+/*
+ * Adds element in tail position
+ *
+ * args:
+ *    List list: the list in which insert the element
+ *    void *data: the data to inset
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int push(List list, void *data);
-/**
- * Printing a list
+
+/*
+ * Prints the list
+ *
+ * args:
+ *    List list: the list in which insert the element
+ *    void *toString: high order function to print the data
  */
 void printList(const List list, void toString(void *));
-/*
- * Delete all the elements in a list
+
+/**
+ * Deletes all the elements in a list
+ *
+ * args:
+ *    List list: the list from which elements are removed
+ *    void deleteData(void *): high order function to deallocate correctly the memory for data
  */
 void destroyAllNode(List list, void deleteData(void *));
+
 /**
  * Dequeue an element
  */
-int dequeue(List list);
 /**
- * Element in front
+ * Removes an element from head
+ *
+ * args:
+ *    List list: the list from which element is removed
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int dequeue(List list);
+
+/**
+ * Returns the element in head position
+ *
+ * args:
+ *    const List list:  the list from which element is got
+ *
+ * returns:
+ *    the element in caso of success, otherwise NULL
  */
 void * front(const List list);
-/*
- * Pop an element
+
+/**
+ * Remove the element in head position
+ *
+ * args:
+ *    const List list:  the list from which element is got
+ *
+ * returns:
+ *    the element in caso of success, otherwise NULL
  */
 int pop(List list);
+
 /**
- * Tail element
+ * Remove the element in tail position
+ *
+ * args:
+ *    const List list:  the list from which element is got
+ *
+ * returns:
+ *    the element in caso of success, otherwise NULL
  */
 void * tail(const List list);
+
 /**
- * Search an Element
+ * Checks if the element is inside the list
+ *
+ * args:
+ *    const List list: the list in which search
+ *    void *data: the element for the research operation
+ *    int isEqual(void*, void*): the function for the comparison
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int isIn(const List list, void *data, int isEqual(void *, void *));
+
 /**
- * Get data from the list which match based on the function passed as an argument 
+ * Returns the element from the list
+ *
+ * args:
+ *    const List list: the list in which search
+ *    void *data: the element for the research operation
+ *    int isEqual(void*, void*): the function for the comparison
+ *
+ * returns:
+ *    the element in case of success, otherwise NULL
  */
 void * getData(const List list, void *data, int isEqual(void *, void *));
+ 
 /**
- * delete a node at specific index
+ * Deletes a node at specific index
+ *
+ * args:
+ *    List list: the list in which search
+ *    const int index: the index in which the element is
+ *    void deleteData(void *): high order function to deallocate correctly the memory for data
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int deleteAtIndex(List list, const int index, void deleteData(void *));
 /**
  * function used to delete a specific element from the list which match the function passed as argument
  */
-int deleteNode(const List list, void *data, int isEqual(void *, void *), void deleteData(void *));
 /**
- * function that swaps two lists and return SUCCESSES or FAILURE if at least one of them is NULL
+ * Deletes an element from the list
+ *
+ * args:
+ *    List list: the list in which remove operation is made
+ *    void *data: the element for the remove operationg
+ *    int isEqual(void*, void*): the function for the comparison
+ *    void deleteData(void *): high order function to deallocate correctly the memory for data
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int deleteNode(const List list, void *data, int isEqual(void *, void *), void deleteData(void *));
+
+/**
+ * Swaps two list and returns
+ *
+ * args:
+ *    List first: first list
+ *    List second: second list
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int swap(List first, List second);
+
 /**
- * function that removes an element if it matches one passed as an argument based on the argument function
- * and returns SUCCESS if the element is found or FAILURE if isn't in the list
+ * Removes an elment from the list (if present)
+ *
+ * args:
+ *    List list: the list from which remotion is made
+ *    void *data: the data for the rimotion
+ *    int isEqual(void *, void *): the function used for the comparison
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
  */
 int removeNode(List list, void *data, int isEqual(void *, void *));
+
 /**
- * function that destroy all the node and all the data in the list and after that free the list itself
- * needs a function to delete the other malloc inside the void *data
+ * Destroys all the ndoe and all the data associated with them. Needs a function
+ * for associated data remotion
+ *
+ * args:
+ *    List list: the list from which elments are removed
+ *    void deleteData(void *): the function used to the rimotion of the data
  */
 void destroyList(List list, void deleteData(void *));
 #endif
