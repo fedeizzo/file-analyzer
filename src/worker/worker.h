@@ -21,7 +21,7 @@ typedef struct {
   int bytesSent;
   const int workAmount;
   Work doing;
-  int pipe[];
+  int *pipe;
 } * Worker;
 
 

@@ -77,7 +77,7 @@ int deleteAtIndex(List list, const int index);
 /**
  * function used to delete a specific element from the list which match the function passed as argument
  */
-int deleteNode(const List list, void *data, int isEqual(void *, void *));
+int removeNode(const List list, void *data, int isEqual(void *, void *));
 /**
  * function that swaps two lists and return SUCCESSES or FAILURE if at least one of them is NULL
  */

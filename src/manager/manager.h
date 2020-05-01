@@ -11,6 +11,7 @@ typedef struct {
 
 Table newTable(const char *name);
 void destroyTable(Table table);
+int compareTalbe(void *t1, void *t2);
 
 /**
  * Creates a new worker

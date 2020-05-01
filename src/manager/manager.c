@@ -25,6 +25,7 @@
 #define NEW_DIRECTIVES_FAILURE -6
 #define CAST_FAILURE -7
 #define PIPE_FAILURE -8
+#define SUMMARY_FAILURE -9
 
 #define NCHAR_TABLE 256
 #define WRITE_CHANNEL 1
@@ -71,9 +72,20 @@ void destroyWorker(Worker worker) {
   free(worker->doing);
   free(worker);
 }
-// TODO doing this inside a for that cycle amount
 
-int initManager(List workers, List tables, List todo, List doing, List done);
+int compareTable(void *t1, void *t2) {
+  int rc_t = -1;
+  Table table1 = (Table)t1;
+  Table table2 = (Table)t2;
+
+  if (strcmp(table1->name, table2->name) == 0) {
+    rc_t = 0;
+  }
+  return rc_t;
+}
+
+int initManager(List workers, const int nWorkers, List tables, List todo,
+                List doing, List done);
 int addWorkers(List workers, int amount);
 int removeWorkers(List workers, int amount);
 int executeWork(List workers, List tables, List todo, List doing, List done);
@@ -95,11 +107,11 @@ int readDirectives(char *lastPath, int *currentworker, char *path,
 
 int addDirectives(List tables, List todo, const char *path, const int nWorker);
 
-int workerExec(const int readPipe[], const int writePipe[],
-               const char *exeFile);
+int workerInitPipe(const int readPipe[], const int writePipe[]);
+int parentInitExecPipe(const int readPipe[], const int writePipe[]);
+int sendSummary(List tables);
 
 int main(int argc, char *argv[]) {
-  // TODO change with linked list
   List workers;
   List tables;
   List todo;
@@ -109,39 +121,41 @@ int main(int argc, char *argv[]) {
   // TODO add [] for array initialization
   char *path;
   char *lastPath;
-  int currentWorker;
+  int currentWorkers = 4;
   int newNWorker;
 
   int rc_work = OK;
-  int rc_in = initManager(workers, tables, todo, doing, done);
+  int rc_in = initManager(workers, currentWorkers, tables, todo, doing, done);
   int rc_nd = OK;
   int directives;
 
   while (1) {
-    directives = readDirectives(lastPath, &currentWorker, path, &newNWorker);
+    directives = readDirectives(lastPath, &currentWorkers, path, &newNWorker);
     if (directives == SUMMARY) {
-      // send summary
+      sendSummary(tables);
     } else if (directives == NEW_DIRECTIVES) {
       lastPath = path;
-      currentWorker = newNWorker;
+      currentWorkers = newNWorker;
       // TODO do something with this fucking error
-      rc_nd = addDirectives(tables, todo, path, currentWorker);
+      rc_nd = addDirectives(tables, todo, path, currentWorkers);
     } else {
       // errore
     }
-    /* rc_work = executeWork(workers, table); */
+    rc_work = executeWork(workers, tables, todo, doing, done);
   }
 }
 
-int initManager(List workers, List tables, List todo, List doing, List done) {
+int initManager(List workers, const int nWorkers, List tables, List todo,
+                List doing, List done) {
   int rc_t = OK;
-  initList(&workers);
-  initList(&tables);
-  initList(&todo);
-  initList(&doing);
-  initList(&done);
-  // TODO pass nWorker as arguemnt and change
-  for (int i = 0; i < workers.size && rc_t == OK; i++) {
+
+  workers = newList();
+  tables = newList();
+  todo = newList();
+  doing = newList();
+  done = newList();
+
+  for (int i = 0; i < nWorkers && rc_t == OK; i++) {
     rc_t = addWorkers(workers, 1);
   }
 
@@ -156,10 +170,29 @@ int addWorkers(List workers, int amount) {
     if (worker == NULL)
       rc_t = NEW_WORKER_FAILURE;
     else {
-      rc_en = push(&workers, worker);
-      // TODO check this strange error
-      if (rc_en == NULL)
+      rc_en = push(workers, worker);
+      if (rc_en == -1)
         rc_t = NEW_WORKER_FAILURE;
+      else {
+        int readPipe[2];
+        int writePipe[2];
+        createUnidirPipe(readPipe);
+        createUnidirPipe(writePipe);
+        int workerPid = fork();
+        if (workerPid > 0) {
+          int rc_pp = parentInitExecPipe(readPipe, writePipe);
+          if (rc_pp == -1)
+            rc_t = PIPE_FAILURE;
+          else {
+            worker->pid = workerPid;
+            int p[] = {readPipe[READ_CHANNEL], writePipe[WRITE_CHANNEL]};
+            worker->pipe = p;
+          }
+        } else {
+          workerInitPipe(readPipe, writePipe);
+          execlp("./worker", "./worker", NULL);
+        }
+      }
     }
   }
 
@@ -172,18 +205,14 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   int rc_pu = OK;
   int rc_ww = OK;
 
-  List newWorkers;
-  initList(&newWorkers);
-  for (int i = 0; i < workers.size; i++) {
+  List newWorkers = newList();
+  for (int i = 0; i < workers->size; i++) {
     Worker w;
-    w = front(&workers);
-    rc_po = pop(&workers);
-    rc_pu = push(&newWorkers, w);
-    // TODO say to samuele bool propblem:
-    // he uses 1 for true and 0 for false
-    // but in all other code 0 stands
-    // for correct case (also all c standard function)
-    if (rc_po == 0 && rc_pu == NULL)
+    // TODO check if w is not null
+    w = front(workers);
+    rc_po = pop(workers);
+    rc_pu = push(newWorkers, w);
+    if (rc_po == -1 && rc_pu == -1)
       rc_t = WORK_FAILURE;
     else {
       if (w->doing != NULL) {
@@ -191,26 +220,27 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
         if (rc_ww)
           rc_t = WORK_FAILURE;
       } else {
-        if (todo.size != 0) {
+        if (todo->size != 0) {
+          // TODO
           /* rc_aw = assignemntwork(w) */
         }
       }
     }
   }
-  workers = newWorkers;
+  // TODO ask to samuele how swap work
+  swap(workers, newWorkers);
 
   return rc_t;
 }
 
 int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
   int rc_t = OK;
-  // TODO see which side of the pipe to use
-  int *fd = w->pipe;
+  int readFromWorker = w->pipe[READ_CHANNEL];
   int bytesSent = w->bytesSent;
   char charSent[5];
 
   if (bytesSent == w->workAmount) {
-    int rc_rd = readDescriptor(*fd, charSent, 4);
+    int rc_rd = readDescriptor(readFromWorker, charSent, 4);
     if (rc_rd <= 0) {
       rc_t = READ_FAILURE;
       endWork(w, tables, BAD_ENDING, todo, doing, done);
@@ -224,7 +254,7 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
       }
     }
   } else {
-    int rc_rd = readDescriptor(*fd, charSent, 1);
+    int rc_rd = readDescriptor(readFromWorker, charSent, 1);
     if (rc_rd <= 0)
       rc_t = READ_FAILURE;
     else {
@@ -252,10 +282,22 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
   int *workerTable = worker->table;
 
   if (typeEnding == GOOD_ENDING) {
-    updateTable(table, workerTable);
-    // move work from doing to done
+    Table t2 = newTable(work->path);
+    Table tFound = (Table)getData(tables, t2, compareTable);
+    if (tFound != NULL) {
+      updateTable(tFound->table, workerTable);
+
+      int rc_rn = removeNode(doing, work, compareWork);
+      int rc_pu = push(done, work);
+      if (rc_rn == -1 || rc_pu == -1)
+        rc_t = END_WORK_FAILURE;
+    }
+    destroyTable(t2);
   } else {
-    // move work from doing to todo
+    int rc_rn = removeNode(doing, work, compareWork);
+    int rc_pu = push(todo, work);
+    if (rc_rn == -1 || rc_pu == -1)
+      rc_t = END_WORK_FAILURE;
   }
 
   worker->bytesSent = 0;
@@ -320,7 +362,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   if (rc_al)
     rc_t = TABLE_FAILURE;
   else {
-    int rc_pu = push(&tables, t);
+    int rc_pu = push(tables, t);
     if (rc_pu == 0) {
       int fd = openFile(path, O_RDONLY);
       int fileDimension = moveCursorFile(fd, 0, SEEK_END);
@@ -332,13 +374,13 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
 
         for (int i = 0; i < nWorker - 1 && rc_pu2 == OK; i++) {
           Work w = newWork(path, step * i, step * (i + 1) - 1);
-          rc_pu2 = push(&todo, w);
+          rc_pu2 = push(todo, w);
         }
 
         if (rc_pu2 == OK) {
           Work w =
               newWork(path, step * (nWorker - 1), step * nWorker + remainder);
-          rc_pu2 = push(&todo, w);
+          rc_pu2 = push(todo, w);
         } else {
           rc_t = NEW_DIRECTIVES_FAILURE;
         }
@@ -356,8 +398,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   return rc_t;
 }
 
-int workerExec(const int readPipe[], const int writePipe[],
-               const char *exeFile) {
+int workerInitPipe(const int readPipe[], const int writePipe[]) {
   int rc_t = 0;
   int rc_cl = closeDescriptor(writePipe[READ_CHANNEL]);
   int rc_cl2 = closeDescriptor(readPipe[WRITE_CHANNEL]);
@@ -369,6 +410,47 @@ int workerExec(const int readPipe[], const int writePipe[],
       rc_du == -1 || rc_du2 == -1) {
     rc_t = PIPE_FAILURE;
   }
+
+  return rc_t;
+}
+int parentInitExecPipe(const int readPipe[], const int writePipe[]) {
+  int rc_t = 0;
+  int rc_cl = closeDescriptor(readPipe[WRITE_CHANNEL]);
+  int rc_cl2 = closeDescriptor(writePipe[READ_CHANNEL]);
+
+  if (rc_cl == -1 || rc_cl2 == -1) {
+    rc_t = PIPE_FAILURE;
+  }
+  return rc_t;
+}
+int sendSummary(List tables) {
+  int rc_t = OK;
+  int rc_po = OK;
+  int rc_pu = OK;
+
+  List newTables = newList();
+  for (int i = 0; i < tables->size; i++) {
+    Table t;
+    t = front(tables);
+    rc_po = pop(tables);
+    rc_pu = push(newTables, t);
+    if (rc_po == -1 || rc_pu == -1)
+      rc_t = SUMMARY_FAILURE;
+    if (t != NULL) {
+      for (int j = 0; j < NCHAR_TABLE; j++) {
+        // TODO choose MAXLEN
+        char msg[MAXLEN];
+        int rc_sp = sprintf(msg, "%d\n", t->table[j]);
+        if (rc_sp == -1)
+          rc_t = SUMMARY_FAILURE;
+        else {
+          writeDescriptor(WRITE_CHANNEL, msg);
+        }
+      }
+    }
+  }
+  // TODO ask to samuele how swap work
+  swap(tables, newTables);
 
   return rc_t;
 }

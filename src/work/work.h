@@ -20,6 +20,7 @@ typedef struct {
  *    returs a heap allocated Work
  */
 Work newWork(const char* path, const int bufferStart, const int bufferEnd);
+int compareWork(void *w1, void *w2);
 
 /**
  * Destroys a work
