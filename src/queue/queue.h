@@ -32,7 +32,7 @@ typedef struct Node {
  *    Node *head: the head of the list
  *    Ndoe *tail: the tail of the list
  */
-typedef struct {
+typedef struct structList{
 	int size;
 	Node *head;
 	Node *tail;

@@ -127,7 +127,7 @@ int initWork(int *start, int *end) {
 void readDirectives(char *path, char *bufferStart, char *bufferEnd) {
   // TODO choose max length for path
   // TODO ATTENZIONE mettere i byte terminatori nel manager
-  char readBuffer[1];
+  char readBuffer[2] = "a";
 
   int counter = 0;
   do {
@@ -179,7 +179,7 @@ int executeWork(const int fd, const int start, const int end) {
       rc_t = READ_FAILURE;
     } else {
       // TODO check \0 char after charRead
-      int rc_wr = writeDescriptor(WRITE_CHANNEL, charRead);
+      int rc_wr = write(WRITE_CHANNEL, charRead, 1);
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
       workAmount--;

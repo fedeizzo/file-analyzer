@@ -48,7 +48,7 @@ int compareWork(void *w1, void *w2);
  * Destroys a work
  *
  * args:
- *    Work work: self explainatory
+ *    void *data: self explainatory
  */
-void destroyWork(Work work);
+void destroyWork(void *data);
 #endif

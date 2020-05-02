@@ -13,7 +13,10 @@ Work newWork(const char *path, const int bufferStart, const int bufferEnd) {
   return work;
 }
 
-void destroyWork(Work work) { free(work); }
+void destroyWork(void *data) {
+  Work work = (Work)data;
+  free(work);
+}
 
 int compareWork(void *w1, void *w2) {
   int rc_t = -1;

@@ -2,7 +2,7 @@
 
 List newList() {
   List ret = NULL;
-  ret = (List)malloc(sizeof(struct List));
+  ret = (List)malloc(sizeof(struct structList));
   if (ret != NULL) {
     ret->head = NULL;
     ret->tail = NULL;
@@ -99,7 +99,7 @@ void destroyList(List list, void deleteData(void *)) {
   free(list);
 }
 
-int dequeue(List list) {
+int pop(List list) {
   int ret = SUCCESS;
   Node *nodo;
   if (isEmptyList(list) == EMPTY) {
@@ -126,7 +126,7 @@ void *front(const List list) {
   return data;
 }
 
-int pop(List list) {
+int dequeue(List list) {
   int ret = SUCCESS;
   Node *nodo;
   if (isEmptyList(list) == EMPTY) {
