@@ -20,8 +20,13 @@
 #define MAXLEN_ERR 300
 
 void printError(const char *msg) {
-  fprintf(stderr, "Error: %s, pid: %d, parentPid: %d\n", msg, getpid(),
+  fprintf(stderr, "ERROR: %s, pid: %d, parentPid: %d\n", msg, getpid(),
           getppid());
+}
+
+void printInfo(const char *msg) {
+  fprintf(stderr, "INFO: %s (no fatal), pid: %d, parentPid: %d\n", msg,
+          getpid(), getppid());
 }
 
 int checkAllocationError(void *ptr) {

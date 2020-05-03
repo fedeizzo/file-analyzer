@@ -10,7 +10,7 @@
  *    int *table: array to memorize the count of the char
  */
 typedef struct structTable {
-  const char *name;
+  char *name;
   int *table;
 } * Table;
 

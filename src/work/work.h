@@ -14,7 +14,7 @@
  *    int bufferEnd: the end position
  */
 typedef struct {
-  const char *path;
+  char *path;
   int bufferStart;
   int bufferEnd;
 } * Work;

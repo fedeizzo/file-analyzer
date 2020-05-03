@@ -1,4 +1,5 @@
-#include "queue.h"
+#include "list.h"
+#include <stdio.h>
 
 List newList() {
   List ret = NULL;
@@ -85,7 +86,8 @@ void destroyAllNode(List list, void deleteData(void *)) {
     while (tmp_node != NULL) {
       tmp_precedente = tmp_node;
       tmp_node = tmp_node->next;
-      deleteData(tmp_node->data);
+      if (tmp_node != NULL)
+        deleteData(tmp_node->data);
       free(tmp_precedente);
       list->size--;
     }
@@ -95,8 +97,10 @@ void destroyAllNode(List list, void deleteData(void *)) {
 }
 
 void destroyList(List list, void deleteData(void *)) {
-  destroyAllNode(list, deleteData);
-  free(list);
+  if (list != NULL) {
+    destroyAllNode(list, deleteData);
+    free(list);
+  }
 }
 
 int pop(List list) {

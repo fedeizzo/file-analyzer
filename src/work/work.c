@@ -1,20 +1,29 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../wrapping/wrapping.h"
 #include "work.h"
 
 Work newWork(const char *path, const int bufferStart, const int bufferEnd) {
   Work work = malloc(sizeof(Work));
+  int rc_al = checkAllocationError(work);
 
-  work->path = path;
+  work->path = malloc(strlen(path) + 1 * sizeof(char));
+  int rc_al2 = checkAllocationError(work->path);
   work->bufferStart = bufferStart;
   work->bufferEnd = bufferEnd;
+
+  if (rc_al == -1 || rc_al2 == -1)
+    return NULL;
+  else
+    strcpy(work->path, path);
 
   return work;
 }
 
 void destroyWork(void *data) {
   Work work = (Work)data;
+  free(work->path);
   free(work);
 }
 

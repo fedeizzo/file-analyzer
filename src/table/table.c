@@ -10,18 +10,23 @@ Table newTable(const char *name) {
   Table table = malloc(sizeof(struct structTable));
   int rc_al = checkAllocationError(table);
 
-  table->name = name;
-  table->table = calloc(NCHAR_TABLE, sizeof(int));
-  int rc_al2 = checkAllocationError(table->table);
+  table->name = malloc(strlen(name) + 1 * sizeof(char));
+  int rc_al2 = checkAllocationError(table->name);
 
-  if (rc_al < 0 || rc_al2 < 0)
+  table->table = calloc(NCHAR_TABLE, sizeof(int));
+  int rc_al3 = checkAllocationError(table->table);
+
+  if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
     table = NULL;
+  else
+    strcpy(table->name, name);
 
   return table;
 }
 
 void destroyTable(void *data) {
   Table table = (Table)data;
+  free(table->name);
   free(table->table);
   free(table);
 }

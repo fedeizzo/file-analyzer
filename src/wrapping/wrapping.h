@@ -2,12 +2,20 @@
 #define __WRAPPING_H__
 
 /**
- * Wrap function to print error in the sterr
+ * Wrap function to print error in the stderr
  *
  * args:
  *    const char *msg: error message
  */
 void printError(const char *msg);
+
+/**
+ * Wrap function to print info in the stderr
+ *
+ * args:
+ *    const char *msg: info message
+ */
+void printInfo(const char *msg);
 
 /**
  * Wrap fucntion to check correct allocation with malloc
