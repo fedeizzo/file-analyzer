@@ -1,5 +1,5 @@
-#ifndef __QUEUE_H_
-#define __QUEUE_H_
+#ifndef __LIST_H_
+#define __LIST_H_
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -22,7 +22,7 @@ typedef struct Node {
 	void *data;
 	struct Node *next;
 	struct Node *prev;
-} Node;
+} *Node;
 
 /**
  * Handles a list
@@ -32,10 +32,10 @@ typedef struct Node {
  *    Node *head: the head of the list
  *    Ndoe *tail: the tail of the list
  */
-typedef struct structList{
+typedef struct List{
 	int size;
-	Node *head;
-	Node *tail;
+	Node head;
+	Node tail;
 } *List;
 
 /**
@@ -232,4 +232,13 @@ int removeNode(List list, void *data, int isEqual(void *, void *));
  *    void deleteData(void *): the function used to the rimotion of the data
  */
 void destroyList(List list, void deleteData(void *));
+
+/**
+ * Map a function to every item of the list
+ *
+ * args:
+ *    List list: the list from which the mapping is made
+ *    void function(void *): function that will be called on every item of the list
+ */
+void map(List list, void function(void *));
 #endif
