@@ -1,4 +1,4 @@
-FLAGS=$(-std=gnu90)
+FLAGS=$(-std=gnu90 -pthread)
 
 analyzer.o: ./src/analyzer/analyzer.c ./src/analyzer/analyzer.h
 	gcc $(FLAGS) -c ./src/analyzer/analyzer.c
