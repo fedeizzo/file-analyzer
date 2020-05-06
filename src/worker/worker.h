@@ -3,41 +3,45 @@
 
 #include "../work/work.h"
 
-// dentro worker ci sara' una tabella
-// se a fine work il worker comunica al manager
-// che tutto e' ok il manager aggiorna la propria tabella
-// aggiungendo i valori di qeulla del worker.
-
-// il manager mantiene tre array:
-// * todo
-// * doing
-// * done
-// se successe qualcosa di imprevisto vengono
-// cancellate le tabelle dei worker e tutti i work
-// in doing vengono spostati in todo
-typedef struct {
+/**
+ * Handles a worker. A worker is a associated with:
+ *    * a pid for eventually kill operation
+ *    * a table for counting opeartion
+ *    * bytes sent from the worker to the manager
+ *    * remaing work of the worker
+ *    * a work under execution
+ *    * a pipe for the communication
+ *
+ * fields:
+ *    int pid: the pid
+ *    int *table: the table for the counting operation
+ *    int bytesSent: the amount of bytes sent
+ *    const int workAmount: the remaining work
+ *    Work doing: the work under execution
+ *    int *pipe: the pipe for the communication with the manager
+ */
+typedef struct structWorker{
   int pid;
-  char *table;
+  int *table;
   int bytesSent;
-  const int workAmount;
+  int workAmount;
   Work doing;
-  int pipe[];
+  int *pipe;
 } * Worker;
 
-  // MACROSTRUUTRA
-/* while true */
-/*   for w in worker */
-/*     p = w.pipe */
-/*     if (bytesSent == workAmount) */
-/*       commreadDes(p, 4) */
-/*     else */
-/*       c = readDes(p) */
-/*       w.table[c]++ */
-/*       w.bytesSent++ */
-/*   endfor */
-/*   sendToAnalyzer() */
+/**
+ * Creates a new worker
+ *
+ * returns:
+ *    the created worker
+ */
+Worker newWorker();
 
-int receiveWork();
-int sendChar(const char msg);
-int endWork();
+/**
+ * Deletes the worker passed as argument
+ *
+ * args:
+ *    void *data: the worker for deleting operation
+ */
+void destroyWorker(void *data);
 #endif 

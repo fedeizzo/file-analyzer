@@ -1,12 +1,13 @@
-#include "queue.h"
+#include "list.h"
+#include <stdio.h>
 
 List newList() {
   List ret = NULL;
-  ret = (List) malloc(sizeof(struct List));
-  if(ret != NULL){
-      ret->head = NULL;
-      ret->tail = NULL;
-      ret->size = 0;
+  ret = (List)malloc(sizeof(struct List));
+  if (ret != NULL) {
+    ret->head = NULL;
+    ret->tail = NULL;
+    ret->size = 0;
   }
   return ret;
 }
@@ -21,7 +22,7 @@ int isEmptyList(const List list) {
 
 int enqueue(List list, void *data) {
   int ret = 0;
-  Node *nodo = (Node *)malloc(sizeof(Node));
+  Node nodo = (Node)malloc(sizeof(struct Node));
   if (nodo == NULL) {
     perror("Failure allocating memory\n");
     ret = MALLOC_FAILURE;
@@ -29,7 +30,7 @@ int enqueue(List list, void *data) {
     nodo->data = data;
     nodo->next = NULL;
     nodo->prev = list->tail;
-    if (isEmptyList(list)==EMPTY) {
+    if (isEmptyList(list) == EMPTY) {
       list->head = nodo;
     } else {
       list->tail->next = nodo;
@@ -42,7 +43,7 @@ int enqueue(List list, void *data) {
 
 int push(List list, void *data) {
   int ret = 0;
-  Node *nodo = (Node *)malloc(sizeof(Node));
+  Node nodo = (Node)malloc(sizeof(struct Node));
   if (nodo == NULL) {
     perror("Malloc failure\n");
     ret = MALLOC_FAILURE;
@@ -50,7 +51,7 @@ int push(List list, void *data) {
     nodo->data = data;
     nodo->prev = NULL;
     nodo->next = list->head;
-    if (isEmptyList(list)==EMPTY) {
+    if (isEmptyList(list) == EMPTY) {
       list->tail = nodo;
     } else {
       list->head->prev = nodo;
@@ -62,8 +63,8 @@ int push(List list, void *data) {
 }
 
 void printList(const List list, void toString(void *)) {
-  Node *tmp_node = list->head;
-  if (isEmptyList(list)==EMPTY) {
+  Node tmp_node = list->head;
+  if (isEmptyList(list) == EMPTY) {
     printf("The list is empty\n");
   } else {
     printf("In the list there are %d element: \n", list->size);
@@ -77,15 +78,15 @@ void printList(const List list, void toString(void *)) {
 }
 
 void destroyAllNode(List list, void deleteData(void *)) {
-  Node *tmp_node;
-  Node *tmp_precedente;
-  if (isEmptyList(list)==NOT_EMPTY) {
+  Node tmp_node;
+  Node tmp_precedente;
+  if (isEmptyList(list) == NOT_EMPTY) {
     tmp_node = list->head;
     tmp_precedente = NULL;
     while (tmp_node != NULL) {
       tmp_precedente = tmp_node;
       tmp_node = tmp_node->next;
-      deleteData(tmp_node->data);
+      deleteData(tmp_precedente->data);
       free(tmp_precedente);
       list->size--;
     }
@@ -95,14 +96,16 @@ void destroyAllNode(List list, void deleteData(void *)) {
 }
 
 void destroyList(List list, void deleteData(void *)) {
-  destroyAllNode(list, deleteData);
-  free(list);
+  if (list != NULL) {
+    destroyAllNode(list, deleteData);
+    free(list);
+  }
 }
 
-int dequeue(List list) {
+int pop(List list) {
   int ret = SUCCESS;
-  Node *nodo;
-  if (isEmptyList(list)==EMPTY) {
+  Node nodo;
+  if (isEmptyList(list) == EMPTY) {
     ret = FAILURE;
   } else {
     nodo = list->head;
@@ -126,9 +129,9 @@ void *front(const List list) {
   return data;
 }
 
-int pop(List list) {
+int dequeue(List list) {
   int ret = SUCCESS;
-  Node *nodo;
+  Node nodo;
   if (isEmptyList(list) == EMPTY) {
     ret = FAILURE;
   } else {
@@ -155,152 +158,164 @@ void *tail(const List list) {
 
 int isIn(const List list, void *data, int isEqual(void *, void *)) {
   int found = FAILURE;
-  Node *tmp_node = list->head;
+  Node tmp_node = list->head;
   while (found == FAILURE && tmp_node != NULL) {
     if (isEqual(tmp_node->data, data) == SUCCESS) {
-        found = SUCCESS;
+      found = SUCCESS;
     }
-    if(found == FAILURE){
-        tmp_node = tmp_node->next;
+    if (found == FAILURE) {
+      tmp_node = tmp_node->next;
     }
   }
   return found;
 }
 
-void *getData(const List list, void *data, int isEqual(void *, void *)){
-    void *ret = NULL;
-    int found = FAILURE;
-    Node *tmp_node = list->head;
-    while (found  == FAILURE && tmp_node != NULL) {
-        if (isEqual(tmp_node->data, data) == SUCCESS) {
-            found = SUCCESS;
-            ret = tmp_node->data;
-        }
-        if(found == FAILURE){
-            tmp_node = tmp_node->next;
-        }
+void *getData(const List list, void *data, int isEqual(void *, void *)) {
+  void *ret = NULL;
+  int found = FAILURE;
+  Node tmp_node = list->head;
+  while (found == FAILURE && tmp_node != NULL) {
+    if (isEqual(tmp_node->data, data) == SUCCESS) {
+      found = SUCCESS;
+      ret = tmp_node->data;
     }
-    return ret;
+    if (found == FAILURE) {
+      tmp_node = tmp_node->next;
+    }
+  }
+  return ret;
 }
 
-int deleteAtIndex(List list, const int index, void deleteData(void *)){
-    int deleted = FAILURE;
-    int currentSize = list->size;
-    if(!(currentSize-1 < index || index < 0)){
-        Node *tmp_node = list->head;
-        Node *prev_node = NULL;
-        Node *next_node = NULL;
-        int counter = index;
-        while(counter!=0){
-            tmp_node = tmp_node->next;
-            counter--;
-        }
-        prev_node = tmp_node->prev;
-        next_node = tmp_node->next;
-        if(prev_node != NULL){
-            prev_node->next = next_node;
-        } else {
-            list->head = next_node;
-        }
-        if(next_node != NULL){
-            next_node->prev = prev_node;
-        } else {
-            list->tail = prev_node;
-        }
-        list->size--;
-        deleteData(tmp_node->data);
-        free(tmp_node);
-        deleted = SUCCESS;
+int deleteAtIndex(List list, const int index, void deleteData(void *)) {
+  int deleted = FAILURE;
+  int currentSize = list->size;
+  if (!(currentSize - 1 < index || index < 0)) {
+    Node tmp_node = list->head;
+    Node prev_node = NULL;
+    Node next_node = NULL;
+    int counter = index;
+    while (counter != 0) {
+      tmp_node = tmp_node->next;
+      counter--;
     }
-    return deleted;
+    prev_node = tmp_node->prev;
+    next_node = tmp_node->next;
+    if (prev_node != NULL) {
+      prev_node->next = next_node;
+    } else {
+      list->head = next_node;
+    }
+    if (next_node != NULL) {
+      next_node->prev = prev_node;
+    } else {
+      list->tail = prev_node;
+    }
+    list->size--;
+    deleteData(tmp_node->data);
+    free(tmp_node);
+    deleted = SUCCESS;
+  }
+  return deleted;
 }
 
-int removeNode(const List list, void *data, int isEqual(void *, void *)){
-    int deleted = FAILURE;
-    int found = FAILURE;
-    Node *tmp_node = list->head;
-    Node *prev_node = NULL;
-    Node *next_node = NULL;
-    while (found  == FAILURE && tmp_node != NULL) {
-        if (isEqual(tmp_node->data, data) == SUCCESS) {
-            found = SUCCESS;
-            prev_node = tmp_node->prev;
-            next_node = tmp_node->next;
-            if(prev_node != NULL){
-                prev_node->next = next_node;
-            } else {
-                list->head = next_node;
-            }
-            if(next_node != NULL){
-                next_node->prev = prev_node;
-            } else {
-                list->tail = prev_node;
-            }
-            list->size--;
-            free(tmp_node);
-            deleted = SUCCESS;
-        }
-        if(found == FAILURE){
-            tmp_node = tmp_node->next;
-        }
+int removeNode(const List list, void *data, int isEqual(void *, void *)) {
+  int deleted = FAILURE;
+  int found = FAILURE;
+  Node tmp_node = list->head;
+  Node prev_node = NULL;
+  Node next_node = NULL;
+  while (found == FAILURE && tmp_node != NULL) {
+    if (isEqual(tmp_node->data, data) == SUCCESS) {
+      found = SUCCESS;
+      prev_node = tmp_node->prev;
+      next_node = tmp_node->next;
+      if (prev_node != NULL) {
+        prev_node->next = next_node;
+      } else {
+        list->head = next_node;
+      }
+      if (next_node != NULL) {
+        next_node->prev = prev_node;
+      } else {
+        list->tail = prev_node;
+      }
+      list->size--;
+      free(tmp_node);
+      deleted = SUCCESS;
     }
-    return deleted;
+    if (found == FAILURE) {
+      tmp_node = tmp_node->next;
+    }
+  }
+  return deleted;
 }
 
-int deleteNode(const List list, void *data, int isEqual(void *, void *), void deleteData(void *)){
-    int deleted = FAILURE;
-    int found = FAILURE;
-    Node *tmp_node = list->head;
-    Node *prev_node = NULL;
-    Node *next_node = NULL;
-    while (found  == FAILURE && tmp_node != NULL) {
-        if (isEqual(tmp_node->data, data) == SUCCESS) {
-            found = SUCCESS;
-            prev_node = tmp_node->prev;
-            next_node = tmp_node->next;
-            if(prev_node != NULL){
-                prev_node->next = next_node;
-            } else {
-                list->head = next_node;
-            }
-            if(next_node != NULL){
-                next_node->prev = prev_node;
-            } else {
-                list->tail = prev_node;
-            }
-            list->size--;
-            deleteData(tmp_node->data);
-            free(tmp_node);
-            deleted = SUCCESS;
-        }
-        if(found == FAILURE){
-            tmp_node = tmp_node->next;
-        }
+int deleteNode(const List list, void *data, int isEqual(void *, void *),
+               void deleteData(void *)) {
+  int deleted = FAILURE;
+  int found = FAILURE;
+  Node tmp_node = list->head;
+  Node prev_node = NULL;
+  Node next_node = NULL;
+  while (found == FAILURE && tmp_node != NULL) {
+    if (isEqual(tmp_node->data, data) == SUCCESS) {
+      found = SUCCESS;
+      prev_node = tmp_node->prev;
+      next_node = tmp_node->next;
+      if (prev_node != NULL) {
+        prev_node->next = next_node;
+      } else {
+        list->head = next_node;
+      }
+      if (next_node != NULL) {
+        next_node->prev = prev_node;
+      } else {
+        list->tail = prev_node;
+      }
+      list->size--;
+      deleteData(tmp_node->data);
+      free(tmp_node);
+      deleted = SUCCESS;
     }
-    return deleted;
+    if (found == FAILURE) {
+      tmp_node = tmp_node->next;
+    }
+  }
+  return deleted;
 }
 
-int swap(List first, List second){
-    int ret = FAILURE;
-    int size = 0;
-    Node *node = NULL;
-    if(!(first == NULL || second == NULL)){
-        size = first->size;
-        first->size = second->size;
-        second->size = size;
+int swap(List first, List second) {
+  int ret = FAILURE;
+  int size = 0;
+  Node node = NULL;
+  if (!(first == NULL || second == NULL)) {
+    size = first->size;
+    first->size = second->size;
+    second->size = size;
 
-        node = first->head;
-        first->head = second->head;
-        second->head = node;
+    node = first->head;
+    first->head = second->head;
+    second->head = node;
 
-        node = first->tail;
-        first->tail = second->tail;
-        second->tail = node;
+    node = first->tail;
+    first->tail = second->tail;
+    second->tail = node;
 
-        ret = SUCCESS;
-    }
-    return ret;
+    ret = SUCCESS;
+  }
+  return ret;
 }
+
+void map(List list, void function(void *)){
+  Node tmp_node = list->head;
+  if (isEmptyList(list) == NOT_EMPTY) {
+    while (tmp_node != NULL) {
+      function(tmp_node->data);
+      tmp_node = tmp_node->next;
+    }
+  } 
+}
+
 /*
 int int_eq(void *primo, void * secondo){
     return ((*(int *)primo) == (*(int *)secondo)) ? 0 : -1;
@@ -314,7 +329,7 @@ void delete_int(void *data){
     free(data);
 }*/
 /**
- * MAIN TO TEST  
+ * MAIN TO TEST
  */
 /*
 int main(){
@@ -358,7 +373,7 @@ int main(){
         toSearch = (int*) malloc(sizeof(int));
         printf("Searching for...\n");
         scanf("%d", toSearch);
-        printf("%d\n ", isIn(l, (void *) toSearch, int_eq));    
+        printf("%d\n ", isIn(l, (void *) toSearch, int_eq));
         break;
       case 6:
         printList(l, toString_int);
@@ -369,7 +384,7 @@ int main(){
         scanf("%d", toSearch);
         void *obtained = getData(l, (void *) toSearch, int_eq);
         if(obtained!=NULL){
-            printf("%d\n ", *((int *) obtained)); 
+            printf("%d\n ", *((int *) obtained));
         }else{
             printf("null\n");
         }
@@ -378,13 +393,13 @@ int main(){
         toSearch = (int*) malloc(sizeof(int));
         printf("At which index delete the element?...\n");
         scanf("%d", toSearch);
-        printf("%d\n ", deleteAtIndex(l, *((int *) toSearch), delete_int));    
+        printf("%d\n ", deleteAtIndex(l, *((int *) toSearch), delete_int));
         break;
       case 9:
         toSearch = (int*) malloc(sizeof(int));
         printf("Which Element to delete?...\n");
         scanf("%d", toSearch);
-        printf("%d\n ", removeNode(l, (void *) toSearch, int_eq));    
+        printf("%d\n ", removeNode(l, (void *) toSearch, int_eq));
         break;
       case 10:
         printList(l2, toString_int);

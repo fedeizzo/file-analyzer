@@ -20,8 +20,13 @@
 #define MAXLEN_ERR 300
 
 void printError(const char *msg) {
-  fprintf(stderr, "Error: %s, pid: %d, parentPid: %d\n", msg, getpid(),
+  fprintf(stderr, "ERROR: %s, pid: %d, parentPid: %d\n", msg, getpid(),
           getppid());
+}
+
+void printInfo(const char *msg) {
+  fprintf(stderr, "INFO: %s (no fatal), pid: %d, parentPid: %d\n", msg,
+          getpid(), getppid());
 }
 
 int checkAllocationError(void *ptr) {
@@ -77,6 +82,20 @@ int closeDescriptor(const int fd) {
     printError(msgErr);
   }
   return code;
+}
+
+int createDup(const int writer, const int overwritten) {
+  int rc_du = dup2(writer, overwritten);
+
+  if (rc_du == -1) {
+    char *msgErr = (char *)malloc(MAXLEN_ERR);
+    sprintf(msgErr, "during dup creation with descriptors: %d, %d", writer,
+            overwritten);
+    printError(msgErr);
+    free(msgErr);
+  }
+
+  return rc_du;
 }
 
 int readDescriptor(const int fd, char dst[], const int len) {
