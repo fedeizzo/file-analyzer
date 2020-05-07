@@ -85,6 +85,7 @@ int getWidth(int *width) {
     sscanf(dst, "%d", width);
     wait(NULL);
     close(fd[READ]);
+    free(dst);
   } else {
     close(fd[READ]);
     dup2(fd[WRITE], 1);
@@ -105,6 +106,7 @@ int getHeigth(int *heigth) {
     sscanf(dst, "%d", heigth);
     wait(NULL);
     close(fd[READ]);
+    free(dst);
   } else {
     close(fd[READ]);
     dup2(fd[WRITE], 1);

@@ -1,4 +1,5 @@
 FLAGS=-std=gnu90
+FLAGS_THREAD=-pthread
 BIN_FOLDER=./bin/
 
 $(BIN_FOLDER)analyzer.o: ./src/analyzer/analyzer.c ./src/analyzer/analyzer.h
@@ -10,7 +11,7 @@ $(BIN_FOLDER)manager.o: ./src/manager/manager.c \
 	./src/wrapping/wrapping.h \
 	./src/worker/worker.h \
 	./src/work/work.h
-	gcc $(FLAGS) -c ./src/manager/manager.c -o $(BIN_FOLDER)manager.o
+	gcc $(FLAGS) $(FLAGS_THREAD) -c ./src/manager/manager.c -o $(BIN_FOLDER)manager.o
 
 $(BIN_FOLDER)reporter.o: ./src/reporter/reporter.c ./src/reporter/reporter.h
 	gcc $(FLAGS) -c ./src/reporter/reporter.c -o $(BIN_FOLDER)reporter.o
@@ -65,7 +66,7 @@ build: $(BIN_FOLDER)main.o \
     $(BIN_FOLDER)table.o \
     $(BIN_FOLDER)worker.o \
     $(BIN_FOLDER)wrapping.o
-	gcc $(FLAGS) -o $(BIN_FOLDER)manager \
+	gcc $(FLAGS) $(FLAGS) -o $(BIN_FOLDER)manager \
 		$(BIN_FOLDER)manager.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)table.o \

@@ -21,6 +21,7 @@ typedef struct DirectivesStruct {
   char *lastPath;
   int currentWorkers;
   int newNWorker;
+  int directiveStatus;
 } * Directive;
 
 typedef struct sharedResources {
