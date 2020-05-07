@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,6 +79,22 @@ void destroyWorker(void *data) {
   free(worker->table);
   free(worker->doing);
   free(worker);
+}
+
+Directive newDirective() {
+  Directive directive = malloc(sizeof(struct DirectivesStruct));
+
+  directive->path = malloc(MAXLEN * sizeof(char));
+  directive->lastPath = malloc(MAXLEN * sizeof(char));
+  directive->currentWorkers = 4;
+
+  return directive;
+}
+
+void destroyDirective(Directive directive) {
+  free(directive->path);
+  free(directive->lastPath);
+  free(directive);
 }
 
 /**
@@ -325,6 +342,16 @@ int main(int argc, char *argv[]) {
   int currentWorkers = 4;
   int newNWorker;
 
+  sharedResources_t sharedResourses;
+  sharedResourses.directive = newDirective();
+  sharedResourses.todo = todo;
+  sharedResourses.doing = doing;
+  sharedResourses.done = done;
+  sharedResourses.workers = workers;
+  sharedResourses.tables = tables;
+
+  pthread_mutex_init(&sharedResourses.mutex, NULL);
+
   int rc_work = initManager(workers, currentWorkers, tables, todo, doing, done);
   int rc_nd = OK;
   int rc_wc = OK;
@@ -368,6 +395,7 @@ int main(int argc, char *argv[]) {
         rc_work = errorHandler(rc_work);
     }
   }
+  // TODO free of directives inside aharedResources
   deinitManager(workers, tables, todo, doing, done, path, lastPath);
   return rc_work;
 }
