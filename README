@@ -17,13 +17,14 @@ Makefile help:
 Project logic:
   * analyzer : analyzer forks managers and keeps anonymous pipes with them
                in order to stay informed
+  * list     : a linked list implementation
   * manager  : manager forks mulpiple workers and keeps anonymous pipes with
                them in order to get the stats gatered from files
-  * quue     : a linked list implementation
   * reporter : reporters mantains mantains two pipes:
                  * analyzer <-> reporter: in order to gathers data and computes
                    a report
                  * reporter <-> main: in oreder to sends report to the user
+  * table    : holds counting information
   * work     : a work
   * worker   : worker reads and computes the statistic operations on a portion
                of a file assignet to it 
@@ -31,29 +32,39 @@ Project logic:
 
 Directories logic:
 .
-|-- Makefile             contains rules for the project
-|-- README               this file
+|-- Makefile
+|-- README
+|-- bin
 |-- file.txt
 `-- src
-    |-- analyzer         process that handle the analysis
+    |-- analyzer
     |   |-- analyzer.c
     |   `-- analyzer.h
-    |-- main.c           main file
-    |-- manager          process that manage workers processes
+    |-- list
+    |   |-- list.c
+    |   `-- list.h
+    |-- main.c
+    |-- manager
     |   |-- manager.c
     |   `-- manager.h
-    |-- queue            a linked list implementation
-    |   |-- queue.c
-    |   `-- queue.h
-    |-- reporter         process that communicate between main and analyzer processes
+    |-- reporter
     |   |-- reporter.c
     |   `-- reporter.h
-    |-- work             a work
+    |-- table
+    |   |-- table.c
+    |   `-- table.h
+    |-- tree
+    |   |-- tree.c
+    |   `-- tree.h
+    |-- tui
+    |   |-- tui.c
+    |   `-- tui.h
+    |-- work
     |   |-- work.c
     |   `-- work.h
-    |-- worker           process that read files
+    |-- worker
     |   |-- worker.c
     |   `-- worker.h
-    `-- wrapping         wrapping system call functions
+    `-- wrapping
         |-- wrapping.c
         `-- wrapping.h

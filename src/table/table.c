@@ -13,7 +13,7 @@ Table newTable(const char *name) {
   table->name = malloc(strlen(name) + 1 * sizeof(char));
   int rc_al2 = checkAllocationError(table->name);
 
-  table->table = calloc(NCHAR_TABLE, sizeof(int));
+  table->table = calloc(NCHAR_TABLE, sizeof(long long));
   int rc_al3 = checkAllocationError(table->table);
 
   if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)

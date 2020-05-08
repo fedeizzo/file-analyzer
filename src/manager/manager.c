@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,7 @@
 #define DESCRIPTOR_FAILURE -14
 #define ASSIGNWORK_MEMORY_FAILURE -15
 #define DEAD_PROCESS -16
+#define START_NEW_MANAGER -17
 
 #define NCHAR_TABLE 128
 #define WRITE_CHANNEL 1
@@ -50,13 +52,18 @@
 // TODO see const arguments to function
 
 Worker newWorker() {
+  int rc_al = OK;
+  int rc_al2 = OK;
+  int rc_al3 = OK;
   Worker worker = malloc(sizeof(struct structWorker));
-  int rc_al = checkAllocationError(worker);
-  worker->table = calloc(NCHAR_TABLE, sizeof(int));
-  int rc_al2 = checkAllocationError(worker->table);
-  worker->pipe = malloc(2 * sizeof(int));
-  int rc_al3 = checkAllocationError(worker->table);
-  worker->bytesSent = 0;
+  rc_al = checkAllocationError(worker);
+  if (rc_al == OK) {
+    worker->table = calloc(NCHAR_TABLE, sizeof(long long));
+    rc_al2 = checkAllocationError(worker->table);
+    worker->pipe = malloc(2 * sizeof(int));
+    rc_al3 = checkAllocationError(worker->table);
+    worker->bytesSent = 0;
+  }
 
   if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
     worker = NULL;
@@ -78,6 +85,34 @@ void destroyWorker(void *data) {
   free(worker->table);
   free(worker->doing);
   free(worker);
+}
+
+Directive newDirective() {
+  int rc_al = OK;
+  int rc_al2 = OK;
+  int rc_al3 = OK;
+  Directive directive = malloc(sizeof(struct DirectivesStruct));
+  rc_al = checkAllocationError(directive);
+
+  if (rc_al == OK) {
+    directive->path = malloc(MAXLEN * sizeof(char));
+    rc_al2 = checkAllocationError(directive);
+    directive->lastPath = malloc(MAXLEN * sizeof(char));
+    rc_al3 = checkAllocationError(directive);
+    directive->currentWorkers = 4;
+    directive->directiveStatus = START_NEW_MANAGER;
+  }
+
+  if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
+    directive = NULL;
+
+  return directive;
+}
+
+void destroyDirective(Directive directive) {
+  free(directive->path);
+  free(directive->lastPath);
+  free(directive);
 }
 
 /**
@@ -208,13 +243,25 @@ int assignWork(Worker worker, Work work, List todo, List doing);
 int getWorkerWork(Worker w, List tables, List todo, List doing, List done);
 
 /**
+ * Checks if a work pass from doint to done. If so sends summary is called
+ *
+ * args:
+ *    int *workDone: last amount of done works
+ *    List done: list of work to done for the comparison
+ *
+ * returns:
+ *    0 in case there are new work in done list, -1 otherwise
+ */
+int checkUpdate(int *workDone, List done);
+
+/**
  * Updates manger table
  *
  * args:
  *    int *table: the table associated with a file
  *    int *workerTable: the worker table for the udpate operation
  */
-void updateTable(int *table, int *workerTable);
+void updateTable(long long *table, long long *workerTable);
 
 /**
  * Ends a worker's work
@@ -241,8 +288,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
  *    char *bufferStart: contains buffer start in chars type
  *    char *bufferEnd: contains buffer end in chars type
  */
-int readDirectives(char *lastPath, int *currentworker, char *path,
-                   int *newNWorker);
+void *readDirectives(void *ptr);
 
 /**
  * Adds directives in todo list
@@ -278,6 +324,7 @@ int workerInitPipe(const int readPipe[], const int writePipe[]);
  *    const int writePipe[]: write pipe
  *
  * returns
+      printf("nWorker: %d\n", rc_t);
  *    0 in case of success, negative number otherwise
  */
 int parentInitExecPipe(const int readPipe[], const int writePipe[]);
@@ -310,8 +357,18 @@ int sendSummary(List tables);
  */
 int errorHandler(int errorCode);
 
+/**
+ * Work loop for thread
+ *
+ * args:
+ *    void *ptr: args for thread
+ */
+void *workLoop(void *ptr);
+
 int main(int argc, char *argv[]) {
   signal(SIGCHLD, SIG_IGN);
+  pthread_t directives, work;
+  int iret1, iret2;
   List workers = newList();
   List tables = newList();
   List todo = newList();
@@ -326,29 +383,88 @@ int main(int argc, char *argv[]) {
   int newNWorker;
 
   int rc_work = initManager(workers, currentWorkers, tables, todo, doing, done);
+
+  sharedResources_t sharedResourses;
+  sharedResourses.directive = newDirective();
+  pthread_mutex_init(&sharedResourses.mutex, NULL);
+  sharedResourses.todo = todo;
+  sharedResourses.doing = doing;
+  sharedResourses.done = done;
+  sharedResourses.workers = workers;
+  sharedResourses.tables = tables;
+
+  if (rc_work == OK) {
+    iret1 = pthread_create(&directives, NULL, readDirectives,
+                           (void *)&sharedResourses);
+    iret2 = pthread_create(&work, NULL, workLoop, (void *)&sharedResourses);
+
+    pthread_join(directives, NULL);
+    pthread_join(work, NULL);
+  }
+
+  // TODO free of directives inside aharedResources
+  deinitManager(workers, tables, todo, doing, done, path, lastPath);
+  destroyDirective(sharedResourses.directive);
+  // return rc_work;
+}
+
+void *workLoop(void *ptr) {
+  sharedResources_t *sharedRes = (sharedResources_t *)(ptr);
+
+  int rc_work = OK;
   int rc_nd = OK;
   int rc_wc = OK;
   int directives;
+  int workDone = 0;
 
   while (rc_work == OK) {
-    if (currentWorkers > 0)
-      strcpy(lastPath, path);
-    directives = readDirectives(lastPath, &currentWorkers, path, &newNWorker);
+    pthread_mutex_lock(&(sharedRes->mutex));
+    directives = sharedRes->directive->directiveStatus;
+    pthread_mutex_unlock(&(sharedRes->mutex));
+    while (directives == START_NEW_MANAGER) {
+      pthread_mutex_lock(&(sharedRes->mutex));
+      directives = sharedRes->directive->directiveStatus;
+      pthread_mutex_unlock(&(sharedRes->mutex));
+      usleep(500000);
+    }
     if (directives == SUMMARY) {
-      sendSummary(tables);
-    } else if (directives == NEW_DIRECTIVES) {
-      if (strcmp(lastPath, path) != 0 && currentWorkers != newNWorker) {
-        rc_wc = changeWorkersAmount(workers, currentWorkers, newNWorker, tables,
-                                    todo, doing, done);
-        currentWorkers = newNWorker;
-        rc_nd = addDirectives(tables, todo, path, currentWorkers);
-      } else if (strcmp(lastPath, path) != 0) {
-        rc_nd = addDirectives(tables, todo, path, currentWorkers);
-      } else {
-        rc_wc = changeWorkersAmount(workers, currentWorkers, newNWorker, tables,
-                                    todo, doing, done);
-        currentWorkers = newNWorker;
+      if (checkUpdate(&workDone, sharedRes->done) == SUMMARY) {
+        pthread_mutex_lock(&(sharedRes->mutex));
+        sendSummary(sharedRes->tables);
+        pthread_mutex_unlock(&(sharedRes->mutex));
       }
+    } else if (directives == NEW_DIRECTIVES) {
+      pthread_mutex_lock(&(sharedRes->mutex));
+      if (strcmp(sharedRes->directive->lastPath, sharedRes->directive->path) !=
+              0 &&
+          sharedRes->directive->currentWorkers !=
+              sharedRes->directive->newNWorker) {
+        rc_wc = changeWorkersAmount(
+            sharedRes->workers, sharedRes->directive->currentWorkers,
+            sharedRes->directive->newNWorker, sharedRes->tables,
+            sharedRes->todo, sharedRes->doing, sharedRes->done);
+        sharedRes->directive->currentWorkers = sharedRes->directive->newNWorker;
+        // TODO check where to assign path to lastpath
+        strcpy(sharedRes->directive->lastPath, sharedRes->directive->path);
+        rc_nd = addDirectives(sharedRes->tables, sharedRes->todo,
+                              sharedRes->directive->path,
+                              sharedRes->directive->currentWorkers);
+      } else if (strcmp(sharedRes->directive->lastPath,
+                        sharedRes->directive->path) != 0) {
+        // TODO check where to assign path to lastpath
+        strcpy(sharedRes->directive->lastPath, sharedRes->directive->path);
+        rc_nd = addDirectives(sharedRes->tables, sharedRes->todo,
+                              sharedRes->directive->path,
+                              sharedRes->directive->currentWorkers);
+      } else {
+        rc_wc = changeWorkersAmount(
+            sharedRes->workers, sharedRes->directive->currentWorkers,
+            sharedRes->directive->newNWorker, sharedRes->tables,
+            sharedRes->todo, sharedRes->doing, sharedRes->done);
+        sharedRes->directive->currentWorkers = sharedRes->directive->newNWorker;
+      }
+      sharedRes->directive->directiveStatus = SUMMARY;
+      pthread_mutex_unlock(&(sharedRes->mutex));
       if (rc_nd < OK && rc_wc < OK) {
         int r1 = errorHandler(rc_nd);
         int r2 = errorHandler(rc_wc);
@@ -363,13 +479,18 @@ int main(int argc, char *argv[]) {
       rc_work = errorHandler(directives);
     }
     if (rc_work == OK) {
-      rc_work = executeWork(workers, tables, todo, doing, done);
+      pthread_mutex_lock(&(sharedRes->mutex));
+      rc_work = executeWork(sharedRes->workers, sharedRes->tables,
+                            sharedRes->todo, sharedRes->doing, sharedRes->done);
+      pthread_mutex_unlock(&(sharedRes->mutex));
       if (rc_work < OK)
         rc_work = errorHandler(rc_work);
     }
+    // TODO fix sleep time
+    usleep(1);
   }
-  deinitManager(workers, tables, todo, doing, done, path, lastPath);
-  return rc_work;
+
+  // TODO error handling
 }
 
 int initManager(List workers, const int nWorkers, List tables, List todo,
@@ -532,6 +653,7 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   }
   // TODO ATTENTION
   swap(workers, newWorkers);
+  /* printError("new worker in execute work"); */
   free(newWorkers);
 
   return rc_t;
@@ -581,38 +703,56 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
   int rc_t = OK;
   int readFromWorker = w->pipe[READ_CHANNEL];
   int bytesSent = w->bytesSent;
-  char charSent[6];
-
-  if (bytesSent == w->workAmount) {
-    int rc_rd = readDescriptor(readFromWorker, charSent, 5);
-    if (rc_rd <= 0) {
-      rc_t = READ_FAILURE;
-      endWork(w, tables, BAD_ENDING, todo, doing, done);
-    } else {
-      charSent[rc_rd] = '\0';
-      if (strcmp(charSent, "done") == 0)
-        endWork(w, tables, GOOD_ENDING, todo, doing, done);
-      else {
+  char *charSent = malloc(w->workAmount * sizeof(char));
+  int rc_al = checkAllocationError(charSent);
+  if (rc_al < OK)
+    rc_t = MALLOC_FAILURE;
+  if (rc_t == OK) {
+    if (bytesSent == w->workAmount) {
+      int rc_rd = readDescriptor(readFromWorker, charSent, 5);
+      if (rc_rd <= 0) {
+        rc_t = READ_FAILURE;
         endWork(w, tables, BAD_ENDING, todo, doing, done);
-        rc_t = WORK_FAILURE;
+      } else {
+        charSent[rc_rd] = '\0';
+        if (strcmp(charSent, "done") == 0)
+          endWork(w, tables, GOOD_ENDING, todo, doing, done);
+        else {
+          endWork(w, tables, BAD_ENDING, todo, doing, done);
+          rc_t = WORK_FAILURE;
+        }
+      }
+    } else {
+      int rc_rd = readDescriptor(readFromWorker, charSent,
+                                 w->workAmount - w->bytesSent);
+      if (rc_rd <= 0)
+        rc_t = READ_FAILURE;
+      else {
+        // TODO think to remove this
+        /* charSent[rc_rd] = '\0'; */
+        int i = 0;
+        for (i = 0; i < rc_rd; i++) {
+          int charCode = charSent[i];
+          w->table[charCode] += 1;
+          w->bytesSent++;
+        }
       }
     }
-  } else {
-    int rc_rd = readDescriptor(readFromWorker, charSent, 1);
-    if (rc_rd <= 0)
-      rc_t = READ_FAILURE;
-    else {
-      // TODO think to remove this
-      charSent[rc_rd] = '\0';
-      int charCode = charSent[0];
-      w->table[charCode] += 1;
-      w->bytesSent++;
-    }
+    free(charSent);
   }
   return rc_t;
 }
 
-void updateTable(int *table, int *workerTable) {
+int checkUpdate(int *workDone, List done) {
+  int rc_t = -1;
+  if (done->size > *workDone) {
+    *workDone = done->size;
+    rc_t = SUMMARY;
+  }
+  return rc_t;
+}
+
+void updateTable(long long *table, long long *workerTable) {
   int i = 0;
   for (i = 0; i < NCHAR_TABLE; i++) {
     table[i] += workerTable[i];
@@ -624,7 +764,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
   int rc_t = OK;
   int rc_ca = OK;
   Work work = worker->doing;
-  int *workerTable = worker->table;
+  long long *workerTable = worker->table;
 
   if (typeEnding == GOOD_ENDING) {
     Table t2 = newTable(work->path);
@@ -649,61 +789,80 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
 
   worker->bytesSent = 0;
   worker->doing = NULL;
-  free(worker->table);
-  worker->table = calloc(NCHAR_TABLE, sizeof(int));
-  rc_ca = checkAllocationError(worker->table);
-  if (rc_ca < 0)
-    rc_t = END_WORK_FAILURE;
+  int i = 0;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    worker->table[i] = 0;
+  }
 
   return rc_t;
 }
 
-int readDirectives(char *lastPath, int *currentworker, char *path,
-                   int *newNWorker) {
+void *readDirectives(void *ptr) {
+  sharedResources_t *sharedRes = (sharedResources_t *)(ptr);
   // TODO choose max length for path
   // TODO ATTENZIONE mettere i byte terminatori nel manager
-  int rc_t = SUMMARY;
+  int rc_t = OK;
   char readBuffer[2] = "a";
+  char *newPath = malloc(MAXLEN * sizeof(char));
+  int rc_al = checkAllocationError(newPath);
+  if (rc_al < OK) {
+    rc_t = MALLOC_FAILURE;
+  }
   char nWorker[MAXLEN];
-
   int counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    path[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  path[counter] = '\0';
-  if (path[strlen(path) - 1] == '\n') {
-    path[strlen(path) - 1] = '\0';
-  }
 
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    nWorker[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  nWorker[counter] = '\0';
-  int rc_sc = sscanf(nWorker, "%d", newNWorker);
-  if (rc_sc == 0 || (*newNWorker == 9 && strcmp(nWorker, "9") != 0)) {
-    rc_t = CAST_FAILURE;
-  }
-
-  if (path[0] == '\0' || nWorker[0] == '\0') {
-    char *msgErr = (char *)malloc(300);
-    int rc_ca = checkAllocationError(msgErr);
-    if (rc_ca < 0) {
-      printError("I can't allocate memory");
-    } else {
-      sprintf(msgErr, "inisde worker with pid: %d", getpid());
-      printError(msgErr);
-      free(msgErr);
+  while (rc_t == OK) {
+    counter = 0;
+    do {
+      int rc = readChar(READ_CHANNEL, readBuffer);
+      newPath[counter++] = readBuffer[0];
+    } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+    newPath[counter] = '\0';
+    if (newPath[strlen(newPath) - 1] == '\n') {
+      newPath[strlen(newPath) - 1] = '\0';
     }
-  } else if (strcmp(lastPath, path) == 0 && *newNWorker == *currentworker) {
-    rc_t = SUMMARY;
-  } else if (rc_t == OK) {
-    rc_t = NEW_DIRECTIVES;
+
+    counter = 0;
+    do {
+      int rc = readChar(READ_CHANNEL, readBuffer);
+      nWorker[counter++] = readBuffer[0];
+    } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+    nWorker[counter] = '\0';
+
+    pthread_mutex_lock(&(sharedRes->mutex));
+    int rc_sc = sscanf(nWorker, "%d", &(sharedRes->directive->newNWorker));
+    if (rc_sc == 0 ||
+        (sharedRes->directive->newNWorker == 9 && strcmp(nWorker, "9") != 0)) {
+      rc_t = CAST_FAILURE;
+    }
+    strcpy(sharedRes->directive->path, newPath);
+
+    if (newPath[0] == '\0' || nWorker[0] == '\0') {
+      char *msgErr = (char *)malloc(300);
+      int rc_ca = checkAllocationError(msgErr);
+      if (rc_ca < 0) {
+        printError("I can't allocate memory");
+      } else {
+        sprintf(msgErr, "inisde worker with pid: %d", getpid());
+        printError(msgErr);
+        free(msgErr);
+      }
+    } else if (strcmp(sharedRes->directive->lastPath,
+                      sharedRes->directive->path) == 0 &&
+               sharedRes->directive->newNWorker ==
+                   sharedRes->directive->currentWorkers) {
+      sharedRes->directive->directiveStatus = SUMMARY;
+    } else if (rc_t == OK) {
+      sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
+    }
+    pthread_mutex_unlock(&(sharedRes->mutex));
+
+    // TODO fix sleep time
+    usleep(500000);
   }
 
-  return rc_t;
+  free(newPath);
+  // return rc_t;
 }
 
 int addDirectives(List tables, List todo, const char *path, const int nWorker) {
@@ -772,6 +931,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
       }
     }
   }
+  free(todoTmp);
 
   return rc_t;
 }
@@ -824,7 +984,7 @@ int sendSummary(List tables) {
         // TODO choose MAXLEN
         char msg[MAXLEN];
         int rc_sp;
-        rc_sp = sprintf(msg, "%d", t->table[j]);
+        rc_sp = sprintf(msg, "%lld", t->table[j]);
         if (rc_sp == -1)
           rc_t = CAST_FAILURE;
         else {
@@ -908,6 +1068,10 @@ int errorHandler(int errorCode) {
     break;
   case DEAD_PROCESS:
     printInfo("one or more workers are dead");
+    rc_t = OK;
+    break;
+  case START_NEW_MANAGER:
+    /* printInfo("manager created"); */
     rc_t = OK;
     break;
   default:
