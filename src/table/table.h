@@ -11,7 +11,7 @@
  */
 typedef struct structTable {
   char *name;
-  int *table;
+  long long *table;
 } * Table;
 
 /**

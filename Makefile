@@ -42,10 +42,10 @@ $(BIN_FOLDER)main.o: ./src/main.c \
 	./src/wrapping/wrapping.h
 	gcc $(FLAGS) -c ./src/main.c -o $(BIN_FOLDER)main.o
 
+.SILENT:
 help:
 	cat README
 
-.SILENT:
 build: $(BIN_FOLDER)main.o \
   $(BIN_FOLDER)analyzer.o \
   $(BIN_FOLDER)manager.o \
@@ -66,7 +66,7 @@ build: $(BIN_FOLDER)main.o \
     $(BIN_FOLDER)table.o \
     $(BIN_FOLDER)worker.o \
     $(BIN_FOLDER)wrapping.o
-	gcc $(FLAGS) $(FLAGS) -o $(BIN_FOLDER)manager \
+	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)manager \
 		$(BIN_FOLDER)manager.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)table.o \
