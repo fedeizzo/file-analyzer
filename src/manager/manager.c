@@ -653,6 +653,7 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   }
   // TODO ATTENTION
   swap(workers, newWorkers);
+  /* printError("new worker in execute work"); */
   free(newWorkers);
 
   return rc_t;
@@ -788,11 +789,10 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
 
   worker->bytesSent = 0;
   worker->doing = NULL;
-  free(worker->table);
-  worker->table = calloc(NCHAR_TABLE, sizeof(int));
-  rc_ca = checkAllocationError(worker->table);
-  if (rc_ca < 0)
-    rc_t = END_WORK_FAILURE;
+  int i = 0;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    worker->table[i] = 0;
+  }
 
   return rc_t;
 }
