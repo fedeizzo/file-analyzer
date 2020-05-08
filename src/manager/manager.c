@@ -99,6 +99,13 @@ void destroyDirective(Directive directive) {
   free(directive);
 }
 
+void kebab(void *data) {
+  Work work = (Work)data;
+  printf("path : %s\n", work->path);
+  printf("start: %d\n", work->bufferStart);
+  printf("end  : %d\n\n", work->bufferEnd);
+}
+
 /**
  * Initializes manager
  *
@@ -425,6 +432,7 @@ void *workLoop(void *ptr) {
         rc_nd = addDirectives(sharedRes->tables, sharedRes->todo,
                               sharedRes->directive->path,
                               sharedRes->directive->currentWorkers);
+        printList(sharedRes->todo, kebab);
       } else if (strcmp(sharedRes->directive->lastPath,
                         sharedRes->directive->path) != 0) {
         // TODO check where to assign path to lastpath
@@ -679,7 +687,7 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
   int rc_t = OK;
   int readFromWorker = w->pipe[READ_CHANNEL];
   int bytesSent = w->bytesSent;
-  char charSent[w->workAmount];
+  char *charSent = malloc(w->workAmount * sizeof(char));
 
   if (bytesSent == w->workAmount) {
     int rc_rd = readDescriptor(readFromWorker, charSent, 5);
@@ -707,11 +715,11 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
       for (i = 0; i < rc_rd; i++) {
         int charCode = charSent[i];
         w->table[charCode] += 1;
-        printf("%c -> %lld\n", i, w->table[charCode]);
         w->bytesSent++;
       }
     }
   }
+  free(charSent);
   return rc_t;
 }
 
@@ -936,6 +944,7 @@ int sendSummary(List tables) {
   int rc_po = OK;
   int rc_pu = OK;
   int tablesSize = tables->size;
+  int acc = 0;
 
   List newTables = newList();
   int i = 0;
@@ -956,11 +965,13 @@ int sendSummary(List tables) {
         if (rc_sp == -1)
           rc_t = CAST_FAILURE;
         else {
-          int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
-          if (rc_wr == -1)
-            rc_t = SUMMARY_FAILURE;
+          /* int rc_wr = writeDescriptor(WRITE_CHANNEL, msg); */
+          /* if (rc_wr == -1) */
+          /*   rc_t = SUMMARY_FAILURE; */
+          acc += t->table[j];
         }
       }
+      printf("conteggio %d\n", acc);
     }
   }
   // TODO ATTENTION
