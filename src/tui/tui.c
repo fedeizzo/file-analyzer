@@ -83,6 +83,7 @@ Screen newScreen(int width, int heigth) {
 
   return screen;
 }
+
 void destroyScreen(Screen screen) {
   int i = 0;
   for (i = 0; i < screen->cols; i++) {
@@ -293,6 +294,7 @@ void draw(Screen screen) {
   fflush(stdout);
 }
 
+// TODO write command in tui.h if we use it
 int checkCommand(char *cmd) {
   int rc_t;
   if (strcmp(cmd, "tree") == 0) {
@@ -314,6 +316,7 @@ int checkCommand(char *cmd) {
   return rc_t;
 }
 
+// TODO write command in tui.h if we use it
 int checkFile(char *path) {
   // TODO choose if we use this
   int rc_t;
@@ -408,6 +411,16 @@ void drawInputLine(Screen screen) {
   for (i = 9; i < screen->cols - 1; i++) {
     printf("%c", screen->grid[i][1]);
   }
+  /* moveCursor(3, 6); */
+  /* for (i = 2; i < 18; i++) { */
+  /*   printf("%c", screen->grid[i][5]); */
+  /* } */
+  int c, r;
+  for (r = 5; r < screen->rows - 1; r++) {
+    moveCursor(3, r + 1);
+    for (c = 2; c < 18; c++)
+      printf("%c", screen->grid[c][r]);
+  }
   fflush(stdout);
 }
 
@@ -475,12 +488,14 @@ void *inputLoop(void *ptr) {
     rc_t = MALLOC_FAILURE;
 
   pthread_mutex_lock(&(p->mutex));
-  int counter = 9;
-  p->screen->grid[counter][1] = '|';
+  int column = 9;
+  int row = 1;
+  p->screen->grid[column][1] = '|';
   pthread_mutex_unlock(&(p->mutex));
 
   char key;
   char lastKey;
+  int treeMode = 0;
   while (rc_t == OK) {
     key = EOF;
     pthread_mutex_lock(&(p->mutex));
@@ -489,7 +504,7 @@ void *inputLoop(void *ptr) {
 
     pthread_mutex_lock(&(p->mutex));
     key = getkey();
-    if ((key > 31 && key <= 127) || key == 10) {
+    if ((key > 31 && key <= 127) || key == 10 || key == 27) {
       if (key == 10) {
         int i;
         int cmdCounter = 0;
@@ -506,42 +521,76 @@ void *inputLoop(void *ptr) {
         if (strncmp(cmd, "maiuscole ", 9) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 1;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "minuscole ", 9) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 2;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "punteg. ", 7) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 3;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "cifre ", 5) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 4;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "tutto ", 5) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 5;
+          row = 1;
+          column = 9;
+        } else if (strncmp(cmd, "tree ", 4) == 0) {
+          writeScreen(p->screen, "tree:  press esc to return in input mode", 2,
+                      1);
+          row = 5;
+          column = 2;
+          treeMode = 1;
         } else if (strncmp(cmd, "quit ", 4) == 0) {
           clear();
           exit(0);
         } else if (strncmp(cmd, "n ", 1) == 0) {
           writeScreen(p->screen, "n    : ", 2, 1);
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "m ", 1) == 0) {
           writeScreen(p->screen, "m    : ", 2, 1);
+          row = 1;
+          column = 9;
         }
         free(cmd);
 
-        counter = 9;
-        p->screen->grid[counter][1] = '|';
+        p->screen->grid[column][row] = '|';
+      } else if (key == 27) {
+        if (treeMode) {
+          int i;
+          for (i = 2; i < 18; i++) {
+            p->screen->grid[i][row] = ' ';
+          }
+          row = 1;
+          column = 9;
+          treeMode = 0;
+          writeScreen(p->screen, "input: ", 2, 1);
+          for (i = 9; i < p->screen->cols - 1; i++) {
+            p->screen->grid[i][row] = ' ';
+          }
+        }
       } else if (key == 127) {
-        if (counter > 9) {
-          p->screen->grid[counter--][1] = ' ';
-          p->screen->grid[counter][1] = '|';
+        if ((column > 9 && !treeMode) || (treeMode && column > 2)) {
+          p->screen->grid[column--][row] = ' ';
+          p->screen->grid[column][row] = '|';
         }
       } else if (key == '[' || key == ']') {
         lastKey = key;
       } else if (!((key == 65 || key == 66 || key == 67 || key == 68) &&
                    lastKey == '[')) {
-        if (counter < p->screen->cols - 2) {
-          p->screen->grid[counter++][1] = key;
-          p->screen->grid[counter][1] = '|';
+        if ((column < p->screen->cols - 2 && !treeMode) ||
+            (treeMode && column < 18)) {
+          p->screen->grid[column++][row] = key;
+          p->screen->grid[column][row] = '|';
         }
       }
       drawInputLine(p->screen);
@@ -697,7 +746,7 @@ int main(int argc, char **argv) {
       free(heigth);
       destroyScreen(screen);
     } else {
-      printf("\033[41m \033[m\n");
+      printf("\033[43m \033[m\n");
     }
   } else {
     printError("Bad usage or malformed option");
