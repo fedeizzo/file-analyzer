@@ -8,15 +8,36 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../list/list.h"
+#include "../wrapping/wrapping.h"
 #include "tui.h"
+
+#define FANCY_MODE 1
+#define NORMAL_MODE 0
 
 #define WRITE 1
 #define READ 0
 
+#define OK 0
+#define CAST_FAILURE -3
+#define HELP_PRINT -4
+#define DOUBLE_OPTION_FAILURE -5
+#define PIPE_FAILURE -6
+#define GET_SIZE_FAILURE -7
+#define PRINT_LOG_FAILURE -8
+#define GRAPHIC_LOOP_FAILURE -9
+#define INPUT_LOOP_FAILURE -10
+
 #define HOR_TABLE '-'
 #define VER_TABLE '|'
 
-char command[300] = "tutto";
+const char *helpMsg =
+    "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
+    "OPTIONS:\n"
+    "\t-h, --help        : print this message\n"
+    "\t-n, --number     : specify the managers amount\n"
+    "\t-m, --mumber      : specify the workers amount\n"
+    "\t-f,,--normal-mode : normal mode without fancy graphic\n";
 
 /* Use this variable to remember original terminal attributes. */
 
@@ -50,24 +71,23 @@ void set_input_mode(void) {
 
 Screen newScreen(int width, int heigth) {
   Screen screen = malloc(sizeof(struct ScreenStr));
+  // TODO make better control
   screen->rows = heigth;
   screen->cols = width;
   screen->grid = malloc(screen->cols * sizeof(char *));
-  screen->updateGrid = malloc(screen->cols * sizeof(char *));
   screen->cmd = 5;
   int i = 0;
   for (i = 0; i < screen->cols; i++) {
     screen->grid[i] = malloc(heigth * sizeof(char));
-    screen->updateGrid[i] = malloc(heigth * sizeof(char));
   }
 
   return screen;
 }
+
 void destroyScreen(Screen screen) {
   int i = 0;
   for (i = 0; i < screen->cols; i++) {
     free(screen->grid[i]);
-    free(screen->updateGrid[i]);
   }
 
   free(screen->grid);
@@ -75,45 +95,77 @@ void destroyScreen(Screen screen) {
 }
 
 int getWidth(int *width) {
+  int rc_t = OK;
   int fd[2];
-  pipe(fd);
-  int f = fork();
-  if (f > 0) {
-    close(fd[WRITE]);
-    char *dst = malloc(300 * sizeof(char));
-    read(fd[READ], dst, 300);
-    sscanf(dst, "%d", width);
-    wait(NULL);
-    close(fd[READ]);
-    free(dst);
+  int rc_pi = createUnidirPipe(fd);
+  if (rc_pi == OK) {
+    int f = fork();
+    if (f > 0) {
+      int rc_cl, rc_cl2, rc_al, rc_re, rc_ss;
+      rc_cl = closeDescriptor(fd[WRITE]);
+      char *dst = malloc(300 * sizeof(char));
+      rc_al = checkAllocationError(dst);
+      if (rc_al == OK) {
+        rc_re = readDescriptor(fd[READ], dst, 300);
+        rc_ss = sscanf(dst, "%d", width);
+        wait(NULL);
+        rc_cl2 = closeDescriptor(fd[READ]);
+        free(dst);
+        if (rc_cl < OK || rc_cl2 < OK || rc_re < OK || rc_ss == 0)
+          rc_t = GET_SIZE_FAILURE;
+      } else {
+        rc_t = MALLOC_FAILURE;
+      }
+    } else {
+      int rc_cl, rc_cl2, rc_du;
+      rc_cl = closeDescriptor(fd[READ]);
+      rc_du = createDup(fd[WRITE], 1);
+      rc_cl2 = close(fd[WRITE]);
+      if (rc_cl < OK || rc_cl2 < OK || rc_du < OK)
+        rc_t = GET_SIZE_FAILURE;
+      execlp("tput", "tput", "cols", NULL);
+    }
   } else {
-    close(fd[READ]);
-    dup2(fd[WRITE], 1);
-    close(fd[WRITE]);
-    execlp("tput", "tput", "cols", NULL);
+    rc_t = PIPE_FAILURE;
   }
-  return 0;
+  return rc_t;
 }
 
 int getHeigth(int *heigth) {
+  int rc_t = OK;
   int fd[2];
-  pipe(fd);
-  int f = fork();
-  if (f > 0) {
-    close(fd[WRITE]);
-    char *dst = malloc(300 * sizeof(char));
-    read(fd[READ], dst, 300);
-    sscanf(dst, "%d", heigth);
-    wait(NULL);
-    close(fd[READ]);
-    free(dst);
+  int rc_pi = createUnidirPipe(fd);
+  if (rc_pi == OK) {
+    int f = fork();
+    if (f > 0) {
+      int rc_cl, rc_cl2, rc_al, rc_re, rc_ss;
+      rc_cl = closeDescriptor(fd[WRITE]);
+      char *dst = malloc(300 * sizeof(char));
+      rc_al = checkAllocationError(dst);
+      if (rc_al == OK) {
+        rc_re = readDescriptor(fd[READ], dst, 300);
+        rc_ss = sscanf(dst, "%d", heigth);
+        wait(NULL);
+        rc_cl2 = closeDescriptor(fd[READ]);
+        free(dst);
+        if (rc_cl < OK || rc_cl2 < OK || rc_re < OK || rc_ss == 0)
+          rc_t = GET_SIZE_FAILURE;
+      } else {
+        rc_t = MALLOC_FAILURE;
+      }
+    } else {
+      int rc_cl, rc_cl2, rc_du;
+      rc_cl = closeDescriptor(fd[READ]);
+      rc_du = createDup(fd[WRITE], 1);
+      rc_cl2 = close(fd[WRITE]);
+      if (rc_cl < OK || rc_cl2 < OK || rc_du < OK)
+        rc_t = GET_SIZE_FAILURE;
+      execlp("tput", "tput", "lines", NULL);
+    }
   } else {
-    close(fd[READ]);
-    dup2(fd[WRITE], 1);
-    close(fd[WRITE]);
-    execlp("tput", "tput", "lines", NULL);
+    rc_t = PIPE_FAILURE;
   }
-  return 0;
+  return rc_t;
 }
 
 void clear() { printf("\033[2J"); }
@@ -127,14 +179,10 @@ void writeScreen(Screen screen, char *str, int x, int y) {
     i++;
   }
 }
-void writeUpdateScreen(Screen screen, char *str, int x, int y) {
-  int i = 0;
-  while (str[i] != '\0') {
-    screen->updateGrid[x + i][y] = str[i];
-    i++;
-  }
-}
-void insertBorder(Screen screen) {
+
+int insertBorder(Screen screen) {
+  int rc_t = OK;
+
   int i = 0;
   int c = 0;
   int r = 0;
@@ -161,17 +209,24 @@ void insertBorder(Screen screen) {
   int col = 21;
   int row = 7;
   char *msg = malloc(300 * sizeof(char));
-  writeScreen(screen, "|char|cont|", 21, 6);
-  for (i = 33; i < 127; i++) {
-    sprintf(msg, "|    |    |");
-    writeScreen(screen, msg, col, row++);
-    if (row >= screen->rows - 5) {
-      row = 7;
-      col += 11;
-      writeScreen(screen, "|char|cont|", col, 6);
+  int rc_al = checkAllocationError(msg);
+  if (rc_al == OK) {
+    writeScreen(screen, "  | cont   ", 21, 6);
+    for (i = 33; i < 127; i++) {
+      sprintf(msg, "  |        ");
+      writeScreen(screen, msg, col, row++);
+      if (row >= screen->rows - 5) {
+        row = 7;
+        col += 11;
+        writeScreen(screen, "  | cont   ", col, 6);
+      }
     }
+    free(msg);
+  } else {
+    rc_t = MALLOC_FAILURE;
   }
-  free(msg);
+
+  return rc_t;
 }
 
 void writeScreenError(char *str) {
@@ -184,11 +239,17 @@ void writeScreenLog(int heigth, char *str) {
   printf("\033[33m %s\033[m", str);
 }
 
-void printLog(Screen screen, int fd) {
+int printLog(Screen screen, int fd) {
   char dst[300];
-  read(fd, dst, 300);
-  writeScreen(screen, dst, 21, screen->rows - 3);
+  int rc_rd = readDescriptor(fd, dst, 300);
+  if (rc_rd == OK)
+    writeScreen(screen, dst, 21, screen->rows - 3);
+  else {
+    rc_rd = PRINT_LOG_FAILURE;
+  }
+  return rc_rd;
 }
+
 int commandFilter(const int cmd, const int counter) {
   int rc_t = -1;
   if (cmd == 1) {
@@ -214,23 +275,13 @@ int commandFilter(const int cmd, const int counter) {
   return rc_t;
 }
 
-Point draw(Screen screen) {
+void draw(Screen screen) {
   int c = 0;
   int r = 0;
-  Point lastCharWritten;
-  lastCharWritten.y = 2;
-  lastCharWritten.x = 3;
   clear();
   moveCursor(0, 0);
   for (r = 0; r < screen->rows; r++) {
     for (c = 0; c < screen->cols; c++) {
-      /* if (screen->grid[c][r] - screen->updateGrid[c][r] != 0) { */
-      /*   if (r == 1) */
-      /*     lastCharWritten.x = lastCharWritten.x + 1; */
-      /*   moveCursor(c + 1, r + 1); */
-      /*   printf("%c", screen->grid[c][r]); */
-      /*   screen->grid[c][r] = screen->updateGrid[c][r]; */
-      /* } */
       if (r == screen->rows - 4 && c >= 21 && c <= 30) {
         printf("\033[33m%c\033[m", screen->grid[c][r]);
       } else if (r == 1 && c >= 2 && c <= 8) {
@@ -238,31 +289,12 @@ Point draw(Screen screen) {
       } else {
         printf("%c", screen->grid[c][r]);
       }
-      /* screen->grid[c][r] = screen->updateGrid[c][r]; */
     }
   }
   fflush(stdout);
-  return lastCharWritten;
 }
 
-int getXPosAfterDraw(Screen screen) {
-  int i = 2;
-  /* while (screen->grid[i][3] != ' ') { */
-  /*   i++; */
-  /* } */
-  return i;
-}
-
-void updateGrids(Screen screen) {
-  int c = 0;
-  int r = 0;
-  for (r = 0; r < screen->rows; r++) {
-    for (c = 0; c < screen->cols; c++) {
-      screen->updateGrid[c][r] = screen->grid[c][r];
-    }
-  }
-}
-
+// TODO write command in tui.h if we use it
 int checkCommand(char *cmd) {
   int rc_t;
   if (strcmp(cmd, "tree") == 0) {
@@ -284,7 +316,9 @@ int checkCommand(char *cmd) {
   return rc_t;
 }
 
+// TODO write command in tui.h if we use it
 int checkFile(char *path) {
+  // TODO choose if we use this
   int rc_t;
   int fd = open(path, O_RDONLY);
   if (fd != -1) {
@@ -318,59 +352,54 @@ int getkey() {
 
   return character;
 }
+
+int initScreen(Screen screen) {
+  int rc_t = insertBorder(screen);
+  if (rc_t == OK) {
+    writeScreen(screen, "input: ", 2, 1);
+    writeScreen(screen,
+                " comandi: quit, n, m, tree, maiuscole, minuscole, punteg., "
+                "cifre, tutto",
+                1, 3);
+    writeScreen(screen, " mode: ", 1, 7);
+    /* writeScreen(p->screen, command, 7, 7); */
+    writeScreen(screen, " home ", 1, 8);
+    writeScreen(screen, " > documents ", 1, 9);
+    writeScreen(screen, "  > file.txt ", 1, 10);
+    writeScreen(screen, "  > file2.txt ", 1, 11);
+    draw(screen);
+    writeScreen(screen, "LOG/ERROR", 21, screen->rows - 4);
+  }
+
+  return rc_t;
+}
+
 void *graphicsLoop(void *ptr) {
   screenMutex_t *p = (screenMutex_t *)(ptr);
+  int rc_t = OK;
+  int rc_pi, rc_du, rc_in;
   int rc_commandCheck = 0;
   int rc_fileCheck = 0;
   int fd[2];
-  pipe(fd);
-  dup2(fd[1], 2);
+
+  // TODO add support for this log
+  rc_pi = createUnidirPipe(fd);
+  if (rc_pi == OK)
+    rc_du = dup2(fd[1], 2);
 
   clear();
 
   pthread_mutex_lock(&(p->mutex));
-  insertBorder(p->screen);
-  writeScreen(p->screen, "input: ", 2, 1);
-  writeScreen(
-      p->screen,
-      " comandi: quit, n, m, tree, maiuscole, minuscole, punteg., cifre, tutto",
-      1, 3);
-  writeScreen(p->screen, " mode: ", 1, 7);
-  writeScreen(p->screen, command, 7, 7);
-  writeScreen(p->screen, " home ", 1, 8);
-  writeScreen(p->screen, " > documents ", 1, 9);
-  writeScreen(p->screen, "  > file.txt ", 1, 10);
-  writeScreen(p->screen, "  > file2.txt ", 1, 11);
-  draw(p->screen);
-  writeScreen(p->screen, "LOG/ERROR", 21, p->screen->rows - 4);
+  rc_in = initScreen(p->screen);
   pthread_mutex_unlock(&(p->mutex));
   moveCursor(3, 2);
-  Point lastWritten;
 
   int counter = 0;
-  while (strcmp(command, "quit") != 0) {
-    /* scanf("%s", command); */
-    /* rc_commandCheck = checkCommand(command); */
-    /* rc_fileCheck = checkFile(command); */
-    /* if (rc_commandCheck == 0) { */
-    /*   pthread_mutex_lock(&(p->mutex)); */
-    /*   writeScreen(p->screen, command, 7, 7); */
-    /*   pthread_mutex_unlock(&(p->mutex)); */
-    /* } */
-
+  if (rc_pi < OK || rc_du < OK || rc_in < OK)
+    rc_t = GRAPHIC_LOOP_FAILURE;
+  while (rc_t == OK) {
     pthread_mutex_lock(&(p->mutex));
-    lastWritten = draw(p->screen);
-    /* writeScreenLog(p->screen->rows, "LOG/ERROR"); */
-    /* fprintf(stderr, "INFO: tuo figlio si e' suicidato %d", counter++); */
-    /* printLog(p->screen, fd[0]); */
-    /* if (rc_commandCheck != 0 && rc_fileCheck != 0) */
-    /*   writeScreenError("Inserisci un comando o percorso valido"); */
-    /* int xPos = getXPosAfterDraw(p->screen); */
-    /* if (strcmp(command, "tree") == 0) */
-    /*   moveCursor(3, 6); */
-    /* else */
-    /*   moveCursor(xPos, 2); */
-    /* moveCursor(lastWritten.x, 2); */
+    draw(p->screen);
     pthread_mutex_unlock(&(p->mutex));
     usleep(1000000);
   }
@@ -382,59 +411,100 @@ void drawInputLine(Screen screen) {
   for (i = 9; i < screen->cols - 1; i++) {
     printf("%c", screen->grid[i][1]);
   }
+  /* moveCursor(3, 6); */
+  /* for (i = 2; i < 18; i++) { */
+  /*   printf("%c", screen->grid[i][5]); */
+  /* } */
+  int c, r;
+  for (r = 5; r < screen->rows - 1; r++) {
+    moveCursor(3, r + 1);
+    for (c = 2; c < 18; c++)
+      printf("%c", screen->grid[c][r]);
+  }
   fflush(stdout);
+}
+
+void updateTable(Screen screen) {
+  int rc_t = OK;
+  char *msg = malloc(300 * sizeof(char));
+
+  int rc_al = checkAllocationError(msg);
+  if (rc_al < OK)
+    rc_t = MALLOC_FAILURE;
+
+  int i = 0;
+  int col = 22;
+  int row = 7;
+  for (i = 33; i < 127; i++) {
+    if (commandFilter(screen->cmd, i) != 0) {
+      sprintf(msg, " ");
+      writeScreen(screen, msg, col, row);
+      sprintf(msg, "         ");
+      writeScreen(screen, msg, col + 2, row++);
+    } else {
+      int rndChoose = rand() % 2;
+      int rnd;
+      if (rndChoose == 0)
+        rnd = rand() % 1000;
+      else
+        rnd = rand() % 100;
+      sprintf(msg, "%c", i);
+      writeScreen(screen, msg, col, row);
+      sprintf(msg, "%d", rnd);
+      if (rnd >= 1000000)
+        writeScreen(screen, msg, col + 2, row++);
+      else
+        writeScreen(screen, msg, col + 3, row++);
+    }
+    if (row >= screen->rows - 5) {
+      row = 7;
+      col += 11;
+    }
+  }
+  free(msg);
 }
 
 void *inputLoop(void *ptr) {
   screenMutex_t *p = (screenMutex_t *)(ptr);
+  int rc_t = OK;
+  int rc_al, rc_al2, rc_al3, rc_al4, rc_si, rc_si2, rc_in = OK;
   int *oldWidth = malloc(sizeof(int));
+  rc_al = checkAllocationError(oldWidth);
   int *oldHeigth = malloc(sizeof(int));
+  rc_al2 = checkAllocationError(oldHeigth);
 
   int *width = malloc(sizeof(int));
+  rc_al3 = checkAllocationError(width);
   int *heigth = malloc(sizeof(int));
-  getHeigth(heigth);
-  getWidth(width);
-  *oldHeigth = *heigth;
-  *oldWidth = *width;
+  rc_al4 = checkAllocationError(heigth);
+  if (rc_al == OK && rc_al2 == OK && rc_al3 == OK && rc_al4 == OK) {
+    rc_si = getHeigth(heigth);
+    rc_si2 = getWidth(width);
+    *oldHeigth = *heigth;
+    *oldWidth = *width;
+    if (rc_si < OK || rc_si2 < OK)
+      rc_t = GET_SIZE_FAILURE;
+  } else
+    rc_t = MALLOC_FAILURE;
 
-  char *msg = malloc(300 * sizeof(char));
   pthread_mutex_lock(&(p->mutex));
-  int counter = 9;
-  p->screen->grid[counter][1] = '|';
+  int column = 9;
+  int row = 1;
+  p->screen->grid[column][1] = '|';
   pthread_mutex_unlock(&(p->mutex));
+
   char key;
   char lastKey;
-  while (strcmp(command, "quit") != 0) {
+  int treeMode = 0;
+  while (rc_t == OK) {
     key = EOF;
-    getHeigth(heigth);
-    getWidth(width);
     pthread_mutex_lock(&(p->mutex));
-    updateGrids(p->screen);
-    int i = 0;
-    int col = 22;
-    int row = 7;
-    for (i = 33; i < 127; i++) {
-      if (commandFilter(p->screen->cmd, i) != 0) {
-        sprintf(msg, "    ");
-        writeScreen(p->screen, msg, col, row);
-        sprintf(msg, "    ");
-        writeScreen(p->screen, msg, col + 5, row++);
-      } else {
-        sprintf(msg, "%c", i);
-        writeScreen(p->screen, msg, col, row);
-        sprintf(msg, "%d", rand() % 100);
-        writeScreen(p->screen, msg, col + 5, row++);
-      }
-      if (row >= p->screen->rows - 5) {
-        row = 7;
-        col += 11;
-      }
-    }
+    updateTable(p->screen);
     pthread_mutex_unlock(&(p->mutex));
 
     pthread_mutex_lock(&(p->mutex));
     key = getkey();
-    if ((key > 31 && key <= 127) || key == 10) {
+    if ((key > 31 && key <= 127) || key == 10 || key == 27) {
       if (key == 10) {
         int i;
         int cmdCounter = 0;
@@ -451,112 +521,236 @@ void *inputLoop(void *ptr) {
         if (strncmp(cmd, "maiuscole ", 9) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 1;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "minuscole ", 9) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 2;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "punteg. ", 7) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 3;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "cifre ", 5) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 4;
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "tutto ", 5) == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 5;
+          row = 1;
+          column = 9;
+        } else if (strncmp(cmd, "tree ", 4) == 0) {
+          writeScreen(p->screen, "tree:  press esc to return in input mode", 2,
+                      1);
+          row = 5;
+          column = 2;
+          treeMode = 1;
         } else if (strncmp(cmd, "quit ", 4) == 0) {
           clear();
           exit(0);
         } else if (strncmp(cmd, "n ", 1) == 0) {
           writeScreen(p->screen, "n    : ", 2, 1);
+          row = 1;
+          column = 9;
         } else if (strncmp(cmd, "m ", 1) == 0) {
           writeScreen(p->screen, "m    : ", 2, 1);
+          row = 1;
+          column = 9;
         }
         free(cmd);
 
-        counter = 9;
-        p->screen->grid[counter][1] = '|';
+        p->screen->grid[column][row] = '|';
+      } else if (key == 27) {
+        if (treeMode) {
+          int i;
+          for (i = 2; i < 18; i++) {
+            p->screen->grid[i][row] = ' ';
+          }
+          row = 1;
+          column = 9;
+          treeMode = 0;
+          writeScreen(p->screen, "input: ", 2, 1);
+          for (i = 9; i < p->screen->cols - 1; i++) {
+            p->screen->grid[i][row] = ' ';
+          }
+        }
       } else if (key == 127) {
-        if (counter > 9) {
-          p->screen->grid[counter--][1] = ' ';
-          p->screen->grid[counter][1] = '|';
+        if ((column > 9 && !treeMode) || (treeMode && column > 2)) {
+          p->screen->grid[column--][row] = ' ';
+          p->screen->grid[column][row] = '|';
         }
       } else if (key == '[' || key == ']') {
         lastKey = key;
       } else if (!((key == 65 || key == 66 || key == 67 || key == 68) &&
                    lastKey == '[')) {
-        if (counter < p->screen->cols - 2) {
-          p->screen->grid[counter++][1] = key;
-          p->screen->grid[counter][1] = '|';
+        if ((column < p->screen->cols - 2 && !treeMode) ||
+            (treeMode && column < 18)) {
+          p->screen->grid[column++][row] = key;
+          p->screen->grid[column][row] = '|';
         }
       }
       drawInputLine(p->screen);
       lastKey = key;
     }
     pthread_mutex_unlock(&(p->mutex));
-    /* if (*oldHeigth != *heigth || *oldWidth != *width) { */
-    /*   pthread_mutex_lock(&(p->mutex)); */
-    /*   destroyScreen(p->screen); */
-    /*   p->screen = newScreen(*width, *heigth); */
-    /*   clear(); */
-    /*   pthread_mutex_unlock(&(p->mutex)); */
-    /*   *oldHeigth = *heigth; */
-    /*   *oldWidth = *width; */
-    /* } */
-    /* sleep(0); */
+
+    rc_si = getHeigth(heigth);
+    rc_si2 = getWidth(width);
+    if (rc_si < OK || rc_si2 < OK)
+      rc_t = GET_SIZE_FAILURE;
+    if ((*oldHeigth != *heigth || *oldWidth != *width) && rc_t == OK) {
+      pthread_mutex_lock(&(p->mutex));
+      while ((*heigth < 28 || *width < 87) && rc_t == OK) {
+        clear();
+        printf(
+            "window dimension is to small, please increase window size or "
+            "luanch programma with -f option to use without fancy graphic at "
+            "any size\n");
+        rc_si = getHeigth(heigth);
+        rc_si2 = getWidth(width);
+        if (rc_si < OK || rc_si2 < OK)
+          rc_t = GET_SIZE_FAILURE;
+        sleep(1);
+      }
+      if (rc_t == OK) {
+        destroyScreen(p->screen);
+        p->screen = newScreen(*width, *heigth);
+        clear();
+        rc_in = initScreen(p->screen);
+        pthread_mutex_unlock(&(p->mutex));
+
+        *oldHeigth = *heigth;
+        *oldWidth = *width;
+      }
+    }
+    if (rc_t < OK || rc_in < OK || rc_si < OK || rc_si2 < OK)
+      rc_t = INPUT_LOOP_FAILURE;
     usleep(50000);
   }
-  free(msg);
+}
+
+int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
+                   int *mode) {
+  int rc_t;
+
+  int i;
+  int flagged[3] = {0, 0, 0};
+  for (i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+      printf("%s\n", helpMsg);
+      rc_t = HELP_PRINT;
+    } else if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--number") == 0) {
+      if (!flagged[0]) {
+        int rc_ca = sscanf(argv[++i], "%d", n);
+        if (rc_ca == 0) {
+          rc_t = CAST_FAILURE;
+        }
+        flagged[0] = 1;
+      } else {
+        printError("double n option is not allowed");
+        rc_t = DOUBLE_OPTION_FAILURE;
+      }
+    } else if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--mumber") == 0) {
+      if (!flagged[1]) {
+        int rc_ca = sscanf(argv[++i], "%d", m);
+        if (rc_ca == 0) {
+          rc_t = CAST_FAILURE;
+        }
+        flagged[1] = 1;
+      } else {
+        printError("double m option is not allowed");
+        rc_t = DOUBLE_OPTION_FAILURE;
+      }
+    } else if (strcmp(argv[i], "-f") == 0 ||
+               strcmp(argv[i], "--normal-mode") == 0) {
+      if (!flagged[2]) {
+        *mode = NORMAL_MODE;
+        flagged[2] = 1;
+      } else {
+        printError("double f option is not allowed");
+        rc_t = DOUBLE_OPTION_FAILURE;
+      }
+    } else {
+      // TODO find a way to handle files before options
+      int rc_pu = push(args, (void *)argv[i]);
+      if (rc_pu < OK) {
+        rc_t = MALLOC_FAILURE;
+      }
+    }
+  }
+  return rc_t;
+}
+
+void cannelloni(void *data) {
+  char *str = (char *)data;
+  printf("%s\n", str);
 }
 
 int main(int argc, char **argv) {
-  pthread_t graphics, input;
-  int iret1, iret2;
-  set_input_mode();
-  screenMutex_t screen_mutex;
-  int *width = malloc(sizeof(int));
-  int *heigth = malloc(sizeof(int));
+  int rc_t = OK;
+  int n = 3;
+  int m = 4;
+  int mode = FANCY_MODE;
+  List args = newList();
+  if (args == NULL)
+    rc_t = MALLOC_FAILURE;
 
-  getHeigth(heigth);
-  getWidth(width);
-  pthread_mutex_init(&screen_mutex.mutex, NULL);
+  int rc_opt = optionsHandler(args, argc, argv, &n, &m, &mode);
+  rc_t = rc_opt;
 
-  Screen screen = newScreen(*width, *heigth);
+  if (rc_t == OK) {
+    printf("inizio il programma con n=%d e m=%d\n", n, m);
+    printList(args, cannelloni);
+    int *width = malloc(sizeof(int));
+    int *heigth = malloc(sizeof(int));
 
-  screen_mutex.screen = screen;
+    getHeigth(heigth);
+    getWidth(width);
+    if (*heigth < 28 || *width < 87) {
+      printf(
+          "For a better user experience we suggest you to increase the size of "
+          "the terminal window. We develped a fancy graphics with a better "
+          "UI\n");
+      sleep(2);
+      mode = NORMAL_MODE;
+    }
+    if (mode == FANCY_MODE) {
+      pthread_t graphics, input;
+      int iret1, iret2;
+      set_input_mode();
+      screenMutex_t screen_mutex;
+      pthread_mutex_init(&screen_mutex.mutex, NULL);
 
-  iret1 = pthread_create(&graphics, NULL, graphicsLoop, (void *)&screen_mutex);
-  iret2 = pthread_create(&input, NULL, inputLoop, (void *)&screen_mutex);
+      Screen screen = newScreen(*width, *heigth);
 
-  pthread_join(graphics, NULL);
-  pthread_join(input, NULL);
-  clear();
+      screen_mutex.screen = screen;
 
-  // CASI LIMITE
-  // 87 28
-  fflush(stdout);
-  clear();
+      iret1 =
+          pthread_create(&graphics, NULL, graphicsLoop, (void *)&screen_mutex);
+      iret2 = pthread_create(&input, NULL, inputLoop, (void *)&screen_mutex);
 
-  free(width);
-  free(heigth);
-  destroyScreen(screen);
+      pthread_join(graphics, NULL);
+      pthread_join(input, NULL);
+      clear();
 
-  /* int key; */
+      // CASI LIMITE
+      // 87 28
+      fflush(stdout);
+      clear();
 
-  /* /1* initialize the random number generator *1/ */
-  /* srand(time(NULL)); */
-
-  /* for (;;) { */
-  /*   key = getkey(); */
-  /*   /1* terminate loop on ESC (0x1B) or Ctrl-D (0x04) on STDIN *1/ */
-  /*   if (key == 0x61) { */
-  /*     printf("%c", key); */
-  /*     /1* break; *1/ */
-  /*   } else { */
-  /*     /1* print random ASCII character between 0x20 - 0x7F *1/ */
-  /*     key = (rand() % 0x7F); */
-  /*     /1* printf("%c", ((key < 0x20) ? (key + 0x20) : key)); *1/ */
-  /*   } */
-  /* } */
-
-  return 0;
+      free(width);
+      free(heigth);
+      destroyScreen(screen);
+    } else {
+      printf("\033[43m \033[m\n");
+    }
+  } else {
+    printError("Bad usage or malformed option");
+    printf("%s\n", helpMsg);
+  }
+  return rc_t;
 }
