@@ -3,8 +3,10 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include "../wrapping/wrapping.h"
 
 #define MALLOC_FAILURE -2
+#define UNEXPECTED_LIST_ERROR -3 //This error should never but expected but it's handled anyway
 #define NOT_EMPTY 0
 #define EMPTY -1
 #define SUCCESS 0
@@ -29,8 +31,8 @@ typedef struct Node {
  *
  * fields:
  *    int size: the size of the list
- *    Node *head: the head of the list
- *    Ndoe *tail: the tail of the list
+ *    Node head: the head of the list
+ *    Ndoe tail: the tail of the list
  */
 typedef struct List{
 	int size;
@@ -67,7 +69,7 @@ int isEmptyList(const List list);
 int enqueue(List list, void *data);
 
 /*
- * Adds element in tail position
+ * Adds element in head position
  *
  * args:
  *    List list: the list in which insert the element
@@ -96,11 +98,9 @@ void printList(const List list, void toString(void *));
  */
 void destroyAllNode(List list, void deleteData(void *));
 
+
 /**
- * Dequeue an element
- */
-/**
- * Removes an element from head
+ * Removes an element from tail
  *
  * args:
  *    List list: the list from which element is removed
@@ -114,10 +114,10 @@ int dequeue(List list);
  * Returns the element in head position
  *
  * args:
- *    const List list:  the list from which element is got
+ *    const List list:  the list from which element is retrieved
  *
  * returns:
- *    the element in caso of success, otherwise NULL
+ *    the element in case of success, otherwise NULL
  */
 void * front(const List list);
 
@@ -125,10 +125,10 @@ void * front(const List list);
  * Remove the element in head position
  *
  * args:
- *    const List list:  the list from which element is got
+ *    const List list: the list from which element is deleted
  *
  * returns:
- *    the element in caso of success, otherwise NULL
+ *    0 in case of success, otherwise -1
  */
 int pop(List list);
 
@@ -139,7 +139,7 @@ int pop(List list);
  *    const List list:  the list from which element is got
  *
  * returns:
- *    the element in caso of success, otherwise NULL
+ *    the element in case of success, otherwise NULL
  */
 void * tail(const List list);
 
