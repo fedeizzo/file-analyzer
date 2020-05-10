@@ -4,7 +4,8 @@
 List newList() {
   List ret = NULL;
   ret = (List)malloc(sizeof(struct List));
-  if (ret != NULL) {
+  int rc_lm = checkAllocationError(ret);
+  if (rc_lm == SUCCESS) {
     ret->head = NULL;
     ret->tail = NULL;
     ret->size = 0;
@@ -23,10 +24,8 @@ int isEmptyList(const List list) {
 int enqueue(List list, void *data) {
   int ret = 0;
   Node nodo = (Node)malloc(sizeof(struct Node));
-  if (nodo == NULL) {
-    perror("Failure allocating memory\n");
-    ret = MALLOC_FAILURE;
-  } else {
+  ret = checkAllocationError(nodo);
+  if (ret == SUCCESS) {
     nodo->data = data;
     nodo->next = NULL;
     nodo->prev = list->tail;
@@ -44,10 +43,8 @@ int enqueue(List list, void *data) {
 int push(List list, void *data) {
   int ret = 0;
   Node nodo = (Node)malloc(sizeof(struct Node));
-  if (nodo == NULL) {
-    perror("Malloc failure\n");
-    ret = MALLOC_FAILURE;
-  } else {
+  ret = checkAllocationError(nodo);
+  if (ret == SUCCESS) {
     nodo->data = data;
     nodo->prev = NULL;
     nodo->next = list->head;
@@ -123,7 +120,7 @@ int pop(List list) {
 
 void *front(const List list) {
   void *data = NULL;
-  if (!isEmptyList(list)) {
+  if (isEmptyList(list) == NOT_EMPTY) {
     data = list->head->data;
   }
   return data;

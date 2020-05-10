@@ -1,11 +1,10 @@
 #ifndef __TREE_H_
 #define __TREE_H_
 #include "../list/list.h"
+#include "../wrapping/wrapping.h"
 
-#define NULL_POINTER -3
-#define OVERRIDING_TREE -4
-
-#define MAXLENGHT 300
+#define NULL_POINTER -4
+#define OVERRIDING_TREE -5
 
 /**
  * Handles a node of the tree
@@ -14,25 +13,28 @@
  *    void *data: the data of the node
  *    List children: the list which contains the children node of the current node
  *    struct TreeNode *parent: parent node
- *    void (*destroy)(void *) : specific destructor of the node
  */
 typedef struct TreeNode {
     void* data;
     List children;
     struct TreeNode *parent;
-    void (*destroy)(void *);
 } *TreeNode;
 
+//TODO... DELETE toCompare FROM THE TREE
 /**
  * Handles a tree
  *
  * fields:
  *    TreeNode root: root node of the tree
+ *    void (*destroy)(void *) : specific destructor of the tree
  */
 typedef struct Tree {
     TreeNode root;
+    void (*destroy)(void *);
+    int (*toCompare)(void *, void *);
 } *Tree;
 
+//TODO... DELETE toCompare FROM THE TREE
 /**
  * Creates and initializes the Tree 
  *
@@ -44,7 +46,7 @@ typedef struct Tree {
  * returns:
  *    the tree created in case of success, otherwise NULL
  */
-Tree newTree(void *data, int *msg, void destroy(void *));
+Tree newTree(void *data, int *msg, void destroy(void *), int toCompare(void *, void *));
 
 /*
  * Return the root node of a tree
@@ -69,7 +71,7 @@ TreeNode getRoot(Tree tree);
  * returns:
  *    New TreeNode in case of success, otherwise NULL
  */
-TreeNode newTreeNode(TreeNode parent, void *data, int *msg, void destroy(void *));
+TreeNode newTreeNode(TreeNode parent, void *data, int *msg);
 
 /*
  * Init a TreeNode setting the parent node, the data and the destroy field
@@ -83,7 +85,7 @@ TreeNode newTreeNode(TreeNode parent, void *data, int *msg, void destroy(void *)
  * returns:
  *    0 in case of success, MALLOC_FAILURE or NULL_POINTER otherwise
  */
-int initTreeNode(TreeNode child, TreeNode parent, void *data, void destroy(void *));
+int initTreeNode(TreeNode child, const TreeNode parent, void *data);
 
 /*
  * Link a child node to it's parent
@@ -95,23 +97,18 @@ int initTreeNode(TreeNode child, TreeNode parent, void *data, void destroy(void 
  * returns:
  *    0 in case of success, NULL_POINTER otherwise
  */
-int linkChild(TreeNode parent, TreeNode child);
+int linkChild(TreeNode parent, const TreeNode child);
 
 /*
  * Destroy the tree
  *
  * args:
  *   Tree tree: tree which will be destroyed
+ * 
+ * returns:
+ *    0 in case of success, NULL_POINTER, MALLOC_FAILURE or UNEXPECTED_LIST_ERROR otherwise   
  */
-void destroyTree(Tree tree);
-
-/*
- * Destroy a TreeNode by deleting all it's children and their infos
- *
- * args:
- *   void *node: node whose children will be deleted
- */
-void destroyChildren(void *node);
+int destroyTree(Tree tree);
 
 /*
  * Destroy node's data
@@ -119,6 +116,21 @@ void destroyChildren(void *node);
  * args:
  *   void *node: node whose data will be deleted
  */
-void destroyNode(void *node);
+void destroyNode(void *toDestroy, void destroy(void *));
+
+//TODO... REMOVE FROM TREE
+/*
+ * compare two TreeNodes' datas with a specific function witch
+ *
+ * args:
+ *   TreeNode first: first TreeNode to be checked
+ *   TreeNode second: second TreeNode which will be checked with the first one
+ *   toCompare: function which takes two void *data and will compare them togheter. It must return
+ *      0 if datas are equals or -1 otherwise
+ * 
+ * returns:
+ *    0 if they are equal, -1 if they're not or NULL_POINTER if at least one of them is NULL  
+ */
+int compareNode(TreeNode first, TreeNode second, int toCompare(void *, void *));
 
 #endif
