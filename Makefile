@@ -2,12 +2,18 @@ FLAGS=-std=gnu90
 FLAGS_THREAD=-pthread
 BIN_FOLDER=./bin/
 
-$(BIN_FOLDER)analyzer.o: ./src/analyzer/analyzer.c ./src/analyzer/analyzer.h
-	gcc $(FLAGS) -c ./src/analyzer/analyzer.c -o $(BIN_FOLDER)analyzer.o
+$(BIN_FOLDER)analyzer.o: ./src/analyzer/analyzer.c \
+	./src/analyzer/analyzer.h \
+	./src/manager/manager.h \
+	./src/list/list.h \
+	./src/table/table.h \
+	./src/tree/tree.h \
+	./src/wrapping/wrapping.h 
+	gcc $(FLAGS) $(FLAGS_THREAD) -c ./src/analyzer/analyzer.c -o $(BIN_FOLDER)analyzer.o
 
 $(BIN_FOLDER)manager.o: ./src/manager/manager.c \
 	./src/manager/manager.h \
-	./src/list/list.h	\
+	./src/list/list.h \
 	./src/wrapping/wrapping.h \
 	./src/worker/worker.h \
 	./src/work/work.h
@@ -21,6 +27,11 @@ $(BIN_FOLDER)list.o: ./src/list/list.c ./src/list/list.h
 
 $(BIN_FOLDER)table.o: ./src/table/table.c ./src/table/table.h
 	gcc $(FLAGS) -c ./src/table/table.c -o $(BIN_FOLDER)table.o
+
+$(BIN_FOLDER)tree.o: ./src/tree/tree.c \
+	./src/list/list.h \
+	./src/tree/tree.h
+	gcc $(FLAGS) -c ./src/tree/tree.c -o $(BIN_FOLDER)tree.o
 
 $(BIN_FOLDER)tui.o: ./src/tui/tui.c ./src/tui/tui.h
 	gcc $(FLAGS) $(FLAGS_THREAD) -c ./src/tui/tui.c -o $(BIN_FOLDER)tui.o
@@ -55,34 +66,41 @@ build: $(BIN_FOLDER)main.o \
   $(BIN_FOLDER)reporter.o \
   $(BIN_FOLDER)list.o \
   $(BIN_FOLDER)table.o \
+  $(BIN_FOLDER)tree.o \
   $(BIN_FOLDER)tui.o \
   $(BIN_FOLDER)work.o \
   $(BIN_FOLDER)worker.o \
   $(BIN_FOLDER)wrapping.o
+	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)analyzer \
+	  $(BIN_FOLDER)analyzer.o \
+	  $(BIN_FOLDER)list.o \
+	  $(BIN_FOLDER)table.o \
+	  $(BIN_FOLDER)tree.o \
+	  $(BIN_FOLDER)wrapping.o
 	gcc $(FLAGS) -o $(BIN_FOLDER)counter \
 	  $(BIN_FOLDER)main.o \
-	  $(BIN_FOLDER)analyzer.o \
 	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)work.o \
 	  $(BIN_FOLDER)wrapping.o
 	gcc $(FLAGS) -o $(BIN_FOLDER)worker \
-    $(BIN_FOLDER)table.o \
-    $(BIN_FOLDER)worker.o \
-    $(BIN_FOLDER)wrapping.o
+      $(BIN_FOLDER)table.o \
+      $(BIN_FOLDER)worker.o \
+      $(BIN_FOLDER)wrapping.o
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)manager \
-		$(BIN_FOLDER)manager.o \
+	  $(BIN_FOLDER)manager.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)table.o \
 	  $(BIN_FOLDER)wrapping.o \
 	  $(BIN_FOLDER)work.o
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)tui \
 	  $(BIN_FOLDER)list.o \
-		$(BIN_FOLDER)tui.o \
+	  $(BIN_FOLDER)tui.o \
 	  $(BIN_FOLDER)wrapping.o
 
 clean:
-	rm $(BIN_FOLDER)counter \
+	rm $(BIN_FOLDER)analyzer \
+	  $(BIN_FOLDER)counter \
 	  $(BIN_FOLDER)worker \
 	  $(BIN_FOLDER)manager \
 	  $(BIN_FOLDER)tui \
@@ -92,6 +110,7 @@ clean:
 	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)table.o \
+	  $(BIN_FOLDER)tree.o \
 	  $(BIN_FOLDER)tui.o \
 	  $(BIN_FOLDER)work.o \
 	  $(BIN_FOLDER)worker.o \
