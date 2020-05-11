@@ -34,6 +34,13 @@ typedef struct sharedResources {
   pthread_mutex_t mutex;
 } sharedResources_t;
 
+typedef struct Manager {
+  int m_pid;
+  int* pipe;
+  List filesToAssign;
+  List filesInExecution;
+} *Manager;
+
 /**
  * Creates a Directive
  *

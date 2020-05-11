@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 #include "wrapping.h"
 
 #define READ_UNIDIR 0
@@ -94,7 +93,7 @@ int createDup(const int writer, const int overwritten) {
     printError(msgErr);
     free(msgErr);
   }
-
+  
   return rc_du;
 }
 
