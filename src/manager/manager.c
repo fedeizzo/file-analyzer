@@ -622,8 +622,9 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   for (i = 0; i < workerSize; i++) {
     Worker w;
     w = front(workers);
+    //TODO check if w is null before this check
     isWorkerAlive = isAlive(w);
-    rc_po = pop(workers);
+    rc_po = pop(workers); 
     if (isWorkerAlive == OK) {
       rc_pu = push(newWorkers, w);
       if (rc_po == -1 && rc_pu == -1)
@@ -647,6 +648,7 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
         }
       }
     } else {
+      //TODO move work from doing to todo if worker has an assigned work
       destroyWorker(w);
       rc_t = DEAD_PROCESS;
     }
