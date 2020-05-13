@@ -351,6 +351,7 @@ int assignFileToManager(TreeNode toSchedule, List managers){
         if(manager != NULL){
             if(rc_t == SUCCESS){
                 scheduleFile(toSchedule, manager);
+                manageFileToSend(manager, 4);
                 rc_t = enqueue(managers, (void *) manager);
                 if(rc_t != SUCCESS){
                     rc_t = ENQUEUE_MANAGER_ERROR;
@@ -388,7 +389,7 @@ int insertAndSchedule(TreeNode currentDirectory, List managers, char *currentPat
     //UNLOCK
 }
 
-int aborto(TreeNode currentDirectory, List managers, int *fd, char *currentPath, char *completePath, int toSkip){
+int slicePath(TreeNode currentDirectory, List managers, int *fd, char *currentPath, char *completePath, int toSkip){
     int bytesRead = 1;
     int rc_t = SUCCESS;
     int skipped = 0;
@@ -438,14 +439,13 @@ int parseLineDescriptor(TreeNode currentDirectory, char *currentPath, int *fd, i
     int rc_acp = checkAllocationError(completePath);
     if(rc_acp == SUCCESS){
         if(managers != NULL){
-            rc_ab = aborto(currentDirectory, managers, fd, currentPath, completePath, toSkip);
+            rc_ab = slicePath(currentDirectory, managers, fd, currentPath, completePath, toSkip);
             if(rc_ab != SUCCESS){
                 rc_t = rc_ab;
-                printError("Failed ABORTO function");
+                printError("Failed slicePath function");
             }else{
                 printList(managers, toStringManager);
-                sleep(5);
-                manageFileToSend(managers, 4);
+                //manageFileToSend(managers, 4);
             }
         } else {
             rc_t = NULL_POINTER;
@@ -1211,21 +1211,8 @@ int sendFile(Manager manager, TreeNode file, int currentWorker) {
     if (rc_al < OK)
       rc_t = MALLOC_FAILURE;
     else {
-        /*
       // TODO add check for sprintf (wrapping function)
-      path[strlen(path)] = '\n';
-      char c = 0;
-      int i = 0;
-      while(c != '\n'){
-          c = path[i];
-          printf("%c %d ", c, c);
-          i++;
-      }
-      printf("ultimo: %d %c \n", path[i], path[i]);*/
       int rc_sp1 = sprintf(nworkers, "%d", currentWorker);
-      nworkers[strlen(nworkers)] = '\n';
-      
-
       //TODO write m in pipe to manager
       if(rc_sp1 > 0){
           //printf("sprintf ok\n");
@@ -1242,7 +1229,7 @@ int sendFile(Manager manager, TreeNode file, int currentWorker) {
     }
   } else
     rc_t = ASSIGNFILE_MEMORY_FAILURE;
-  printf("rc_t: %d\n", rc_t);
+  //printf("rc_t: %d\n", rc_t);
   return rc_t;
 }
 
@@ -1295,23 +1282,23 @@ int saveManagerWork(Manager m, List managers){
     return rc_t;
 }
 
-int manageFileToSend(List managers, int currentWorker) {
+int manageFileToSend(Manager m, int currentWorker) {
   int rc_t = OK;
   int rc_po = OK;
   int rc_en = OK;
   int rc_ww = OK;
   int rc_smw = OK;
-  int managerSize = managers->size;
+  //int managerSize = managers->size;
   int isAliveM = OK;
-  int i = 0;
-  for(i = 0; i < managerSize; i++) {
-    Manager m;
-    m = (Manager) front(managers);
+  //int i = 0;
+  //for(i = 0; i < managerSize; i++) {
+    //Manager m;
+    //m = (Manager) front(managers);
     isAliveM = isManagerAlive(m);
-    rc_po = pop(managers);
+    //rc_po = pop(managers);
     if (m != NULL) {
       if (isAliveM == OK) {
-        rc_en = enqueue(managers, m);
+        //rc_en = enqueue(managers, m);
         if (rc_po == -1 && rc_en == -1)
             rc_t = NEW_MANAGER_FAILURE;
         else {
@@ -1330,7 +1317,8 @@ int manageFileToSend(List managers, int currentWorker) {
             }
         }
       } else {
-          rc_smw = saveManagerWork(m, managers);
+          //TODO... change behavior
+          //rc_smw = saveManagerWork(m, managers);
           //Error in save Manager Work
           if(rc_smw != OK){
             printError("Error in save Manager Work\n");
@@ -1339,7 +1327,7 @@ int manageFileToSend(List managers, int currentWorker) {
           rc_t = DEAD_PROCESS;
       }
     }
-  }
+  //}
   //printf("esco da manage file to send\n");
   return rc_t;
 }
@@ -1413,7 +1401,7 @@ int main(){
     signal(SIGCHLD, SIG_IGN);
     signal(SIGINT, sighandle_int);
     //Tree fs = NULL;
-    int currentManagers = 3;
+    int currentManagers = 10;
     TreeNode currentDirectory = NULL;
     FileInfo root = NULL;
     //TODO check for literals, ehm... I mean errors!

@@ -443,11 +443,14 @@ void *workLoop(void *ptr) {
       usleep(500000);
     }
     if (directives == SUMMARY) {
+      pthread_mutex_lock(&(sharedRes->mutex));
       if (checkUpdate(&workDone, sharedRes->done) == SUMMARY) {
-        pthread_mutex_lock(&(sharedRes->mutex));
-        sendSummary(sharedRes->tables);
-        pthread_mutex_unlock(&(sharedRes->mutex));
+        //TODO... for debug only
+        if(sharedRes->doing->size == 0){
+          sendSummary(sharedRes->tables);
+        }
       }
+      pthread_mutex_unlock(&(sharedRes->mutex));
     } else if (directives == NEW_DIRECTIVES) {
       pthread_mutex_lock(&(sharedRes->mutex));
       if (strcmp(sharedRes->directive->lastPath, sharedRes->directive->path) !=
@@ -833,6 +836,9 @@ int endWork(Worker worker, List tables, int typeEnding, List todo, List doing,
   return rc_t;
 }
 
+//TODO... DELETE GLOBAL COUNTER
+int LOL = 0;
+
 void *readDirectives(void *ptr) {
   sharedResources_t *sharedRes = (sharedResources_t *)(ptr);
   // TODO choose max length for path
@@ -892,8 +898,10 @@ void *readDirectives(void *ptr) {
       sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
     }
     // Da togliere
-    fprintf(stderr, "MANAGER --- Path: %s\n", sharedRes->directive->path);
-    fprintf(stderr, "MANAGER --- Nworker: %d\n",
+    LOL++;
+    fprintf(stderr, "MANAGER %d --- Counter: %d\n", getpid(), LOL);
+    fprintf(stderr, "MANAGER %d --- Path: %s\n", getpid() ,sharedRes->directive->path);
+    fprintf(stderr, "MANAGER %d --- Nworker: %d\n", getpid(),
             sharedRes->directive->newNWorker);
     pthread_mutex_unlock(&(sharedRes->mutex));
     // TODO fix sleep time
@@ -1036,7 +1044,7 @@ int sendSummary(List tables) {
           /*   rc_t = SUMMARY_FAILURE; */
         }
       }
-      fprintf(stderr, "acc: %lld\n", acc);
+      //fprintf(stderr, "acc: %lld\n", acc);
     }
   }
   // TODO ATTENTION
