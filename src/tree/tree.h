@@ -132,5 +132,4 @@ void destroyNode(void *toDestroy, void destroy(void *));
  *    0 if they are equal, -1 if they're not or NULL_POINTER if at least one of them is NULL  
  */
 int compareNode(TreeNode first, TreeNode second, int toCompare(void *, void *));
-
 #endif

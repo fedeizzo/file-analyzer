@@ -12,7 +12,7 @@ typedef struct FileInfo{
 } *FileInfo;
 
 typedef struct sharedResourcesAnalyzer {
-  
+  int nworker;
   pthread_mutex_t mutex;
 } sharedResourcesAnalyzer_t;
 
