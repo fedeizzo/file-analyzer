@@ -504,7 +504,7 @@ void *workLoop(void *ptr) {
     // TODO fix sleep time
     usleep(1);
   }
-  fprintf(stderr,"MANAGER ---- ERRORE MAGGICO %d\n", rc_work);
+  fprintf(stderr, "MANAGER ---- ERRORE MAGGICO %d\n", rc_work);
   printError("sono uscito magicamente");
   kill(getpid(), SIGKILL);
 
@@ -766,7 +766,10 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
         int i = 0;
         for (i = 0; i < rc_rd; i++) {
           int charCode = charSent[i];
-          w->table[charCode] += 1;
+
+          if (charCode < 128 && charCode > 0) {
+            w->table[charCode] += 1;
+          }
           w->bytesSent++;
         }
       }
@@ -888,9 +891,10 @@ void *readDirectives(void *ptr) {
     } else if (rc_t == OK) {
       sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
     }
-    //Da togliere
+    // Da togliere
     fprintf(stderr, "MANAGER --- Path: %s\n", sharedRes->directive->path);
-    fprintf(stderr, "MANAGER --- Nworker: %d\n", sharedRes->directive->newNWorker);
+    fprintf(stderr, "MANAGER --- Nworker: %d\n",
+            sharedRes->directive->newNWorker);
     pthread_mutex_unlock(&(sharedRes->mutex));
     // TODO fix sleep time
     usleep(500000);
