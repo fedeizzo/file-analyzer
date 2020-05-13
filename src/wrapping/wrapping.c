@@ -1,10 +1,10 @@
+#include "wrapping.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "wrapping.h"
 
 #define READ_UNIDIR 0
 #define WRITE_UNIDIR 1
@@ -65,7 +65,7 @@ int moveCursorFile(const int fd, const int position, const int absPosition) {
 int readChar(const int fd, char *dst) {
   int bytesRead = read(fd, dst, 1);
   if (bytesRead == -1) {
-    printError("during readig char from file");
+    /* printError("during readig char from file"); */
   }
   // TODO fix this strange thing
   /* dst[bytesRead] = '\0'; */
@@ -93,7 +93,7 @@ int createDup(const int writer, const int overwritten) {
     printError(msgErr);
     free(msgErr);
   }
-  
+
   return rc_du;
 }
 

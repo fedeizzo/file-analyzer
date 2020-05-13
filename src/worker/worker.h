@@ -44,4 +44,16 @@ Worker newWorker();
  *    void *data: the worker for deleting operation
  */
 void destroyWorker(void *data);
+
+/**
+ * Compare function for search operation inside List
+ *
+ * args:
+ *    void *w1: pointer to first worker
+ *    void *w2: pointer to second worker
+ *
+ * returns:
+ *    0 in caso of success, otherwise -1
+ */
+int compareWorker(void *w1, void *w2);
 #endif 
