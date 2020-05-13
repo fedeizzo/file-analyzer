@@ -71,12 +71,12 @@
 void destroyFileInfo(void *toDestroy){
     FileInfo data = (FileInfo) toDestroy;
     printf("currently destroying %s\n", (char *)(data->name));
-    printf("free destroyFileInfo\n");
+    //printf("free destroyFileInfo\n");
     free(data->name);
     free(data->path);
     free(data->fileTable);
     free(toDestroy);
-    printf("dopo destroyFileInfo\n");
+    //printf("dopo destroyFileInfo\n");
 }
 
 /**
@@ -123,16 +123,16 @@ FileInfo newFileInfo(char *name, int isDirectory, char *path, int *msg){
         if(*msg == SUCCESS){
             *msg = allocatePath(toRtn, path);
             if(*msg != SUCCESS){
-                printf("free file table\n");
+                //printf("free file table\n");
                 free(toRtn->fileTable);
-                printf("free toRtn\n");
+                //printf("free toRtn\n");
                 free(toRtn);
-                printf("dopo free toRtn\n");
+                //printf("dopo free toRtn\n");
             }
         } else {
-            printf("free toRtn 2\n");
+            //printf("free toRtn 2\n");
             free(toRtn);
-            printf("dopo free toRtn 2\n");
+            //printf("dopo free toRtn 2\n");
         }
         
     }
@@ -152,7 +152,7 @@ void pasta(void *data){
 void toStringManager(void *data){
     Manager manager = (Manager) data;
     printf("size: %d\n", manager->filesToAssign->size);
-    //printList(manager->filesToAssign, pasta);
+    printList(manager->filesToAssign, pasta);
 }
 
 Node handleMath(TreeNode toExamine, FileInfo dataToExamine, char *path, int *found, int *match, int *counter, int *resetCounter, int *tmpCounter){
@@ -227,10 +227,10 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert, TreeNode
     if(rc_nc == SUCCESS && rc_tc == SUCCESS){
         linkChild(whereToInsert, toInsert);
     } else {
-        printf("free createNewTreeElement\n");
+        //printf("free createNewTreeElement\n");
         free(dataToInsert);
         free(toInsert);
-        printf("dopo free createNewTreeElement\n");
+        //printf("dopo free createNewTreeElement\n");
         *msg = MALLOC_FAILURE;
     }
     return toInsert;
@@ -450,9 +450,9 @@ int parseLineDescriptor(TreeNode currentDirectory, char *currentPath, int *fd, i
         } else {
             rc_t = NULL_POINTER;
         }
-        printf("free complete path\n");
+        //printf("free complete path\n");
         free(completePath);
-        printf("dopo free compete path\n");
+        //printf("dopo free compete path\n");
     }else{
         rc_t = rc_acp;
     }
@@ -559,9 +559,9 @@ int saveFiles(Tree fs, TreeNode currentDirectory, char *compactedPath, int toSki
                 }     
             }
         }
-        printf("free currentPath\n");
+        //printf("free currentPath\n");
         free(currentPath);
-        printf("dopo free currentPath\n");
+        //printf("dopo free currentPath\n");
     } else {
         printError("Allocation error in save files");
         rc_t = rc_ca;
@@ -705,9 +705,9 @@ int checkFileType(char *name){
             //Stessa cosa di sopra
             printError("Error in checkFileType due to sprintf, is it really able to fail?");
         }
-        printf("free command\n");
+        //printf("free command\n");
         free(command);
-        printf("dopo free command");
+        //printf("dopo free command");
     }
     //Handle error
     return rc_t;
@@ -893,9 +893,9 @@ int doWhatAnalyzerDoes(char *cwd, Tree fs, TreeNode currentDirectory, List manag
             }
         }
     }
-    printf("free path\n");
+    //printf("free path\n");
     free(path);
-    printf("dopo free path\n");
+    //printf("dopo free path\n");
     return rc_t;
 }
 
@@ -933,20 +933,20 @@ Manager newManager(){
         manager->filesToAssign = newList();
         manager->filesInExecution = newList();
         if(manager->filesToAssign == NULL || manager->filesInExecution == NULL){
-            printf("free newManager\n");
+            //printf("free newManager\n");
             free(manager->filesToAssign);
             free(manager->filesInExecution);
             free(manager);
-            printf("dopo free newManager\n");
+            //printf("dopo free newManager\n");
         } else {
             manager->pipe = (int *) malloc(sizeof(int)*2);
             rc_ca = checkAllocationError(manager->pipe);
             if(rc_ca != SUCCESS){
-                printf("free newManager2\n");
+                //printf("free newManager2\n");
                 free(manager->filesToAssign);
                 free(manager->filesInExecution);
                 free(manager);
-                printf("dopo free newManager2\n");
+                //printf("dopo free newManager2\n");
             }
         }
     }
@@ -1001,11 +1001,11 @@ Manager newReplaceManager(List filesToAssign, List filesInExecution){
         manager->pipe = (int *) malloc(sizeof(int)*2);
         rc_ca = checkAllocationError(manager->pipe);
         if(rc_ca != SUCCESS){
-            printf("free newReplaceElement\n");
+            //printf("free newReplaceElement\n");
             free(manager->filesToAssign);
             free(manager->filesInExecution);
             free(manager);
-            printf("dopo free newReplaceManager\n");
+            //printf("dopo free newReplaceManager\n");
         }
     }
     return manager;
@@ -1082,12 +1082,12 @@ void destroyManager(void *data) {
     closeDescriptor(manager->pipe[0]);
     closeDescriptor(manager->pipe[1]);
   }
-  printf("free destroyManager\n");
+  //printf("free destroyManager\n");
   free(manager->pipe);
   free(manager->filesInExecution);
   free(manager->filesToAssign);
   free(manager);
-  printf("dopo free destroyManager\n");
+  //printf("dopo free destroyManager\n");
 }
 
 int removeManagers(List managers, int amount) {
@@ -1205,32 +1205,40 @@ int sendFile(Manager manager, TreeNode file, int currentWorker) {
 
   if (rc_po != -1 && rc_en != -1) {
     int *pipe = manager->pipe;
-    char *path = malloc((PATH_MAX + 1)* sizeof(char));
+    char *toSend = (char *) malloc(sizeof(char)*(PATH_MAX + INT_MAX_LEN + 2));
     char *nworkers = malloc((INT_MAX_LEN + 1) * sizeof(char));
-    int rc_al = checkAllocationError(path);
-    int rc_al2 = checkAllocationError(nworkers);
-    if (rc_al < OK || rc_al2 < OK)
+    int rc_al = checkAllocationError(nworkers);
+    if (rc_al < OK)
       rc_t = MALLOC_FAILURE;
     else {
+        /*
       // TODO add check for sprintf (wrapping function)
-      int rc_sp = sprintf(path, "%s", ((FileInfo)file->data)->path);
       path[strlen(path)] = '\n';
+      char c = 0;
+      int i = 0;
+      while(c != '\n'){
+          c = path[i];
+          printf("%c %d ", c, c);
+          i++;
+      }
+      printf("ultimo: %d %c \n", path[i], path[i]);*/
       int rc_sp1 = sprintf(nworkers, "%d", currentWorker);
       nworkers[strlen(nworkers)] = '\n';
+      
+
       //TODO write m in pipe to manager
-      if(rc_sp > 0 && rc_sp1 > 0){
-          printf("sprintf ok\n");
-          int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], path);
+      if(rc_sp1 > 0){
+          //printf("sprintf ok\n");
+          int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], ((FileInfo)file->data)->path);
           int rc_wr_2 = writeDescriptor(pipe[WRITE_CHANNEL], nworkers);
           if (rc_wr < OK || rc_wr_2 < OK)
             rc_t = SEND_FAILURE;
       } else 
           rc_t = SEND_FAILURE;
-      printf("free path\n");
-      free(path);
-      printf("free nworkers\n");
+      //printf("free path\n");
+      //printf("free nworkers\n");
       free(nworkers);
-      printf("dopo free nworkers\n");
+      //printf("dopo free nworkers\n");
     }
   } else
     rc_t = ASSIGNFILE_MEMORY_FAILURE;
@@ -1332,7 +1340,7 @@ int manageFileToSend(List managers, int currentWorker) {
       }
     }
   }
-  printf("esco da manage file to send\n");
+  //printf("esco da manage file to send\n");
   return rc_t;
 }
 
@@ -1437,9 +1445,9 @@ int main(){
             printError("I am not able to allocate the root of the tree, this is very bad");
         }
         while(rc_t == SUCCESS){
-            printf("aspetto un input\n");
+            //printf("aspetto un input\n");
             rc_t = doWhatAnalyzerDoes(cwd, fs, currentDirectory, managers, currentManagers);
-            printf("ho completato l'input\n");
+            //printf("ho completato l'input\n");
         }
         destroyTree(fs);
     }else{

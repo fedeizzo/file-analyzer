@@ -504,6 +504,7 @@ void *workLoop(void *ptr) {
     // TODO fix sleep time
     usleep(1);
   }
+  fprintf(stderr,"MANAGER ---- ERRORE MAGGICO %d\n", rc_work);
   printError("sono uscito magicamente");
   kill(getpid(), SIGKILL);
 
@@ -887,12 +888,15 @@ void *readDirectives(void *ptr) {
     } else if (rc_t == OK) {
       sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
     }
+    //Da togliere
+    fprintf(stderr, "MANAGER --- Path: %s\n", sharedRes->directive->path);
+    fprintf(stderr, "MANAGER --- Nworker: %d\n", sharedRes->directive->newNWorker);
     pthread_mutex_unlock(&(sharedRes->mutex));
-
     // TODO fix sleep time
     usleep(500000);
   }
 
+  printError("sono uscito magicamente 2");
   free(newPath);
   kill(getpid(), SIGKILL);
   // return rc_t;
@@ -1028,7 +1032,7 @@ int sendSummary(List tables) {
           /*   rc_t = SUMMARY_FAILURE; */
         }
       }
-      printf("acc: %lld\n", acc);
+      fprintf(stderr, "acc: %lld\n", acc);
     }
   }
   // TODO ATTENTION
@@ -1111,6 +1115,7 @@ int errorHandler(int errorCode) {
     rc_t = OK;
     break;
   default:
+    fprintf(stderr, "rc magico %d\n", errorCode);
     printError("unknown error");
     rc_t = HARAKIRI;
     break;
