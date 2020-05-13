@@ -241,4 +241,16 @@ void destroyList(List list, void deleteData(void *));
  *    void function(void *): function that will be called on every item of the list
  */
 void map(List list, void function(void *));
+
+/**
+ * Concatenate the second list to the tail of the first list by emptying the second
+ * 
+ * args:
+ *    List dst: The list that will containi all the data of both lists
+ *    List src: List whose elments will be removed and enqueued to the dst list
+ * 
+ * returns:
+ * 	  NULL_POINTER in case of one or both of the lists are empty, 0 in case of success
+ */
+int concat(List dst, List src);
 #endif

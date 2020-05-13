@@ -313,6 +313,22 @@ void map(List list, void function(void *)){
   } 
 }
 
+int concat(List dst, List src){
+  int rc_t = SUCCESS;
+  if(dst != NULL && src != NULL){
+    dst->tail->next = src->head;
+    src->head->prev = dst->tail;
+    dst->size = dst->size + src->size;
+    //Empty the src List
+    src->head = NULL;
+    src->tail = NULL;
+    src->size = 0;
+  }else{
+    rc_t = FAILURE; //TODO map into NULL_POINTER
+  }
+  return rc_t;
+}
+
 /*
 int int_eq(void *primo, void * secondo){
     return ((*(int *)primo) == (*(int *)secondo)) ? 0 : -1;
