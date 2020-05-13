@@ -24,7 +24,7 @@
 #define OK 0
 #define WORKING 1
 #define NEW_WORKER_FAILURE -1
-#define TABLE_FAILURE -2
+#define TABLE_FAILURE -50
 #define WORK_FAILURE -3
 #define READ_FAILURE -4
 #define END_WORK_FAILURE -5
@@ -63,28 +63,43 @@ Worker newWorker() {
     worker->pipe = malloc(2 * sizeof(int));
     rc_al3 = checkAllocationError(worker->table);
     worker->bytesSent = 0;
+    worker->doing = NULL;
   }
 
   if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
     worker = NULL;
-
   return worker;
 }
 
 void destroyWorker(void *data) {
   Worker worker = (Worker)data;
 
+  // TODO find a way to check return code
+  // there is a problem because this function
+  // must maintain this signature for removal operation of list
   if (worker->pipe != NULL) {
     closeDescriptor(worker->pipe[0]);
     closeDescriptor(worker->pipe[1]);
   }
-  if (worker->doing != NULL) {
-    destroyWorker(worker->doing);
-  }
+  /* if (worker->doing != NULL) { */
+  /*   destroyWork(worker->doing); */
+  /* } */
   free(worker->pipe);
   free(worker->table);
-  free(worker->doing);
+  /* free(worker->doing); */
   free(worker);
+}
+
+int compareWorker(void *w1, void *w2) {
+  int rc_t = -1;
+  Worker work1 = (Worker)w1;
+  Worker work2 = (Worker)w2;
+
+  if (work1->pid == work2->pid) {
+    rc_t = 0;
+  }
+
+  return rc_t;
 }
 
 Directive newDirective() {
@@ -489,6 +504,8 @@ void *workLoop(void *ptr) {
     // TODO fix sleep time
     usleep(1);
   }
+  printError("sono uscito magicamente");
+  kill(getpid(), SIGKILL);
 
   // TODO error handling
 }
@@ -557,6 +574,7 @@ int addWorkers(List workers, int amount) {
         int toChild[2];
         createUnidirPipe(toParent);
         createUnidirPipe(toChild);
+        fcntl(toParent[0], F_SETFL, O_NONBLOCK);
         int workerPid = fork();
         if (workerPid > 0) {
           int rc_pp = parentInitExecPipe(toParent, toChild);
@@ -616,24 +634,22 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   int rc_ww = OK;
   int workerSize = workers->size;
   int isWorkerAlive = OK;
-
   List newWorkers = newList();
   int i = 0;
   for (i = 0; i < workerSize; i++) {
     Worker w;
     w = front(workers);
-    //TODO check if w is null before this check
-    isWorkerAlive = isAlive(w);
-    rc_po = pop(workers); 
-    if (isWorkerAlive == OK) {
-      rc_pu = push(newWorkers, w);
-      if (rc_po == -1 && rc_pu == -1)
-        rc_t = NEW_WORKER_FAILURE;
-      else {
-        if (w != NULL) {
+    if (w != NULL) {
+      isWorkerAlive = isAlive(w);
+      rc_po = pop(workers);
+      if (isWorkerAlive == OK) {
+        rc_pu = push(newWorkers, w);
+        if (rc_po == -1 && rc_pu == -1)
+          rc_t = NEW_WORKER_FAILURE;
+        else {
           if (w->doing != NULL) {
             rc_ww = getWorkerWork(w, tables, todo, doing, done);
-            if (rc_ww)
+            if (rc_ww < OK)
               rc_t = WORK_FAILURE;
           } else {
             if (todo->size != 0) {
@@ -646,18 +662,30 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
             }
           }
         }
+      } else {
+        // TODO find better way to do this
+        if (w->doing != NULL) {
+          int rc_re = removeNode(doing, w->doing, compareWork);
+          rc_pu = push(todo, w->doing);
+          if (rc_pu < OK || rc_re < OK)
+            rc_t = MALLOC_FAILURE;
+          else {
+            destroyWorker(w);
+            addWorkers(newWorkers, 1);
+            rc_t = DEAD_PROCESS;
+          }
+        } else {
+          destroyWorker(w);
+          addWorkers(newWorkers, 1);
+          rc_t = DEAD_PROCESS;
+        }
       }
-    } else {
-      //TODO move work from doing to todo if worker has an assigned work
-      destroyWorker(w);
-      rc_t = DEAD_PROCESS;
     }
   }
   // TODO ATTENTION
   swap(workers, newWorkers);
   /* printError("new worker in execute work"); */
   free(newWorkers);
-
   return rc_t;
 }
 
@@ -711,7 +739,8 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
     rc_t = MALLOC_FAILURE;
   if (rc_t == OK) {
     if (bytesSent == w->workAmount) {
-      int rc_rd = readDescriptor(readFromWorker, charSent, 5);
+      /* int rc_rd = readDescriptor(readFromWorker, charSent, 5); */
+      int rc_rd = read(readFromWorker, charSent, 5);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
         endWork(w, tables, BAD_ENDING, todo, doing, done);
@@ -725,8 +754,9 @@ int getWorkerWork(Worker w, List tables, List todo, List doing, List done) {
         }
       }
     } else {
-      int rc_rd = readDescriptor(readFromWorker, charSent,
-                                 w->workAmount - w->bytesSent);
+      /* int rc_rd = readDescriptor(readFromWorker, charSent, */
+      /*                            w->workAmount - w->bytesSent); */
+      int rc_rd = read(readFromWorker, charSent, w->workAmount - w->bytesSent);
       if (rc_rd <= 0)
         rc_t = READ_FAILURE;
       else {
@@ -864,6 +894,7 @@ void *readDirectives(void *ptr) {
   }
 
   free(newPath);
+  kill(getpid(), SIGKILL);
   // return rc_t;
 }
 
@@ -982,19 +1013,22 @@ int sendSummary(List tables) {
       rc_t = SUMMARY_FAILURE;
     if (t != NULL) {
       int j = 0;
+      long long acc = 0;
       for (j = 0; j < NCHAR_TABLE; j++) {
         // TODO choose MAXLEN
         char msg[MAXLEN];
         int rc_sp;
         rc_sp = sprintf(msg, "%lld", t->table[j]);
+        acc += t->table[j];
         if (rc_sp == -1)
           rc_t = CAST_FAILURE;
         else {
-          int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
-          if (rc_wr == -1)
-            rc_t = SUMMARY_FAILURE;
+          /* int rc_wr = writeDescriptor(WRITE_CHANNEL, msg); */
+          /* if (rc_wr == -1) */
+          /*   rc_t = SUMMARY_FAILURE; */
         }
       }
+      printf("acc: %lld\n", acc);
     }
   }
   // TODO ATTENTION
@@ -1017,11 +1051,11 @@ int errorHandler(int errorCode) {
     rc_t = HARAKIRI;
     break;
   case WORK_FAILURE:
-    printInfo("worker doen't execute is work");
+    /* printInfo("worker doesn't execute his work"); */
     rc_t = OK;
     break;
   case READ_FAILURE:
-    printInfo("reading from worker");
+    /* printInfo("reading from worker"); */
     rc_t = OK;
     break;
   case END_WORK_FAILURE:
@@ -1069,7 +1103,7 @@ int errorHandler(int errorCode) {
     rc_t = OK;
     break;
   case DEAD_PROCESS:
-    printInfo("one or more workers are dead");
+    printInfo("one or more workers are dead, new one/s is/are spawned");
     rc_t = OK;
     break;
   case START_NEW_MANAGER:
