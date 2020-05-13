@@ -63,11 +63,11 @@ Worker newWorker() {
     worker->pipe = malloc(2 * sizeof(int));
     rc_al3 = checkAllocationError(worker->table);
     worker->bytesSent = 0;
+    worker->doing = NULL;
   }
 
   if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
     worker = NULL;
-
   return worker;
 }
 
@@ -634,7 +634,6 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   int rc_ww = OK;
   int workerSize = workers->size;
   int isWorkerAlive = OK;
-
   List newWorkers = newList();
   int i = 0;
   for (i = 0; i < workerSize; i++) {
@@ -656,7 +655,6 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
             if (todo->size != 0) {
               Work work = front(todo);
               if (work != NULL) {
-                printf("sto per assegnare un work\n");
                 rc_t = assignWork(w, work, todo, doing);
               } else {
                 rc_t = ASSIGNWORK_FAILURE;
@@ -668,20 +666,17 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
         // TODO find better way to do this
         if (w->doing != NULL) {
           int rc_re = removeNode(doing, w->doing, compareWork);
-          printf("todo list has: %d\n", todo->size);
           rc_pu = push(todo, w->doing);
           if (rc_pu < OK || rc_re < OK)
             rc_t = MALLOC_FAILURE;
           else {
-            printf("i'm dieing with %d bytes to send\n", w->workAmount);
-            printf("todo list has: %d\n", todo->size);
             destroyWorker(w);
-            addWorkers(workers, 1);
+            addWorkers(newWorkers, 1);
             rc_t = DEAD_PROCESS;
           }
         } else {
           destroyWorker(w);
-          addWorkers(workers, 1);
+          addWorkers(newWorkers, 1);
           rc_t = DEAD_PROCESS;
         }
       }
@@ -691,7 +686,6 @@ int executeWork(List workers, List tables, List todo, List doing, List done) {
   swap(workers, newWorkers);
   /* printError("new worker in execute work"); */
   free(newWorkers);
-
   return rc_t;
 }
 
@@ -1057,7 +1051,7 @@ int errorHandler(int errorCode) {
     rc_t = HARAKIRI;
     break;
   case WORK_FAILURE:
-    /* printInfo("worker doesn't execute is work"); */
+    /* printInfo("worker doesn't execute his work"); */
     rc_t = OK;
     break;
   case READ_FAILURE:
