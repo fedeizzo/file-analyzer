@@ -6,6 +6,7 @@ $(BIN_FOLDER)analyzer.o: ./src/analyzer/analyzer.c \
 	./src/analyzer/analyzer.h \
 	./src/manager/manager.h \
 	./src/list/list.h \
+	./src/priorityQueue/priorityQueue.h \
 	./src/table/table.h \
 	./src/tree/tree.h \
 	./src/wrapping/wrapping.h 
@@ -24,6 +25,9 @@ $(BIN_FOLDER)reporter.o: ./src/reporter/reporter.c ./src/reporter/reporter.h
 
 $(BIN_FOLDER)list.o: ./src/list/list.c ./src/list/list.h
 	gcc $(FLAGS) -c ./src/list/list.c -o $(BIN_FOLDER)list.o
+
+$(BIN_FOLDER)priorityQueue.o: ./src/priorityQueue/priorityQueue.c ./src/priorityQueue/priorityQueue.h
+	gcc $(FLAGS) -c ./src/priorityQueue/priorityQueue.c -o $(BIN_FOLDER)priorityQueue.o
 
 $(BIN_FOLDER)table.o: ./src/table/table.c ./src/table/table.h
 	gcc $(FLAGS) -c ./src/table/table.c -o $(BIN_FOLDER)table.o
@@ -65,6 +69,7 @@ build: $(BIN_FOLDER)main.o \
   $(BIN_FOLDER)manager.o \
   $(BIN_FOLDER)reporter.o \
   $(BIN_FOLDER)list.o \
+	$(BIN_FOLDER)priorityQueue.o \
   $(BIN_FOLDER)table.o \
   $(BIN_FOLDER)tree.o \
   $(BIN_FOLDER)tui.o \
@@ -104,11 +109,12 @@ clean:
 	  $(BIN_FOLDER)worker \
 	  $(BIN_FOLDER)manager \
 	  $(BIN_FOLDER)tui \
-	  $(BIN_FOLDER)main.o \
 	  $(BIN_FOLDER)analyzer.o \
-	  $(BIN_FOLDER)manager.o \
-	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)list.o \
+	  $(BIN_FOLDER)main.o \
+	  $(BIN_FOLDER)manager.o \
+		$(BIN_FOLDER)priorityQueue.o \
+	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)table.o \
 	  $(BIN_FOLDER)tree.o \
 	  $(BIN_FOLDER)tui.o \
