@@ -37,7 +37,6 @@ typedef struct sharedResources {
 typedef struct Manager {
   int m_pid;
   int* pipe;
-  List filesToAssign;
   List filesInExecution;
 } *Manager;
 

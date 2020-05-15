@@ -27,6 +27,9 @@ typedef struct PriorityQueueStr{
   int size;
 } * PriorityQueue;
 
+
+PriorityQueue newPriorityQueue();
+
 /**
  * Inserts data inside a the heap structure according to the priority
  *

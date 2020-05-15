@@ -2,6 +2,13 @@
 #include <stdlib.h>
 
 #include "./priorityQueue.h"
+#include "../wrapping/wrapping.h"
+
+PriorityQueue newPriorityQueue(){
+  PriorityQueue q = (PriorityQueue) calloc(1, sizeof(struct PriorityQueueStr));
+  checkAllocationError(q);
+  return q;
+}
 
 int pushPriorityQueue(PriorityQueue q, int priority, void *data) {
   int rc_t = 0;

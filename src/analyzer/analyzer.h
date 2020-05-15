@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include "../tree/tree.h"
+#include "../priorityQueue/priorityQueue.h"
 
 /**
  * Data structure that rapresent a file that can be a directory or not
@@ -16,11 +17,13 @@ typedef struct FileInfo{
 
 typedef struct sharedResourcesAnalyzer {
   Tree fs;
-  List managers; //TODO... Change as priprity queue
+  PriorityQueue managers;
   List fileToAssign;
   TreeNode currentDirectory;
   char *cwd;
+  char *path;
   int *nManager;
+  int *nWorker;
   pthread_mutex_t mutex;
 } sharedResourcesAnalyzer_t;
 

@@ -69,7 +69,7 @@ build: $(BIN_FOLDER)main.o \
   $(BIN_FOLDER)manager.o \
   $(BIN_FOLDER)reporter.o \
   $(BIN_FOLDER)list.o \
-	$(BIN_FOLDER)priorityQueue.o \
+  $(BIN_FOLDER)priorityQueue.o \
   $(BIN_FOLDER)table.o \
   $(BIN_FOLDER)tree.o \
   $(BIN_FOLDER)tui.o \
@@ -79,6 +79,7 @@ build: $(BIN_FOLDER)main.o \
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)analyzer \
 	  $(BIN_FOLDER)analyzer.o \
 	  $(BIN_FOLDER)list.o \
+	  $(BIN_FOLDER)priorityQueue.o \
 	  $(BIN_FOLDER)table.o \
 	  $(BIN_FOLDER)tree.o \
 	  $(BIN_FOLDER)wrapping.o

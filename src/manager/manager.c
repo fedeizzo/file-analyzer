@@ -592,6 +592,7 @@ int addWorkers(List workers, int amount) {
         } else {
           workerInitPipe(toParent, toChild);
           execlp("./worker", "./worker", NULL);
+          kill(getpid(), SIGKILL);
         }
       }
     }
@@ -863,7 +864,7 @@ void *readDirectives(void *ptr) {
     if (newPath[strlen(newPath) - 1] == '\n') {
       newPath[strlen(newPath) - 1] = '\0';
     }
-
+    // TODO... change in order to handle cast failure
     counter = 0;
     do {
       int rc = readChar(READ_CHANNEL, readBuffer);
@@ -899,10 +900,10 @@ void *readDirectives(void *ptr) {
     }
     // Da togliere
     LOL++;
-    //fprintf(stderr, "MANAGER %d --- Counter: %d\n", getpid(), LOL);
-    //fprintf(stderr, "MANAGER %d --- Path: %s\n", getpid() ,sharedRes->directive->path);
-    //fprintf(stderr, "MANAGER %d --- Nworker: %d\n", getpid(),
-            //sharedRes->directive->newNWorker);
+    fprintf(stderr, "MANAGER %d --- Counter: %d\n", getpid(), LOL);
+    fprintf(stderr, "MANAGER %d --- Path: %s\n", getpid() ,sharedRes->directive->path);
+    fprintf(stderr, "MANAGER %d --- Nworker: %d\n", getpid(),
+            sharedRes->directive->newNWorker);
     pthread_mutex_unlock(&(sharedRes->mutex));
     // TODO fix sleep time
     usleep(500000);
