@@ -12,6 +12,7 @@
 typedef struct structTable {
   char *name;
   long long *table;
+  int workAssociated;
 } * Table;
 
 /**
