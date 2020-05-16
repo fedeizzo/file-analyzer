@@ -215,6 +215,8 @@ int deleteAtIndex(List list, const int index, void deleteData(void *)) {
   return deleted;
 }
 
+// TODO... METTERE SURGERY ANCHE IN REMOVE NODE E DELETE NODE
+
 int removeNode(const List list, void *data, int isEqual(void *, void *)) {
   int deleted = FAILURE;
   int found = FAILURE;
@@ -245,6 +247,31 @@ int removeNode(const List list, void *data, int isEqual(void *, void *)) {
     }
   }
   return deleted;
+}
+
+int detachNodeFromList(List list, Node node){
+  int rc_t = SUCCESS;
+  Node prev_node = NULL;
+  Node next_node = NULL;
+  if(node != NULL){
+    prev_node = node->prev;
+    next_node = node->next;
+    if (prev_node != NULL) {
+      prev_node->next = next_node;
+    } else {
+      list->head = next_node;
+    }
+    if (next_node != NULL) {
+      next_node->prev = prev_node;
+    } else {
+      list->tail = prev_node;
+    }
+    list->size--;
+  } else {
+    rc_t = FAILURE;
+  }
+  free(node);
+  return rc_t;
 }
 
 int deleteNode(const List list, void *data, int isEqual(void *, void *),

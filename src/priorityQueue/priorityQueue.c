@@ -81,3 +81,27 @@ void destroyPriorityQueue(PriorityQueue q, void deleteData(void *)) {
   }
   free(q);
 }
+
+int swapPriorityQueue(PriorityQueue first, PriorityQueue second){
+  int ret = -1;
+  Element *nodes;
+  int size = 0;
+  int len = 0;
+  Element *elements = NULL;
+  if (!(first == NULL || second == NULL)) {
+    size = first->size;
+    len = first->len;
+
+    first->size = second->size;
+    first->len = second->len;
+    second->size = size;
+    second->len = len;
+
+    elements = first->nodes;
+    first->nodes = second->nodes;
+    second->nodes = elements;
+
+    ret = 0;
+  }
+  return ret;
+}

@@ -61,9 +61,14 @@
 
 #define INT_MAX_LEN 12
 #define MAXLEN 300
-#define NCHAR_TABLE 128
+#define NCHAR_TABLE 129
 #define WRITE_CHANNEL 1
 #define READ_CHANNEL 0
+#define CONTROL_WORD_LEN 5
+#define TABLE_LEN 129
+#define CONTROL_DONE "done"
+#define CONTROL_UNDONE "undo"
+
 
 #define DIRECTORY 1
 #define FILE 0
@@ -863,7 +868,7 @@ void* readDirectivesLoop(void *ptr){
                 }
             }
         }
-        usleep(50000);
+        usleep(500);
     }
     free(newPath);
     free(nWorker);
@@ -1118,6 +1123,9 @@ void* sendFileLoop(void *ptr){
     FileInfo info = NULL;
     int rc_t = SUCCESS;
     int rc_mfs = SUCCESS;
+    int rc_ss = SUCCESS;
+    int rc_sw = SUCCESS;
+    int rc_em = SUCCESS;
     int nManager = 0;
     int isAliveM = 0;
     int found = 0;
@@ -1127,49 +1135,65 @@ void* sendFileLoop(void *ptr){
     // TODO... contorllare il loro fallimento
     char charRead = 'a';
     // TODO... da cambiare con una define
-    int numbersToRead = 129; 
+    int numbersToRead = TABLE_LEN; 
     int bytesRead = 1;
     int counter = 0;
     int insertCounter = 0;
-    int rc_ss = 0;
+    int charCounter = 0;
+    //TODO... magari una define anche per questa?
+    char *controlWord = (char *) malloc(sizeof(char)*CONTROL_WORD_LEN);
     Manager manager = NULL;
     PriorityQueue tmpManagers = newPriorityQueue();
-    if(tmpManagers == NULL){
-        rc_t = FAILURE;
+    int rc_ca = checkAllocationError(path);
+    int rc_ca2 = checkAllocationError(number);
+    int rc_ca3 = checkAllocationError(controlWord);
+    if(tmpManagers == NULL || rc_ca != SUCCESS || rc_ca2 != SUCCESS || rc_ca3 != SUCCESS){
+        rc_t = MALLOC_FAILURE;
     }
     
     while(rc_t == SUCCESS){
         // TODO... check if this type of approach is blocking or not
         pthread_mutex_lock(&(sharedResources->mutex));
-        nManager = sharedResources->nManager;
+        nManager = *(sharedResources->nManager);
         pthread_mutex_unlock(&(sharedResources->mutex));
         while(nManager > 0 && rc_t == SUCCESS){
             pthread_mutex_lock(&(sharedResources->mutex));
             manager = popPriorityQueue(sharedResources->managers);
+            if(manager != NULL){
+                //printf("Sono il manager\n");
+                //toStringManager(manager);
+                //usleep(100000);
+            }
             pthread_mutex_unlock(&(sharedResources->mutex));
             if(manager != NULL){
                 isAliveM = isManagerAlive(manager);
                 if(isAliveM == SUCCESS){
                     pipe = manager->pipe;
-                    bytesRead = read(pipe[READ_CHANNEL], charRead, 1);
+                    bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
+                    //printf("sono bloccato, bytesRead %d\n", bytesRead);
                     if(bytesRead > 0){
+                        //printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
                         while(charRead != 0 && isManagerAlive(manager) == SUCCESS){
                             if(bytesRead > 0){
                                 path[counter] = charRead;
                                 counter++;
                             }
-                            bytesRead = read(pipe[READ_CHANNEL], charRead, 1);
+                            bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
                         }
                         path[counter] = 0;
-
+                        //printf("path ricevuto %s\n", path);
                         pthread_mutex_lock(&(sharedResources->mutex));
                         node = manager->filesInExecution->head;
+                        found = 0;
                         while(node != NULL && found == 0 && rc_t == SUCCESS){
                             file = (TreeNode) node->data;
                             if(file != NULL){
                                 info = (FileInfo) file->data;
                                 if(info != NULL){
-                                    if(strcmp(path, file->path) == 0){
+                                    if(strcmp(path, info->path) == 0){
+                                        //printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+                                        //pasta(node->data);
+                                        //pasta(file);
                                         found = 1;
                                     }else{
                                         node = node->next;
@@ -1182,56 +1206,114 @@ void* sendFileLoop(void *ptr){
                             }
                         }
                         pthread_mutex_unlock(&(sharedResources->mutex));
-                        
-                        if(found != 1){
+
+                        if(found != 1 || rc_t != SUCCESS){
                             rc_t = FILE_NOT_FOUND;
                         }else{
+                            insertCounter = 0;
+                            numbersToRead = TABLE_LEN;
                             while(numbersToRead > 0 && isManagerAlive(manager) == SUCCESS){
-                                //! lock
                                 counter = 0;
-                                bytesRead = read(pipe[READ_CHANNEL], charRead, 1);
-                                if(bytesRead > 0){
-                                    while(charRead != 0 && isManagerAlive(manager) == SUCCESS){
-                                        if(bytesRead > 0){
-                                            number[counter] = charRead;
-                                            counter++;
-                                        }
-                                        bytesRead = read(pipe[READ_CHANNEL], charRead, 1);
+                                charRead = 'a';
+                                while(charRead != 0 && isManagerAlive(manager) == SUCCESS){
+                                    bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
+                                    if(bytesRead > 0){
+                                        //printf("charRead in number: %c, %d\n", charRead, charRead);
+                                        //usleep(100000);
+                                        number[counter] = charRead;
+                                        counter++;
                                     }
-                                    number[counter] = 0;
-                                    //Posso fare l'inserimento
-                                    rc_ss = sscanf();
-                                    [insertCounter] = 
-                                    insertAndSchedule++;
                                 }
-                                //! unlock
+                                number[counter] = 0;
+                                //printf("%s ", number);
+                                //fflush(stdout);
+                                //usleep(10000);
+                                //Posso fare l'inserimento
+                                rc_ss = sscanf(number, "%d", &charCounter);
+                                if(rc_ss > 0){
+                                    pthread_mutex_lock(&(sharedResources->mutex));
+                                    info->fileTable[insertCounter] = charCounter; 
+                                    insertCounter++;
+                                    pthread_mutex_unlock(&(sharedResources->mutex));
+                                }else{
+                                    printf("fail della scanf\n");
+                                    //TODO vedere che fare in caso di fallimento di sscanf
+                                }
+                                number[0] = 0;
                                 numbersToRead--;
                             }
-                            // TODO... change to exactly 5 (including \0 o \n)
-                            while(readChar != 0 && isManagerAlive(manager) == SUCCESS){
+                            counter = 0;
+                            if(isManagerAlive(manager) == SUCCESS){
                                 // TODO... CHECK IF FILE IS FINISHED OR NOT
+                                bytesRead = read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
+                                //printf("parola di controllo: %s\n", controlWord);
+                                if(bytesRead > 0){
+                                    if(strcmp(controlWord, CONTROL_DONE) == 0){
+                                        //printf("Done!!!\n");
+                                        pthread_mutex_lock(&(sharedResources->mutex));
+                                        //printf("prima\n");
+                                        //printList(manager->filesInExecution, pasta);
+                                        //pasta(file);
+                                        //pasta(node->data);
+                                        rc_t = detachNodeFromList(manager->filesInExecution, node);
+                                        //printf("dopo\n");
+                                        //usleep(100000);
+                                        //printList(manager->filesInExecution, pasta);
+                                        //fflush(stdout);
+                                        //sleep(5);
+                                        pthread_mutex_unlock(&(sharedResources->mutex));
+                                    }else if(strcmp(controlWord, CONTROL_UNDONE) == 0){
+                                        printf("UNDONE!\n");
+                                    }else{
+                                        printf("Nn o kpt una kppa\n");
+                                    }
+                                }
+                            } else {
+                                pthread_mutex_lock(&(sharedResources->mutex));
+                                rc_em = endManager(manager, sharedResources->fileToAssign);
+                                if(rc_em < OK){
+                                    rc_t = rc_em;
+                                    printError("Error in save Manager Work\n");
+                                }
+                                destroyManager((void *) manager);
+                                pthread_mutex_unlock(&(sharedResources->mutex));
                             }
-
-                        // TODO... if finished pop file from list and update priority of the manager else continue
                         }
                     }
+                    pthread_mutex_lock(&(sharedResources->mutex));
+                    pushPriorityQueue(tmpManagers, manager->filesInExecution->size, manager);
+                    pthread_mutex_unlock(&(sharedResources->mutex));
+                } else {
+                    pthread_mutex_lock(&(sharedResources->mutex));
+                    rc_em = endManager(manager, sharedResources->fileToAssign);
+                    if(rc_em < OK){
+                        rc_t = rc_em;
+                        printError("Error in save Manager Work\n");
+                    }
+                    destroyManager((void *) manager);
+                    pthread_mutex_unlock(&(sharedResources->mutex));
                 }
-                // TODO... push element in tmpManager priorityQueue with new priority
             } else {
                 rc_t = NULL_POINTER;
             }
             nManager--;
         }
-        //! lock
-        // TODO... swap Lists
-        //! unlock
+        pthread_mutex_lock(&(sharedResources->mutex));
+        rc_sw = swapPriorityQueue(sharedResources->managers, tmpManagers);
+        if(rc_sw != SUCCESS){
+            rc_t = rc_sw;
+        }
+        pthread_mutex_unlock(&(sharedResources->mutex));
+        //sleep(2);
         if(isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY){
             rc_mfs = manageFileToSend(sharedResources->managers, *(sharedResources->nWorker), sharedResources->fileToAssign);
         }
         pthread_mutex_unlock(&(sharedResources->mutex));
         // TODO... Handle with an handler for more specific errors if(rc_mfs == something) then ...
-        usleep(500);
+        usleep(5000);
     }
+    printf("rc_t %d\n", rc_t);
+    sleep(20);
     kill(getpid(), SIGKILL);
 }
 
@@ -1269,7 +1351,7 @@ int manageFileToSend(PriorityQueue managers, int currentWorker, List filesToAssi
             printError("Error in save Manager Work\n");
           }
           destroyManager((void *) m);
-          rc_t = DEAD_PROCESS;
+          //rc_t = DEAD_PROCESS;
       }
     }
   } else {
@@ -1394,9 +1476,9 @@ void* fileManageLoop(void *ptr){
     int rc_en = SUCCESS;
     int rc_find = SUCCESS;
     int rc_ia = SUCCESS;
-    int rc_pi = SUCCCESS;
+    int rc_pi = SUCCESS;
 
-    char charRead;
+    char charRead = 'a';
     int skipped = 0;
     int bytesRead = 1;
     int type;
@@ -1407,7 +1489,7 @@ void* fileManageLoop(void *ptr){
     int insertFlag = FAILURE;
     
     char *relativePath = malloc(PATH_MAX * sizeof(char));
-    rc_al3 = checkAllocationError(relativePath);
+    rc_al = checkAllocationError(relativePath);
 
     if(rc_al != SUCCESS){
         rc_t = MALLOC_FAILURE;
@@ -1422,7 +1504,7 @@ void* fileManageLoop(void *ptr){
                 if(candidate == NULL || rt_po < SUCCESS){
                     rc_t = UNEXPECTED_LIST_ERROR;
                 }else{
-                    printf("Setto insertFlag a true dovuto a %s\n, type %d, skip %d\n", candidate->path, candidate->type, candidate->toSkip);
+                    printf("Setto insertFlag a true dovuto a %s, type %d, skip %d\n", candidate->path, candidate->type, candidate->toSkip);
                     insertFlag = SUCCESS;
                 }
             }
@@ -1466,30 +1548,39 @@ void* fileManageLoop(void *ptr){
         if(readFlag == SUCCESS){
             bytesRead = read(fd[READ], &charRead, 1);
             if(bytesRead > 0 || (kill(childPid, 0) == 0)){
-                candidate->path[counter + skipped] = charRead;
-                if(skipped >= candidate->toSkip){
-                    if(charRead == '\n' || charRead == '\0'){
-                        relativePath[counter] = '\0';
-                        candidate->path[counter + skipped] = '\0';
-                        if(counter > 0){
-                            pthread_mutex_lock(&(sharedResources->mutex));
-                            rc_ia = insertAndSchedule(candidate->startingNode, sharedResources->fileToAssign, relativePath, candidate->path);
-                            pthread_mutex_unlock(&(sharedResources->mutex));
-                            if(rc_ia != SUCCESS){
-                                // TODO... handle if file already inserted or malloc failure
-                                printf("rc_ia %d\n", rc_ia);
-                                printError("Insert and schedule failed");
+                if(bytesRead > 0){
+                    candidate->path[counter + skipped] = charRead;
+                    //printf("charRead in find: %c, %d\n", charRead, charRead);
+                    //usleep(100000);
+                    if(skipped >= candidate->toSkip){
+                        if(charRead == '\n' || charRead == '\0'){
+                            relativePath[counter] = '\0';
+                            candidate->path[counter + skipped] = '\0';
+                            if(counter > 0){
+                                //printf("relativePath: %s, candidate->path: %s\n", relativePath, candidate->path);
+                                pthread_mutex_lock(&(sharedResources->mutex));
+                                rc_ia = insertAndSchedule(candidate->startingNode, sharedResources->fileToAssign, relativePath, candidate->path);
+                                pthread_mutex_unlock(&(sharedResources->mutex));
+                                if(rc_ia != SUCCESS){
+                                    // TODO... handle if file already inserted or malloc failure
+                                    printf("rc_ia %d\n", rc_ia);
+                                    printError("Insert and schedule failed");
+                                }
                             }
+                            counter = 0;
+                            skipped = 0;
+                        }else{
+                            relativePath[counter] = charRead;
+                            counter++;
                         }
-                        counter = 0;
-                        skipped = 0;
-                    }else{
-                        relativePath[counter] = charRead;
-                        counter++;
-                    }
+                    } else {
+                        skipped++;
+                    } 
                 } else {
-                    skipped++;
-                }  
+                    //! Strange case due to the scheduler: Thanks scheduler
+                    //printf("infamata assurda!\n");
+                }
+                 
             } else {
                 closeDescriptor(fd[READ]);
                 readFlag = FAILURE;
@@ -1537,10 +1628,10 @@ int main(){
     int rc_pi = SUCCESS;
     int rc_t = SUCCESS;
     int rc_am = SUCCESS;
-    fprintf(stderr, "OOOOOOOO\n");
+    //fprintf(stderr, "OOOOOOOO\n");
     rc_am = addManagers(managers, defaultManagers);
     rc_cwd = getCwd(cwd);
-    fprintf(stdout, "Sono nel main!\n");
+    //fprintf(stdout, "Sono nel main!\n");
     //Alla fine tutto  printError verranno sostituiti con un handler dell'errore, quindi si, sono brutti, ma diciamo che è rimediabile
     if(rc_cwd == SUCCESS && rc_am == SUCCESS && managers != NULL && rc_al == SUCCESS && candidateNode != NULL && fileToAssign != NULL){
         //CANNOT MOVE THIS CODE (AT LEAST IF YOU DON'T WANT TO DEAL WITH COPY OF POINTER)

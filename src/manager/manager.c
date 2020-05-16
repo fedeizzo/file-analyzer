@@ -349,6 +349,12 @@ int errorHandler(int errorCode);
  */
 void *workLoop(void *ptr);
 
+// TODO... REMOVE PRINT FUNCTION FOR DEBUGGING
+void toStringTable(void *data){
+  Table table = (Table) data;
+  fprintf(stderr, "<<< %s >>> ----- %d\n", table->name, getpid());
+}
+
 int remoduleWorks(List todo, List workers, List tables);
 int main(int argc, char *argv[]) {
   signal(SIGCHLD, SIG_IGN);
@@ -440,6 +446,8 @@ void *workLoop(void *ptr) {
         rc_nd = addDirectives(sharedRes->tables, sharedRes->todo,
                               sharedRes->directive->path,
                               sharedRes->directive->currentWorkers);
+      } else {
+        //fprintf(stderr, " !!! asdkamsudbaisdniasdbaisd %d !!! \n", getpid());
       }
 
       pthread_mutex_unlock(&(sharedRes->mutex));
@@ -935,6 +943,8 @@ void *readDirectives(void *ptr) {
       nWorker[counter++] = readBuffer[0];
     } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
     nWorker[counter] = '\0';
+    // TODO... debug only
+    fprintf(stderr, "Path %s, nWorker %s pid %d\n", newPath, nWorker, getpid());
 
     pthread_mutex_lock(&(sharedRes->mutex));
     int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
@@ -973,7 +983,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   int rc_al = checkAllocationError(t);
   List todoTmp = newList();
   int rc_al2 = checkAllocationError(todoTmp);
-
+  fprintf(stderr, "path in addDirectives %s\n", path);
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
@@ -1016,6 +1026,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     } else {
       rc_t = NEW_DIRECTIVES_FAILURE;
     }
+    fprintf(stderr, "Stampo in add directives\n");
+    printList(tables, toStringTable);
   }
 
   if (rc_t == OK) {
@@ -1067,7 +1079,7 @@ int sendSummary(List tables) {
   int rc_po = OK;
   int rc_pu = OK;
   int tablesSize = tables->size;
-
+  printList(tables, toStringTable);
   int i = 0;
 
   for (i = 0; i < tablesSize; i++) {
@@ -1081,7 +1093,8 @@ int sendSummary(List tables) {
       // TODO remove this acc
       long long acc = 0;
       writeDescriptor(WRITE_CHANNEL, t->name);
-      writeDescriptor(WRITE_CHANNEL, "\n");
+      //writeDescriptor(WRITE_CHANNEL, "\n");
+      fprintf(stderr, "-----------------MANAGER INVIO %s\n", t->name);
       for (j = 0; j < NCHAR_TABLE; j++) {
         // TODO choose MAXLEN
         char msg[MAXLEN];
@@ -1098,10 +1111,10 @@ int sendSummary(List tables) {
       }
       if (t->workAssociated == 0) {
         destroyTable(t);
-        writeDescriptor(WRITE_CHANNEL, "done\n");
+        writeDescriptor(WRITE_CHANNEL, "done");
       } else {
         enqueue(tables, t);
-        writeDescriptor(WRITE_CHANNEL, "undo\n");
+        writeDescriptor(WRITE_CHANNEL, "undo");
       }
 
       // TODO remove this acc

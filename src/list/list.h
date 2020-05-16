@@ -246,11 +246,23 @@ void map(List list, void function(void *));
  * Concatenate the second list to the tail of the first list by emptying the second
  * 
  * args:
- *    List dst: The list that will containi all the data of both lists
+ *    List dst: The list that will contain all the data of both lists
  *    List src: List whose elments will be removed and enqueued to the dst list
  * 
  * returns:
  * 	  NULL_POINTER in case of one or both of the lists are empty, 0 in case of success
  */
 int concat(List dst, List src);
+
+/**
+ * Remove an elment from the list
+ * 
+ * args:
+ *    List list: List from which the node is removed
+ *    Node node: Node that will be removed from the list
+ * 
+ * returns:
+ * 	  NULL_POINTER in case of one or both of the lists are empty, 0 in case of success
+ */
+int detachNodeFromList(List list, Node node);
 #endif
