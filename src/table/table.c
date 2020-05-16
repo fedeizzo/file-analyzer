@@ -4,7 +4,7 @@
 #include "../wrapping/wrapping.h"
 #include "table.h"
 
-#define NCHAR_TABLE 256
+#define NCHAR_TABLE 129
 
 Table newTable(const char *name) {
   // TODO if only one malloc fail we must free other
