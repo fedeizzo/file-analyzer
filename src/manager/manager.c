@@ -661,18 +661,19 @@ int assignWork(Worker worker, Work work, List todo) {
     if (rc_al < OK || rc_al2 < OK || rc_al3 < OK)
       rc_t = MALLOC_FAILURE;
     else {
-      // TODO add check for sprintf (wrapping function)
-      sprintf(path, "%s", work->tablePointer->name);
-      sprintf(bufferStart, "%d", work->bufferStart);
-      sprintf(bufferEnd, "%d", work->bufferEnd);
+      int rc_ca = sprintf(path, "%s", work->tablePointer->name);
+      int rc_ca2 = sprintf(bufferStart, "%d", work->bufferStart);
+      int rc_ca3 = sprintf(bufferEnd, "%d", work->bufferEnd);
 
-      int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], path);
-      int rc_wr2 = writeDescriptor(pipe[WRITE_CHANNEL], bufferStart);
-      int rc_wr3 = writeDescriptor(pipe[WRITE_CHANNEL], bufferEnd);
+      if (rc_ca == OK || rc_al2 == OK || rc_al3 == OK) {
+        int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], path);
+        int rc_wr2 = writeDescriptor(pipe[WRITE_CHANNEL], bufferStart);
+        int rc_wr3 = writeDescriptor(pipe[WRITE_CHANNEL], bufferEnd);
 
-      if (rc_wr < OK || rc_wr2 < OK || rc_wr3 < OK)
+        if (rc_wr < OK || rc_wr2 < OK || rc_wr3 < OK)
+          rc_t = SEND_FAILURE;
+      } else
         rc_t = SEND_FAILURE;
-
       free(path);
       free(bufferStart);
       free(bufferEnd);
@@ -787,6 +788,7 @@ void *readDirectives(void *ptr) {
   }
   char nWorker[MAXLEN];
   int counter = 0;
+  int castPlaceHolder = 0;
 
   while (rc_t == OK) {
     counter = 0;
@@ -798,7 +800,6 @@ void *readDirectives(void *ptr) {
     if (newPath[strlen(newPath) - 1] == '\n') {
       newPath[strlen(newPath) - 1] = '\0';
     }
-    // TODO... change in order to handle cast failure
     counter = 0;
     do {
       int rc = readChar(READ_CHANNEL, readBuffer);
@@ -807,11 +808,12 @@ void *readDirectives(void *ptr) {
     nWorker[counter] = '\0';
 
     pthread_mutex_lock(&(sharedRes->mutex));
-    int rc_sc = sscanf(nWorker, "%d", &(sharedRes->directive->newNWorker));
+    int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
     if (rc_sc == 0 ||
         (sharedRes->directive->newNWorker == 9 && strcmp(nWorker, "9") == 0)) {
       rc_t = CAST_FAILURE;
-    }
+    } else
+      sharedRes->directive->newNWorker = castPlaceHolder;
     strcpy(sharedRes->directive->path, newPath);
 
     if (newPath[0] == '\0' || nWorker[0] == '\0') {
@@ -831,7 +833,6 @@ void *readDirectives(void *ptr) {
     usleep(500000);
   }
 
-  printError("sono uscito magicamente 2");
   free(newPath);
   kill(getpid(), SIGKILL);
   // return rc_t;
@@ -885,23 +886,15 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     }
   }
 
-  // TODO create a merge function for the list
   if (rc_t == OK) {
-    int rc_po = OK;
-    int rc_pu = OK;
-    int todoSize = todoTmp->size;
-    int i = 0;
-    for (i = 0; i < todoSize; i++) {
-      Work w;
-      w = front(todoTmp);
-      rc_po = pop(todoTmp);
-      if (rc_po == -1)
+    if (todoTmp->size > 0 && todo->size > 0) {
+      int rc_cat = concat(todo, todoTmp);
+      if (rc_cat < OK)
         rc_t = NEW_DIRECTIVES_FAILURE;
-      if (w != NULL) {
-        rc_pu = push(todo, w);
-        if (rc_pu == -1)
-          rc_t = NEW_DIRECTIVES_FAILURE;
-      }
+    } else if (todoTmp->size > 0 && todo->size == 0) {
+      int rc_cat = swap(todo, todoTmp);
+      if (rc_cat < OK)
+        rc_t = NEW_DIRECTIVES_FAILURE;
     }
   }
   free(todoTmp);
