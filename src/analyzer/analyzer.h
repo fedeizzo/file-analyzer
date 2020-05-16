@@ -19,6 +19,7 @@ typedef struct sharedResourcesAnalyzer {
   Tree fs;
   PriorityQueue managers;
   List fileToAssign;
+  List candidateNode;
   TreeNode currentDirectory;
   char *cwd;
   char *path;
@@ -26,5 +27,12 @@ typedef struct sharedResourcesAnalyzer {
   int *nWorker;
   pthread_mutex_t mutex;
 } sharedResourcesAnalyzer_t;
+
+typedef struct TreeNodeCandidate{
+  TreeNode startingNode;
+  int type; 
+  char *path;
+  int toSkip;
+} *TreeNodeCandidate;
 
 #endif
