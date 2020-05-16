@@ -31,6 +31,7 @@ typedef struct sharedResources {
   List done;
   List workers;
   List tables;
+  int summaryFlag;
   pthread_mutex_t mutex;
 } sharedResources_t;
 

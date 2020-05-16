@@ -303,28 +303,28 @@ int swap(List first, List second) {
   return ret;
 }
 
-void map(List list, void function(void *)){
+void map(List list, void function(void *)) {
   Node tmp_node = list->head;
   if (isEmptyList(list) == NOT_EMPTY) {
     while (tmp_node != NULL) {
       function(tmp_node->data);
       tmp_node = tmp_node->next;
     }
-  } 
+  }
 }
 
-int concat(List dst, List src){
+int concat(List dst, List src) {
   int rc_t = SUCCESS;
-  if(dst != NULL && src != NULL){
+  if (dst != NULL || src != NULL) {
     dst->tail->next = src->head;
     src->head->prev = dst->tail;
     dst->size = dst->size + src->size;
-    //Empty the src List
+    // Empty the src List
     src->head = NULL;
     src->tail = NULL;
     src->size = 0;
-  }else{
-    rc_t = FAILURE; //TODO map into NULL_POINTER
+  } else {
+    rc_t = FAILURE; // TODO map into NULL_POINTER
   }
   return rc_t;
 }

@@ -29,8 +29,12 @@
  *    char *bufferEnd: contains buffer end in chars type
  *    int *start: contains buffer start in int type
  *    int *end: contains buffer end in int type
+ *    int *stopFlag: flags that indicates if the worker must stop
+ *
+ * returns:
+ *    positive (file descriptor) in case of success, otherwise negative
  */
-int initWork(int *start, int *end);
+int initWork(int *start, int *end, int *stopFlag);
 
 /**
  * Read all infos from pipe
@@ -39,8 +43,13 @@ int initWork(int *start, int *end);
  *    char *path: path of the file
  *    char *bufferStart: contains buffer start in chars type
  *    char *bufferEnd: contains buffer end in chars type
+ *    int *stopFlag: flags that indicates if the worker must stop
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
  */
-void readDirectives(char *path, char *bufferStart, char *bufferEnd);
+void readDirectives(char *path, char *bufferStart, char *bufferEnd,
+                    int *stopFlag);
 
 /**
  * Runs work
@@ -49,8 +58,19 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd);
  *    const int fd: file descriptor
  *    const int start: start position
  *    const int end: end position
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
  */
 int executeWork(const int fd, const int start, const int end);
+
+/**
+ * Sends an acknowledgment to the father
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
+int sendAcknowledgment();
 
 /**
  * Communicates to manager that happen something wrong.
@@ -71,8 +91,19 @@ int main(int argc, char *argv[]) {
   int end;
   int rc_work = OK;
   int working = WORKING;
+  int stopFlag = 0;
+  int rc_ack = OK;
 
-  int fd = initWork(&start, &end);
+  int fd = initWork(&start, &end, &stopFlag);
+  if (stopFlag == 1) {
+    rc_ack = sendAcknowledgment();
+    stopFlag = 0;
+    if (rc_ack < OK)
+      working = NOT_WORKING;
+    else
+      fd = initWork(&start, &end, &stopFlag);
+  }
+
   if (fd < OK) {
     int rc_er = errorHandler(fd, end);
     if (rc_er < OK)
@@ -86,7 +117,16 @@ int main(int argc, char *argv[]) {
       if (rc_er < OK)
         working = NOT_WORKING;
     }
-    fd = initWork(&start, &end);
+    fd = initWork(&start, &end, &stopFlag);
+    if (stopFlag == 1) {
+      rc_ack = sendAcknowledgment();
+      stopFlag = 0;
+      if (rc_ack < OK)
+        working = NOT_WORKING;
+      else
+        fd = initWork(&start, &end, &stopFlag);
+    }
+
     if (fd < OK) {
       int rc_er = errorHandler(fd, end);
       if (rc_er < OK)
@@ -97,37 +137,41 @@ int main(int argc, char *argv[]) {
   return working;
 }
 
-int initWork(int *start, int *end) {
+int initWork(int *start, int *end, int *stopFlag) {
   int rc_t = 0;
   char path[MAXLEN];
   char bufferStart[MAXLEN];
   char bufferEnd[MAXLEN];
 
   // TODO fix \0 not read
-  readDirectives(path, bufferStart, bufferEnd);
+  readDirectives(path, bufferStart, bufferEnd, stopFlag);
 
-  int rc_sc = sscanf(bufferStart, "%d", start);
-  int rc_sc2 = sscanf(bufferEnd, "%d", end);
+  if (*stopFlag == 0) {
+    int rc_sc = sscanf(bufferStart, "%d", start);
+    int rc_sc2 = sscanf(bufferEnd, "%d", end);
 
-  if (path[strlen(path) - 1] == '\n') {
-    path[strlen(path) - 1] = '\0';
+    if (path[strlen(path) - 1] == '\n') {
+      path[strlen(path) - 1] = '\0';
+    }
+
+    int fd = openFile(path, O_RDONLY);
+    rc_t = fd;
+
+    if (fd == -1)
+      rc_t = READ_DIRECTIVES_FAILURE;
+    if (rc_sc == 0 || rc_sc2 == 0)
+      rc_t = CAST_FAILURE;
   }
-
-  int fd = openFile(path, O_RDONLY);
-  rc_t = fd;
-
-  if (fd == -1)
-    rc_t = READ_DIRECTIVES_FAILURE;
-  if (rc_sc == 0 || rc_sc2 == 0)
-    rc_t = CAST_FAILURE;
 
   return rc_t;
 }
 
-void readDirectives(char *path, char *bufferStart, char *bufferEnd) {
+void readDirectives(char *path, char *bufferStart, char *bufferEnd,
+                    int *stopFlag) {
   // TODO choose max length for path
   // TODO ATTENZIONE mettere i byte terminatori nel manager
   char readBuffer[2] = "a";
+  *stopFlag = 0;
 
   int counter = 0;
   do {
@@ -136,6 +180,9 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd) {
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   path[counter] = '\0';
 
+  if (strncmp(path, "stop", 4) == 0)
+    *stopFlag = 1;
+
   counter = 0;
   do {
     int rc = readChar(READ_CHANNEL, readBuffer);
@@ -143,12 +190,22 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd) {
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   bufferStart[counter] = '\0';
 
+  if (strncmp(bufferStart, "stop", 4) == 0 && *stopFlag == 1)
+    *stopFlag = 1;
+  else
+    *stopFlag = 0;
+
   counter = 0;
   do {
     int rc = readChar(READ_CHANNEL, readBuffer);
     bufferEnd[counter++] = readBuffer[0];
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   bufferEnd[counter] = '\0';
+
+  if (strncmp(bufferEnd, "stop", 4) == 0 && *stopFlag == 1)
+    *stopFlag = 1;
+  else
+    *stopFlag = 0;
 
   if (path[0] == '\0' || bufferStart[0] == '\0' || bufferEnd[0] == '\0') {
     char *msgErr = (char *)malloc(300);
@@ -169,29 +226,49 @@ int executeWork(const int fd, const int start, const int end) {
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
-  char charRead[2];
   int bytesRead;
-  int workAmount = end - start + 1;
+  int workAmount = end - start + 0;
+  char *charsRead = malloc(workAmount * sizeof(char));
 
-  while (workAmount != 0 && rc_t == 0) {
-    bytesRead = readChar(fd, charRead);
-    if (bytesRead <= 0) {
-      rc_t = READ_FAILURE;
-    } else {
-      // TODO check \0 char after charRead
-      int rc_wr = write(WRITE_CHANNEL, charRead, 1);
-      if (rc_wr == -1)
-        rc_t = WRITE_FAILURE;
-      workAmount--;
-    }
+  bytesRead = readDescriptor(fd, charsRead, workAmount);
+  /* printf("ho letto %d\n", bytesRead); */
+  int i;
+  for (i = 0; i < bytesRead; i++)
+    if ((charsRead[i] < 32 || charsRead[i] > 127) && charsRead[i] != '\n')
+      charsRead[i] = -15;
+
+  if (bytesRead > 0) {
+    int rc_wr = writeDescriptor(WRITE_CHANNEL, charsRead);
+    if (rc_wr == -1)
+      rc_t = WRITE_FAILURE;
+  } else {
+    rc_t = READ_FAILURE;
   }
+  /* while (workAmount != 0 && rc_t == 0) { */
+  /*   bytesRead = readChar(fd, charRead); */
+  /*   if (bytesRead <= 0) { */
+  /*     rc_t = READ_FAILURE; */
+  /*   } else { */
+  /*     // TODO check \0 char after charRead */
+  /*     int rc_wr = write(WRITE_CHANNEL, charRead, 1); */
+  /*     if (rc_wr == -1) */
+  /*       rc_t = WRITE_FAILURE; */
+  /*     workAmount--; */
+  /*   } */
+  /* } */
 
-  if (workAmount == 0 && rc_t != -1) {
+  if (rc_t != -1) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
     if (rc_wr == -1)
       rc_t = WRITE_FAILURE;
   }
 
+  return rc_t;
+}
+
+int sendAcknowledgment() {
+  int rc_t = OK;
+  rc_t = writeDescriptor(WRITE_CHANNEL, "ackn");
   return rc_t;
 }
 
