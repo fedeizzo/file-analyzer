@@ -14,7 +14,7 @@ Table newTable(const char *name) {
   table->name = malloc(strlen(name) + 1 * sizeof(char));
   int rc_al2 = checkAllocationError(table->name);
 
-  table->table = calloc(NCHAR_TABLE, sizeof(long long));
+  table->table = calloc(NCHAR_TABLE, sizeof(unsigned long long));
   int rc_al3 = checkAllocationError(table->table);
 
   table->workAssociated = 0;

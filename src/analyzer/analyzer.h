@@ -10,7 +10,7 @@
  */
 typedef struct FileInfo{
     char *name;
-    int *fileTable;
+    unsigned long long *fileTable;
     char *path;
     int isDirectory;
 } *FileInfo;

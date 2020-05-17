@@ -55,7 +55,7 @@ Worker newWorker() {
   Worker worker = malloc(sizeof(struct structWorker));
   rc_al = checkAllocationError(worker);
   if (rc_al == OK) {
-    worker->table = calloc(NCHAR_TABLE, sizeof(long long));
+    worker->table = calloc(NCHAR_TABLE, sizeof(unsigned long long));
     rc_al2 = checkAllocationError(worker->table);
     worker->pipe = malloc(2 * sizeof(int));
     rc_al3 = checkAllocationError(worker->table);
@@ -245,7 +245,7 @@ int checkUpdate(int *summaryFlag);
  *    int *table: the table associated with a file
  *    int *workerTable: the worker table for the udpate operation
  */
-void updateTable(long long *table, long long *workerTable);
+void updateTable(unsigned long long *table, unsigned long long *workerTable);
 
 /**
  * Ends a worker's work
@@ -419,7 +419,7 @@ void *workLoop(void *ptr) {
       sendSummary(sharedRes->tables);
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
-    if (directives == NEW_DIRECTIVES) {
+    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0) {
       pthread_mutex_lock(&(sharedRes->mutex));
 
       if (sharedRes->directive->currentWorkers !=
@@ -432,16 +432,19 @@ void *workLoop(void *ptr) {
         remoduleWorks(sharedRes->todo, sharedRes->workers, sharedRes->tables);
         sharedRes->directive->directiveStatus = SUMMARY;
       }
-
+      
       if (sharedRes->directive->paths->size > 0) {
         // TODO add control
         char *path = front(sharedRes->directive->paths);
+        fprintf(stderr, "sto per aggiungere le direttive al percorso %s con size %d ---- %d\n", path,sharedRes->directive->paths->size, getpid());
         pop(sharedRes->directive->paths);
+        //fprintf(stderr, "->Ho size %d ---- %d\n", sharedRes->directive->paths->size, getpid());
         rc_nd = addDirectives(sharedRes->tables, sharedRes->todo, path,
                               sharedRes->directive->currentWorkers);
         free(path);
       } else {
         // fprintf(stderr, " !!! asdkamsudbaisdniasdbaisd %d !!! \n", getpid());
+        //printList(sharedRes->directive->paths, printFigo);
       }
 
       pthread_mutex_unlock(&(sharedRes->mutex));
@@ -468,6 +471,7 @@ void *workLoop(void *ptr) {
     }
     usleep(1);
   }
+  fprintf(stderr, "MUOIO CON rc_work pari a %d\n", rc_work);
   kill(getpid(), SIGKILL);
 }
 
@@ -482,7 +486,6 @@ int initManager(List workers, const int nWorkers, List tables, List todo) {
   } else {
     rc_t = INIT_FAILURE;
   }
-
   return rc_t;
 }
 
@@ -746,7 +749,7 @@ int checkUpdate(int *summaryFlag) {
   return rc_t;
 }
 
-void updateTable(long long *table, long long *workerTable) {
+void updateTable(unsigned long long *table, unsigned long long *workerTable) {
   int i = 0;
   for (i = 0; i < NCHAR_TABLE; i++)
     table[i] += workerTable[i];
@@ -757,7 +760,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
   int rc_t = OK;
   int rc_ca = OK;
   Work work = worker->doing;
-  long long *workerTable = worker->table;
+  unsigned long long *workerTable = worker->table;
 
   if (typeEnding == GOOD_ENDING) {
     updateTable(work->tablePointer->table, workerTable);
@@ -937,6 +940,7 @@ void *readDirectives(void *ptr) {
     nWorker[counter] = '\0';
     // TODO... debug only
     fprintf(stderr, "Path %s, nWorker %s pid %d\n", newPath, nWorker, getpid());
+    //usleep(10000);
 
     pthread_mutex_lock(&(sharedRes->mutex));
     int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
@@ -945,13 +949,13 @@ void *readDirectives(void *ptr) {
       rc_t = CAST_FAILURE;
     } else
       sharedRes->directive->newNWorker = castPlaceHolder;
-    fprintf(stderr, "prima ---------------------------------\n");
-    printList(sharedRes->directive->paths, printFigo);
-    fprintf(stderr, "finito ---------------------------------\n");
+    //fprintf(stderr, "prima ---------------------------------\n");
+    //printList(sharedRes->directive->paths, printFigo);
+    //fprintf(stderr, "finito ---------------------------------\n");
     enqueue(sharedRes->directive->paths, newPath);
-    fprintf(stderr, "dopo ---------------------------------\n");
-    printList(sharedRes->directive->paths, printFigo);
-    fprintf(stderr, "finito ---------------------------------\n");
+    //fprintf(stderr, "dopo ---------------------------------\n");
+    //printList(sharedRes->directive->paths, printFigo);
+    //fprintf(stderr, "finito ---------------------------------\n");
 
     if (newPath[0] == '\0' || nWorker[0] == '\0') {
       char *msgErr = (char *)malloc(300);
@@ -970,7 +974,7 @@ void *readDirectives(void *ptr) {
     /* free(newPath); */
     usleep(500000);
   }
-
+  fprintf(stderr, "MANAGER: MUOIO CON rc_t pari a %d\n", rc_t);
   kill(getpid(), SIGKILL);
   // return rc_t;
 }
@@ -981,7 +985,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   int rc_al = checkAllocationError(t);
   List todoTmp = newList();
   int rc_al2 = checkAllocationError(todoTmp);
-  fprintf(stderr, "path in addDirectives %s\n", path);
+  //fprintf(stderr, "path in addDirectives %s\n", path);
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
@@ -1024,8 +1028,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     } else {
       rc_t = NEW_DIRECTIVES_FAILURE;
     }
-    fprintf(stderr, "Stampo in add directives\n");
-    printList(tables, toStringTable);
+    //fprintf(stderr, "Stampo in add directives\n");
+    //printList(tables, toStringTable);
   }
 
   if (rc_t == OK) {
@@ -1077,7 +1081,7 @@ int sendSummary(List tables) {
   int rc_po = OK;
   int rc_pu = OK;
   int tablesSize = tables->size;
-  printList(tables, toStringTable);
+  //printList(tables, toStringTable);
   int i = 0;
 
   for (i = 0; i < tablesSize; i++) {
@@ -1089,10 +1093,10 @@ int sendSummary(List tables) {
     if (t != NULL) {
       int j = 0;
       // TODO remove this acc
-      long long acc = 0;
+      unsigned long long acc = 0;
       writeDescriptor(WRITE_CHANNEL, t->name);
       // writeDescriptor(WRITE_CHANNEL, "\n");
-      fprintf(stderr, "-----------------MANAGER INVIO %s\n", t->name);
+      //fprintf(stderr, "-----------------MANAGER INVIO %s\n", t->name);
       for (j = 0; j < NCHAR_TABLE; j++) {
         // TODO choose MAXLEN
         char msg[MAXLEN];
@@ -1116,7 +1120,7 @@ int sendSummary(List tables) {
       }
 
       // TODO remove this acc
-      fprintf(stderr, "acc: %lld\n", acc);
+      //fprintf(stderr, "acc: %lld\n", acc);
     }
   }
 

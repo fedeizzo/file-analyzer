@@ -18,7 +18,7 @@
 
 #define WRITE_CHANNEL 1
 #define READ_CHANNEL 0
-#define MAXLEN 300
+#define MAXLEN 4096
 
 /**
  * Inits worker realated operations
@@ -208,7 +208,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     *stopFlag = 0;
 
   if (path[0] == '\0' || bufferStart[0] == '\0' || bufferEnd[0] == '\0') {
-    char *msgErr = (char *)malloc(300);
+    char *msgErr = (char *)malloc(sizeof(char)*300);
     int rc_ca = checkAllocationError(msgErr);
     if (rc_ca < 0) {
       printError("I can't allocate memory");
@@ -262,7 +262,7 @@ int executeWork(const int fd, const int start, const int end) {
     if (rc_wr == -1)
       rc_t = WRITE_FAILURE;
   }
-
+  //free(charsRead);
   return rc_t;
 }
 

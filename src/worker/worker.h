@@ -22,7 +22,7 @@
  */
 typedef struct structWorker{
   int pid;
-  long long *table;
+  unsigned long long *table;
   int bytesSent;
   int workAmount;
   Work doing;
