@@ -100,21 +100,54 @@ void destroyList(List list, void deleteData(void *)) {
 }
 
 int pop(List list) {
+  //fprintf(stderr, "DENTOR LA POP INIZIO\n");
   int ret = SUCCESS;
-  Node nodo;
-  if (isEmptyList(list) == EMPTY) {
-    ret = FAILURE;
-  } else {
-    nodo = list->head;
-    list->head = nodo->next;
-    list->size--;
-    if (list->size == 0) {
-      list->tail = NULL;
-    } else {
-      list->head->prev = NULL;
+  if(list != NULL){
+    Node tmp = list->head;
+    //fprintf(stderr, "HEAD %p\n", tmp);
+    //fprintf(stderr, "SIZE: %d\n", list->size);
+    //fprintf(stderr, "TAIL %p\n", list->tail);
+    int lvl = 0;
+    while(tmp != NULL){
+      //fprintf(stderr, "LVL: %d\n", lvl);
+      //fprintf(stderr, "%p %p\n", tmp->data, tmp->next);
+      lvl++;
+      tmp = tmp->next; 
     }
-    free(nodo);
+    //fprintf(stderr, "RIGA1\n");
+    Node nodo;
+    //fprintf(stderr, "RIGA2\n");
+    if (isEmptyList(list) == EMPTY) {
+      //fprintf(stderr, "RIGA3\n");
+      ret = FAILURE;
+      //fprintf(stderr, "RIGA4\n");
+    } else {
+      //fprintf(stderr, "RIGA5\n");
+      nodo = list->head;
+      //fprintf(stderr, "RIGA6\n");
+      list->head = nodo->next;
+      //fprintf(stderr, "RIGA7\n");
+      list->size--;
+      //fprintf(stderr, "RIGA8\n");
+      if (list->size == 0) {
+        //fprintf(stderr, "RIGA9\n");
+        list->tail = NULL;
+        //fprintf(stderr, "RIGA10\n");
+      } else {
+        //fprintf(stderr, "RIGA11\n");
+        list->head->prev = NULL;
+        //fprintf(stderr, "RIGA12\n");
+      }
+      //fprintf(stderr, "RIGA13\n");
+      free(nodo);
+      //fprintf(stderr, "RIGA14\n");
+    }
+    //fprintf(stderr, "RIGA15\n");
+  }else{
+    //fprintf(stderr, "HO LA LISTA MORTA\n");
+    ret = FAILURE;
   }
+  //fprintf(stderr, "DENTOR LA POP FINE\n");
   return ret;
 }
 
@@ -340,16 +373,30 @@ void map(List list, void function(void *)) {
   }
 }
 
+/**
+ * BESTIA DI SATANA
+ */
 int concat(List dst, List src) {
   int rc_t = SUCCESS;
   if (dst != NULL || src != NULL) {
-    dst->tail->next = src->head;
-    src->head->prev = dst->tail;
-    dst->size = dst->size + src->size;
-    // Empty the src List
-    src->head = NULL;
-    src->tail = NULL;
-    src->size = 0;
+    if(isEmptyList(dst) == EMPTY){
+      swap(dst, src);
+    }else{
+      if(isEmptyList(src) == NOT_EMPTY){
+        if(dst->tail != NULL){
+          dst->tail->next = src->head;
+        }
+        if(src->head != NULL){
+          src->head->prev = dst->tail;
+        }
+        dst->tail = src->tail;
+        dst->size += src->size;
+        // Empty the src List
+        src->head = NULL;
+        src->tail = NULL;
+        src->size = 0;
+      }
+    }
   } else {
     rc_t = FAILURE; // TODO map into NULL_POINTER
   }
