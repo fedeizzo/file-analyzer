@@ -740,7 +740,7 @@ int assignWork(Worker worker, Work work, List todo) {
   } else
     rc_t = ASSIGNWORK_MEMORY_FAILURE;
 
-  printf("size: %d\n", todo->size);
+  //printf("size: %d\n", todo->size);
   return rc_t;
 }
 
@@ -755,7 +755,7 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
   if (rc_t == OK) {
     if (bytesSent >= w->workAmount) {
       int rc_rd = read(readFromWorker, charSent, 5);
-      printf("la parola di controllo: %s\n", charSent);
+      //printf("la parola di controllo: %s\n", charSent);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
         endWork(w, tables, BAD_ENDING, todo, NULL);
@@ -1076,7 +1076,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         pop(tables);
       }
 
-      printList(todoTmp, stopThisShitPrint);
+      //printList(todoTmp, stopThisShitPrint);
 
       int rc_cl = closeDescriptor(fd);
 

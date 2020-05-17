@@ -1269,12 +1269,12 @@ void *sendFileLoop(void *ptr) {
     // TODO... check if this type of approach is blocking or not
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
-    pthread_mutex_unlock(&(sharedResources->mutex));
+    //pthread_mutex_unlock(&(sharedResources->mutex));
     while (nManager > 0 && rc_t == SUCCESS) {
-      pthread_mutex_lock(&(sharedResources->mutex));
+      //pthread_mutex_lock(&(sharedResources->mutex));
       // printf("priorityQueue size %d\n", sharedResources->managers->size);
       manager = popPriorityQueue(sharedResources->managers);
-      pthread_mutex_unlock(&(sharedResources->mutex));
+      //pthread_mutex_unlock(&(sharedResources->mutex));
       if (manager != NULL) {
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
@@ -1291,9 +1291,8 @@ void *sendFileLoop(void *ptr) {
               bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
             }
             path[counter] = 0;
-            // printf("--------------------- ANALYZER %d: path ricevuto %s\n",
-            // getpid(), path);
-            pthread_mutex_lock(&(sharedResources->mutex));
+            printf("--------------------- ANALYZER %d: path ricevuto %s\n", getpid(), path);
+            //pthread_mutex_lock(&(sharedResources->mutex));
             node = manager->filesInExecution->head;
             found = 0;
             while (node != NULL && found == 0 && rc_t == SUCCESS) {
@@ -1320,7 +1319,7 @@ void *sendFileLoop(void *ptr) {
                 rc_t = NULL_POINTER;
               }
             }
-            pthread_mutex_unlock(&(sharedResources->mutex));
+            //pthread_mutex_unlock(&(sharedResources->mutex));
 
             if (found != 1 || rc_t != SUCCESS) {
               printf("MUIO PERCHE' NON TROVO QUELLO CHE STAVO CERCANDO\n");
@@ -1350,11 +1349,11 @@ void *sendFileLoop(void *ptr) {
                 int a = sscanf(number, "%llu", &ab);
                 accumulator += ab;
                 if (rc_ss > 0) {
-                  pthread_mutex_lock(&(sharedResources->mutex));
+                  //pthread_mutex_lock(&(sharedResources->mutex));
                   info->fileTable[insertCounter] = charCounter;
                   // printf("NUMERO %llu\n", info->fileTable[insertCounter]);
                   insertCounter++;
-                  pthread_mutex_unlock(&(sharedResources->mutex));
+                  //pthread_mutex_unlock(&(sharedResources->mutex));
                 } else {
                   printf("fail della scanf\n");
                   // TODO vedere che fare in caso di fallimento di sscanf
@@ -1370,26 +1369,22 @@ void *sendFileLoop(void *ptr) {
                 // printf("parola di controllo: %s\n", controlWord);
                 if (bytesRead > 0) {
                   if (strcmp(controlWord, CONTROL_DONE) == 0) {
-                    // printf("Done!!!\n");
-                    pthread_mutex_lock(&(sharedResources->mutex));
-                    // printf("ANALYZER %d: prima\n", getpid());
-                    // printList(manager->filesInExecution, pasta);
+                    printf("Done!!!\n");
+                    //pthread_mutex_lock(&(sharedResources->mutex));
+                    printf("ANALYZER %d: prima\n", getpid());
+                    printList(manager->filesInExecution, pasta);
                     // pasta(file);
                     // pasta(node->data);
                     push(finished, info);
-                    // printList(finished, pasta);
+                    //printList(finished, pasta);
                     rc_t = detachNodeFromList(manager->filesInExecution, node);
-                    if (manager->filesInExecution->size == 0 &&
-                        sharedResources->fileToAssign->size == 0) {
-                      printf("HO FINITO E GUAI A TE\n");
-                    }
                     // printf("HO SIZE: %d\n", finished->size);
-                    // printf("ANALYZER %d: dopo\n", getpid());
+                    printf("ANALYZER %d: dopo\n", getpid());
                     // usleep(100000);
-                    // printList(manager->filesInExecution, pasta);
+                    printList(manager->filesInExecution, pasta);
                     // fflush(stdout);
                     // sleep(5);
-                    pthread_mutex_unlock(&(sharedResources->mutex));
+                    //pthread_mutex_unlock(&(sharedResources->mutex));
                   } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                     // printf("UNDONE!\n");
                   } else {
@@ -1397,7 +1392,7 @@ void *sendFileLoop(void *ptr) {
                   }
                 }
               } else {
-                pthread_mutex_lock(&(sharedResources->mutex));
+                //pthread_mutex_lock(&(sharedResources->mutex));
                 rc_em = endManager(manager, sharedResources->fileToAssign);
                 if (rc_em < OK) {
                   rc_t = rc_em;
@@ -1405,16 +1400,16 @@ void *sendFileLoop(void *ptr) {
                 }
                 printf("DISTRUGGO LO STRONZO pt 1\n");
                 destroyManager((void *)manager);
-                pthread_mutex_unlock(&(sharedResources->mutex));
+                //pthread_mutex_unlock(&(sharedResources->mutex));
               }
             }
           }
-          pthread_mutex_lock(&(sharedResources->mutex));
+          //pthread_mutex_lock(&(sharedResources->mutex));
           pushPriorityQueue(tmpManagers, manager->filesInExecution->size,
                             manager);
-          pthread_mutex_unlock(&(sharedResources->mutex));
+          //pthread_mutex_unlock(&(sharedResources->mutex));
         } else {
-          pthread_mutex_lock(&(sharedResources->mutex));
+          //pthread_mutex_lock(&(sharedResources->mutex));
           printf("e' morto quello con pid %d\n", manager->m_pid);
           // rc_em = endManager(manager, sharedResources->fileToAssign);
           /*if(rc_em < OK){
@@ -1423,7 +1418,7 @@ void *sendFileLoop(void *ptr) {
           }*/
           printf("DISTRUGGO LO STRONZO pt 2\n");
           // destroyManager((void *) manager);
-          pthread_mutex_unlock(&(sharedResources->mutex));
+          //pthread_mutex_unlock(&(sharedResources->mutex));
         }
       } else {
         printf("MANAGER NULLO\n");
@@ -1432,13 +1427,13 @@ void *sendFileLoop(void *ptr) {
       nManager--;
       // TODO STAMPA COME WORD COUNTER
     }
-    pthread_mutex_lock(&(sharedResources->mutex));
+    //pthread_mutex_lock(&(sharedResources->mutex));
     rc_sw = swapPriorityQueue(sharedResources->managers, tmpManagers);
     if (rc_sw != SUCCESS) {
       printf("errore swap ciaone\n");
       rc_t = rc_sw;
     }
-    pthread_mutex_unlock(&(sharedResources->mutex));
+    //pthread_mutex_unlock(&(sharedResources->mutex));
     // sleep(2);
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
       rc_mfs = manageFileToSend(sharedResources->managers,
@@ -1723,8 +1718,7 @@ void *fileManageLoop(void *ptr) {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                printf("relativePath: %s, candidate->path: %s\n", relativePath,
-                       candidate->path);
+                //printf("relativePath: %s, candidate->path: %s\n", relativePath, candidate->path);
                 // usleep(100000);
                 pthread_mutex_lock(&(sharedResources->mutex));
                 rc_ia = insertAndSchedule(candidate->startingNode,
