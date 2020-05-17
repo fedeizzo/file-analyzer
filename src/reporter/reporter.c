@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "../list/list.h"
@@ -12,8 +13,6 @@
 
 #define OK 0
 #define MAXLEN 4096
-
-#define NEW_DIRECTIVES 1
 
 #define CAST_FAILURE -2
 #define SEND_FAILURE -3
@@ -25,11 +24,15 @@ UserInput newUserInput() {
   UserInput ui = malloc(sizeof(struct UserInputStr));
   int rc_al = checkAllocationError(ui);
   int rc_al2 = OK;
+  int rc_al3 = OK;
 
   if (rc_al == OK) {
     ui->paths = newList();
+    ui->results = newList();
     if (ui->paths == NULL)
       rc_al2 = -1;
+    if (ui->results == NULL)
+      rc_al3 = -1;
     ui->managers = 3;
     ui->workers = 4;
   }
@@ -45,10 +48,9 @@ int readDirectives(List paths, int *numManager, int *numWorker);
 
 void *writeFifoLoop(void *ptr);
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker);
-int readResult(char *fifo);
+int readResult(List pathResults);
 
 int main() {
-  List paths;
   int managers;
   int workers;
   char *writeFifo = "/tmp/reporterToAnalyzer";
@@ -86,14 +88,43 @@ void *userInputLoop(void *ptr) {
 
   int rc_t = OK;
   while (rc_t == OK) {
-    pthread_mutex_lock(&(input->mutex));
-    rc_t =
-        readDirectives(input->userInput->paths, &(input->userInput->managers),
-                       &(input->userInput->workers));
-    printf("numero di percorsi insertiti %d\n", input->userInput->paths->size);
-    pthread_mutex_unlock(&(input->mutex));
+    char *dst = malloc(MAXLEN * sizeof(char));
+    int bytesRead = read(0, dst, 5);
+    if (bytesRead > 0) {
+      if (strncmp(dst, "dire", 4) == 0) {
+        printf("sto per leggere le direttive, quelle buone\n");
+        pthread_mutex_lock(&(input->mutex));
+        rc_t = readDirectives(input->userInput->paths,
+                              &(input->userInput->managers),
+                              &(input->userInput->workers));
+        pthread_mutex_unlock(&(input->mutex));
+        printf("ho letto tutte le direttive\n");
+      } else if (strncmp(dst, "requ", 4) == 0) {
+        printf("sto per leggere le direttive, quelle buone\n");
+        pthread_mutex_lock(&(input->mutex));
+        readResult(input->userInput->results);
+        pthread_mutex_unlock(&(input->mutex));
+        printf("ho letto tutte le direttive\n");
+      }
+    }
     usleep(50000);
   }
+  printf("osno morto\n");
+}
+
+int isAnalyzerAlive() {
+  int rc_t = -1;
+  int pid = fork();
+
+  if (pid == 0) {
+    execlp("ps -a | grep 'ricevente'", "ps -a | grep 'ricevente'", NULL);
+  } else if (pid > 0) {
+    waitpid(pid, &rc_t, WNOHANG);
+
+    WEXITSTATUS(rc_t);
+  }
+
+  return rc_t;
 }
 
 void *writeFifoLoop(void *ptr) {
@@ -106,22 +137,23 @@ void *writeFifoLoop(void *ptr) {
   strcpy(fifoPath, input->writeFifo);
   pthread_mutex_unlock(&(input->mutex));
 
-  printf("sto aprendo la fifo %s\n", fifoPath);
-  fd = open(fifoPath, O_WRONLY);
-  printf("ho aprto la fifo\n");
   while (rc_t == OK) {
     pthread_mutex_lock(&(input->mutex));
     if (input->userInput->paths->size > 0) {
       char *path = front(input->userInput->paths);
       if (path != NULL) {
-        int rc_po = pop(input->userInput->paths);
-        rc_t = sendDirectives(fd, path, &(input->userInput->managers),
-                              &(input->userInput->workers));
-        printf("scritto nella fifo\n");
+        fd = open(fifoPath, O_WRONLY);
+        if (fd > 0) {
+          int rc_po = pop(input->userInput->paths);
+          rc_t = sendDirectives(fd, path, &(input->userInput->managers),
+                                &(input->userInput->workers));
+        }
+        close(fd);
+        free(path);
       }
-      free(path);
     }
     pthread_mutex_unlock(&(input->mutex));
+    usleep(500);
   }
   free(fifoPath);
 }
@@ -179,7 +211,7 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
     if (rc_ca < 0) {
       printError("I can't allocate memory");
     } else {
-      sprintf(msgErr, "inisde worker with pid: %d", getpid());
+      sprintf(msgErr, "inisde reporter with pid: %d", getpid());
       printError(msgErr);
       free(msgErr);
     }
@@ -187,10 +219,7 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
     enqueue(paths, newPath);
     *numManager = numberManager;
     *numWorker = numberWorker;
-    rc_t = NEW_DIRECTIVES;
   }
-
-  free(newPath);
 
   return rc_t;
 }
@@ -207,14 +236,14 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
   int rc_sp2 = sprintf(nWorker, "%d", *numWorker);
 
   if (rc_sp >= OK && rc_al2 >= OK && fd > OK) {
-    printf("sono entrato qua e quindi ho invaito\n");
-    printf("%s,%s,%s\n", path, nManager, nWorker);
-    int rc_wr = writeDescriptor(fd, path);
+    /* int rc_wr = writeDescriptor(fd, "dire"); */
+    int rc_wr = OK;
+    int rc_wr1 = writeDescriptor(fd, path);
     int rc_wr2 = writeDescriptor(fd, nManager);
     int rc_wr3 = writeDescriptor(fd, nWorker);
     int rc_wr4 = writeDescriptor(fd, "dire");
 
-    if (rc_wr < OK || rc_wr2 < OK || rc_wr3 < OK)
+    if (rc_wr < OK || rc_wr2 < OK || rc_wr3 < OK || rc_wr4 < OK)
       rc_t = SEND_FAILURE;
   } else
     rc_t = SEND_FAILURE;
@@ -231,18 +260,54 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
 
   if (fd < OK)
     rc_t = SEND_FAILURE;
-  else
-    closeDescriptor(fd);
+  else {
+    /* closeDescriptor(fd); */
+  }
 
   return rc_t;
 }
 
-int readResult(char *fifo) {
-  int fd = open(fifo, O_RDONLY);
-  char *dst = malloc(MAXLEN * sizeof(char));
-  read(fd, dst, MAXLEN);
-  printf("%s\n", dst);
-  close(fd);
-  return 0;
+int readResult(List pathResults) {
+  int rc_t = OK;
+  int endFlag = 1;
+
+  while (endFlag && rc_t == OK) {
+    char *path = malloc(MAXLEN * sizeof(char));
+    int index = 0;
+    char charRead = 'a';
+    int bytesRead = -1;
+    rc_t = checkAllocationError(path);
+    while (bytesRead != 0 && charRead != '\0') {
+      bytesRead = readChar(0, &charRead);
+      if (bytesRead > 0)
+        path[index++] = charRead;
+    }
+
+    printf("path: %s\n", path);
+    if (strncmp(path, "requ", 4) == 0) {
+      endFlag = 0;
+      printf("sono qui\n");
+    } else if (path[strlen(path)] != '\0' && rc_t == OK)
+      rc_t = enqueue(pathResults, path);
+  }
+
+  return rc_t;
 }
-int sendResult() {}
+
+int sendResult(int fd, List pathResults) {
+  int rc_t = OK;
+
+  while (pathResults->size > 0 && rc_t == OK) {
+    char *path = front(pathResults);
+    if (path != NULL) {
+      rc_t = pop(pathResults);
+      if (rc_t == OK)
+        rc_t = writeDescriptor(fd, path);
+    }
+  }
+
+  if (rc_t == OK)
+    rc_t = writeDescriptor(fd, "requ");
+
+  return rc_t;
+}
