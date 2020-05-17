@@ -7,6 +7,7 @@
 typedef struct UserInputStr {
   List paths;
   List results;
+  char *tree;
   int managers;
   int workers;
 } *UserInput;

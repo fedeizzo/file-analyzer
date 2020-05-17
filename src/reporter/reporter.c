@@ -25,22 +25,31 @@ UserInput newUserInput() {
   int rc_al = checkAllocationError(ui);
   int rc_al2 = OK;
   int rc_al3 = OK;
+  int rc_al4 = OK;
 
   if (rc_al == OK) {
     ui->paths = newList();
     ui->results = newList();
+    ui->tree = malloc(MAXLEN * sizeof(char));
     if (ui->paths == NULL)
       rc_al2 = -1;
     if (ui->results == NULL)
       rc_al3 = -1;
+    rc_al4 = checkAllocationError(ui->paths);
     ui->managers = 3;
     ui->workers = 4;
   }
 
-  if (rc_al < OK || rc_al2 < OK)
+  if (rc_al < OK || rc_al2 < OK || rc_al3 < OK || rc_al4 < OK)
     ui = NULL;
 
   return ui;
+}
+
+void destroyUserInput(UserInput userInput) {
+  destroyList(userInput->paths, free);
+  destroyList(userInput->results, free);
+  free(userInput->tree);
 }
 
 void *userInputLoop(void *ptr);
@@ -49,6 +58,9 @@ int readDirectives(List paths, int *numManager, int *numWorker);
 void *writeFifoLoop(void *ptr);
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker);
 int readResult(List pathResults);
+int sendResult(int fd, List pathResults);
+int readTree(char *path);
+int sendTree(int fd, char *treePath);
 
 int main() {
   int managers;
@@ -80,6 +92,7 @@ int main() {
 
   int rc_t = OK;
 
+  destroyUserInput(userInput);
   return rc_t;
 }
 
@@ -92,19 +105,21 @@ void *userInputLoop(void *ptr) {
     int bytesRead = read(0, dst, 5);
     if (bytesRead > 0) {
       if (strncmp(dst, "dire", 4) == 0) {
-        printf("sto per leggere le direttive, quelle buone\n");
         pthread_mutex_lock(&(input->mutex));
         rc_t = readDirectives(input->userInput->paths,
                               &(input->userInput->managers),
                               &(input->userInput->workers));
         pthread_mutex_unlock(&(input->mutex));
-        printf("ho letto tutte le direttive\n");
       } else if (strncmp(dst, "requ", 4) == 0) {
-        printf("sto per leggere le direttive, quelle buone\n");
         pthread_mutex_lock(&(input->mutex));
         readResult(input->userInput->results);
         pthread_mutex_unlock(&(input->mutex));
-        printf("ho letto tutte le direttive\n");
+      } else if (strncmp(dst, "tree", 4) == 0) {
+        printf("entro nel tree\n");
+        pthread_mutex_lock(&(input->mutex));
+        readTree(input->userInput->tree);
+        printf("esco dal tree: %s\n", input->userInput->tree);
+        pthread_mutex_unlock(&(input->mutex));
       }
     }
     usleep(50000);
@@ -151,6 +166,24 @@ void *writeFifoLoop(void *ptr) {
         close(fd);
         free(path);
       }
+    }
+    if (input->userInput->results->size > 0) {
+      fd = open(fifoPath, O_WRONLY);
+      if (fd > 0) {
+        printf("sto per entrare\n");
+        rc_t = sendResult(fd, input->userInput->results);
+        printf("entrato\n");
+      }
+      close(fd);
+    }
+    if (input->userInput->tree[0] != '\0') {
+      fd = open(fifoPath, O_WRONLY);
+      if (fd > 0) {
+        printf("sto per entrare\n");
+        rc_t = sendTree(fd, input->userInput->tree);
+        printf("entrato\n");
+      }
+      close(fd);
     }
     pthread_mutex_unlock(&(input->mutex));
     usleep(500);
@@ -277,17 +310,16 @@ int readResult(List pathResults) {
     char charRead = 'a';
     int bytesRead = -1;
     rc_t = checkAllocationError(path);
-    while (bytesRead != 0 && charRead != '\0') {
+    while (bytesRead != 0 && charRead != '\n') {
       bytesRead = readChar(0, &charRead);
       if (bytesRead > 0)
         path[index++] = charRead;
     }
+    path[--index] = '\0';
 
-    printf("path: %s\n", path);
     if (strncmp(path, "requ", 4) == 0) {
       endFlag = 0;
-      printf("sono qui\n");
-    } else if (path[strlen(path)] != '\0' && rc_t == OK)
+    } else if (path[0] != '\0' && rc_t == OK)
       rc_t = enqueue(pathResults, path);
   }
 
@@ -296,18 +328,52 @@ int readResult(List pathResults) {
 
 int sendResult(int fd, List pathResults) {
   int rc_t = OK;
+  printf("enotr qui\n");
 
   while (pathResults->size > 0 && rc_t == OK) {
     char *path = front(pathResults);
     if (path != NULL) {
+      printf("invio %s\n", path);
       rc_t = pop(pathResults);
-      if (rc_t == OK)
-        rc_t = writeDescriptor(fd, path);
+      if (rc_t == OK) {
+        int rc_wr = writeDescriptor(fd, path);
+        if (rc_wr < OK)
+          rc_t = -1;
+      }
     }
   }
 
-  if (rc_t == OK)
-    rc_t = writeDescriptor(fd, "requ");
+  writeDescriptor(fd, "requ");
+
+  return rc_t;
+}
+
+int readTree(char *path) {
+  int rc_t = OK;
+
+  int index = 0;
+  char charRead = 'a';
+  int bytesRead = -1;
+  while (bytesRead != 0 && charRead != '\n') {
+    bytesRead = readChar(0, &charRead);
+    if (bytesRead > 0)
+      path[index++] = charRead;
+  }
+  path[--index] = '\0';
+
+  return rc_t;
+}
+
+int sendTree(int fd, char *treePath) {
+  int rc_t = OK;
+
+  int rc_wr = writeDescriptor(fd, treePath);
+  if (rc_wr < OK)
+    rc_t = -1;
+
+  writeDescriptor(fd, "tree");
+
+  treePath[0] = '\0';
 
   return rc_t;
 }
