@@ -1291,7 +1291,7 @@ void *sendFileLoop(void *ptr) {
               bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
             }
             path[counter] = 0;
-            printf("--------------------- ANALYZER %d: path ricevuto %s\n", getpid(), path);
+            //printf("--------------------- ANALYZER %d: path ricevuto %s\n", getpid(), path);
             //pthread_mutex_lock(&(sharedResources->mutex));
             node = manager->filesInExecution->head;
             found = 0;
@@ -1371,15 +1371,15 @@ void *sendFileLoop(void *ptr) {
                   if (strcmp(controlWord, CONTROL_DONE) == 0) {
                     printf("Done!!!\n");
                     //pthread_mutex_lock(&(sharedResources->mutex));
-                    printf("ANALYZER %d: prima\n", getpid());
-                    printList(manager->filesInExecution, pasta);
+                    //printf("ANALYZER %d: prima\n", getpid());
+                    //printList(manager->filesInExecution, pasta);
                     // pasta(file);
                     // pasta(node->data);
                     push(finished, info);
                     //printList(finished, pasta);
                     rc_t = detachNodeFromList(manager->filesInExecution, node);
-                    // printf("HO SIZE: %d\n", finished->size);
-                    printf("ANALYZER %d: dopo\n", getpid());
+                    printf("HO SIZE: %d %d\n", manager->filesInExecution->size, manager->m_pid);
+                    //printf("ANALYZER %d: dopo\n", getpid());
                     // usleep(100000);
                     printList(manager->filesInExecution, pasta);
                     // fflush(stdout);

@@ -228,7 +228,10 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
 
 int executeWork(const int fd, const int start, const int end) {
   int rc_t = 0;
-  int rc_se = moveCursorFile(fd, start, SEEK_SET);
+  // TODO... edited here
+  //int rc_se = moveCursorFile(fd, start, SEEK_SET);
+  //printf("start: %d, end: %d\n", start, end);
+  int rc_se = lseek(fd, start, SEEK_SET);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
@@ -281,8 +284,9 @@ int errorHandler(const int fd, const int end) {
   int rc_t = 0;
   if (fd == -1)
     rc_t = READ_DIRECTIVES_FAILURE;
-
-  int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
+  // TODO... edited here
+  //int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
+  int rc_se = lseek(fd, 0, SEEK_CUR);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 

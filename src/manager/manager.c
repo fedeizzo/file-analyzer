@@ -918,6 +918,7 @@ int remoduleWorks(List todo, List workers, List tables) {
   int i, j;
   int rc_pu = OK;
   int rc_po = OK;
+  //! TODO... Add t->workAssociated
   for (i = 0; i < todoSize && rc_t == OK; i++) {
     Work work = front(todo);
     if (work != NULL) {
@@ -992,7 +993,7 @@ void *readDirectives(void *ptr) {
     } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
     nWorker[counter] = '\0';
     // TODO... debug only
-    fprintf(stderr, "Path %s, nWorker %s pid %d\n", newPath, nWorker, getpid());
+    //fprintf(stderr, "Path %s, nWorker %s pid %d\n", newPath, nWorker, getpid());
     // usleep(10000);
 
     pthread_mutex_lock(&(sharedRes->mutex));
@@ -1048,7 +1049,10 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
       int fileDimension = moveCursorFile(fd, 0, SEEK_END);
       if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
         Work w = newWork(t, 0, fileDimension - 1);
+        // TODO... check error code
         push(todoTmp, w);
+        // TODO... check if this causes any bug!!!
+        t->workAssociated = 1;
       } else if (fileDimension > 0 && nWorker > 0) {
         int step = (int)fileDimension / nWorker;
         int remainder = fileDimension % nWorker;
@@ -1071,12 +1075,22 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         t->workAssociated = nWorker;
       } else if (fileDimension > 0 && nWorker == 0) {
         Work w = newWork(t, 0, fileDimension - 1);
+        // TODO... check error code
         push(todoTmp, w);
+        // TODO... check if this causes any bug!!!
+        t->workAssociated = 1;
       } else {
-        pop(tables);
+        //! da togliere senno' crasha analyzer
+        printf("entro nell'else\n");
+        // TODO... check if this causes any bug!!!
+        //pop(tables);
+        // TODO... check error code
+        Work w = newWork(t, 0, 0);
+        push(todoTmp, w);
+        t->workAssociated = 1;
       }
-
-      //printList(todoTmp, stopThisShitPrint);
+      //! da togliere senno' crasha analyzer
+      printList(todoTmp, stopThisShitPrint);
 
       int rc_cl = closeDescriptor(fd);
 
