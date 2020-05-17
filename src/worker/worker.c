@@ -91,7 +91,6 @@ int main(int argc, char *argv[]) {
   dup2(non_lo_so, 2);
   printError("Quello che vuoi");*/
 
-
   int start;
   int end;
   int rc_work = OK;
@@ -166,7 +165,8 @@ int initWork(int *start, int *end, int *stopFlag) {
       rc_t = READ_DIRECTIVES_FAILURE;
     if (rc_sc == 0 || rc_sc2 == 0)
       rc_t = CAST_FAILURE;
-    //fprintf(stderr, "WORKER: path->%s start->%d, end->%d\n", path, *start, *end);
+    // fprintf(stderr, "WORKER: path->%s start->%d, end->%d\n", path, *start,
+    // *end);
   }
 
   return rc_t;
@@ -214,7 +214,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     *stopFlag = 0;
 
   if (path[0] == '\0' || bufferStart[0] == '\0' || bufferEnd[0] == '\0') {
-    char *msgErr = (char *)malloc(sizeof(char)*300);
+    char *msgErr = (char *)malloc(sizeof(char) * 300);
     int rc_ca = checkAllocationError(msgErr);
     if (rc_ca < 0) {
       printError("I can't allocate memory");
@@ -236,22 +236,18 @@ int executeWork(const int fd, const int start, const int end) {
   int workAmount = end - start + 1;
   char *charsRead = malloc((workAmount + 2) * sizeof(char));
   int rc_al = checkAllocationError(charsRead);
-  if(rc_al == OK){
-    //fprintf(stderr, "ALORA (ALLLLLLORA): %d\n", fd);
+  if (rc_al == OK) {
+    // fprintf(stderr, "ALORA (ALLLLLLORA): %d\n", fd);
     bytesRead = readDescriptor(fd, charsRead, workAmount);
-    /* printf("ho letto %d\n", bytesRead); */
     int i;
-    fprintf(stderr, "\tSONO TRISTE %d\n", bytesRead);
-    for (i = 0; i < bytesRead; i++)
-      if ((charsRead[i] < 32 || charsRead[i] > 127) && charsRead[i] != '\n'){
-        fprintf(stderr, "\tCIAO %c %d\n", charsRead[i], charsRead[i]);
-        charsRead[i] = -15;
-      }else{
-        fprintf(stderr, "\tHo letto %c %d\n", charsRead[i], charsRead[i]);
-      }
+    if (bytesRead > 0)
+      for (i = 0; i < workAmount; i++)
+        if ((charsRead[i] < 32 || charsRead[i] > 127) && charsRead[i] != '\n')
+          charsRead[i] = -15;
 
+    charsRead[workAmount] = '\0';
     if (bytesRead > 0) {
-      int rc_wr = writeDescriptor(WRITE_CHANNEL, charsRead);
+      int rc_wr = write(WRITE_CHANNEL, charsRead, workAmount);
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
     } else {
@@ -262,15 +258,15 @@ int executeWork(const int fd, const int start, const int end) {
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
     }
-    if(workAmount > 0 && charsRead != NULL){
-      //fprintf(stderr, "Sto per freeeare %d\n", getpid());
+    if (workAmount > 0 && charsRead != NULL) {
+      // fprintf(stderr, "Sto per freeeare %d\n", getpid());
       free(charsRead);
-      //fprintf(stderr, "Ho freeeato %d\n", getpid());
+      // fprintf(stderr, "Ho freeeato %d\n", getpid());
     }
-  }else{
-    rc_t = -1; //TODO fix
+  } else {
+    rc_t = -1; // TODO fix
   }
-  //GUAI A TE
+  // GUAI A TE
   closeDescriptor(fd);
   return rc_t;
 }
