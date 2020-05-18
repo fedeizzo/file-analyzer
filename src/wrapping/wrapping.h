@@ -1,6 +1,8 @@
 #ifndef __WRAPPING_H__
 #define __WRAPPING_H__
 
+#include "../config/config.h"
+
 /**
  * Wrap function to print error in the stderr
  *

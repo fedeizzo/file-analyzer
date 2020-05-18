@@ -1,6 +1,8 @@
 #ifndef __PRIORITYQUEUE_H__
 #define __PRIORITYQUEUE_H__
 
+#include "../config/config.h"
+
 /**
  * Holds data and priority for an element of the priority queue
  *

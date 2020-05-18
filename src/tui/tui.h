@@ -3,6 +3,7 @@
 
 #include "../list/list.h"
 #include <pthread.h>
+#include "../config/config.h"
 
 /**
  * Holds screen info and content

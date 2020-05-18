@@ -1,0 +1,10 @@
+#!/bin/bash
+[ -z $1 ] && echo "specify a fucking argument please" && exit
+opt=$1
+
+dirs=$(find $opt -mindepth 1 -readable -type f)
+
+for d in $dirs
+do
+    wc -c $d 
+done

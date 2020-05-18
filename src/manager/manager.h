@@ -6,6 +6,7 @@
 #include "../list/list.h"
 #include "../work/work.h"
 #include "../table/table.h"
+#include "../config/config.h"
 
 /**
  * Holds directive information

@@ -2,6 +2,7 @@
 #define __WORKER_H__
 
 #include "../work/work.h"
+#include "../config/config.h"
 
 /**
  * Handles a worker. A worker is a associated with:

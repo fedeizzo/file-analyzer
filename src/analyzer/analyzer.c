@@ -10,71 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#define READ 0
-#define WRITE 1
-
-#define RELATIVE 0
-#define ABSOLUTE 1
-
-#define GOOD_ENDING 0
-#define BAD_ENDING -1
-
-#define SUMMARY 0
-#define NEW_DIRECTIVES 1
-
-#define HARAKIRI -1
-
-#define OK 0
-#define WORKING 1
-#define NEW_WORKER_FAILURE -1
-#define TABLE_FAILURE -2
-#define WORK_FAILURE -3
-#define READ_FAILURE -4
-#define END_WORK_FAILURE -5
-#define NEW_DIRECTIVES_FAILURE -6
-#define CAST_FAILURE -7
-#define PIPE_FAILURE -8
-#define SUMMARY_FAILURE -9
-#define REMOVE_WORK_FAILURE -10
-#define INIT_FAILURE -11
-#define ASSIGNWORK_FAILURE -12
-#define SEND_FAILURE -13
-#define DESCRIPTOR_FAILURE -14
-#define ASSIGNWORK_MEMORY_FAILURE -15
-#define DEAD_PROCESS -16
-#define START_NEW_MANAGER -17
-#define NEW_MANAGER_FAILURE -18
-#define FORK_FAILURE -19
-#define MANAGER_NULL_ERORR -20
-#define ENQUEUE_MANAGER_ERROR -21
-#define FILE_NULL_POINTER -22
-#define CWD_FAILURE -23
-#define STARTING_DIRECTORY_FAILURE -24
-#define ASSIGNFILE_MEMORY_FAILURE -25
-#define REMOVE_MANAGER_FAILURE -26
-#define CWD_ACCESS_DENIED -27
-#define ALREADY_INSERTED -28
-#define EMPTY_PATH -29
-#define BASH_ERROR -30
-#define FILE_NOT_FOUND -31
-
-#define INT_MAX_LEN 12
-#define MAXLEN 300
-#define NCHAR_TABLE 129
-#define WRITE_CHANNEL 1
-#define READ_CHANNEL 0
-#define CONTROL_WORD_LEN 5
-#define TABLE_LEN 129
-#define CONTROL_DONE "done"
-#define CONTROL_UNDONE "undo"
-
-#define DIRECTORY 1
-#define FILE 0
-#define NOT_EXISTING 2
-
-#define FAILURE -1
-#define SUCCESS 0
+#include "../config/config.h"
 
 int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
@@ -198,6 +134,17 @@ void *sendFileLoop(void *ptr);
 void *readDirectivesLoop(void *ptr);
 
 void skipPath(char *path, char *relativePath, int toSkip);
+
+void toStringTable(long long unsigned * table);
+
+List finished = NULL;
+
+void toStringTable(long long unsigned int * table){
+  int i;
+  for(i = 0; i < NCHAR_TABLE; i++){
+    printf("%d - %llu\n", i+1, table[i]);
+  }
+}
 
 void destroyTreeNodeCandidate(void *data) {
   TreeNodeCandidate candidate = (TreeNodeCandidate)data;
@@ -342,7 +289,7 @@ int insertAndSchedule(TreeNode startingNode, List filesToAssign,
   // LOCK
   // pasta((void *)currentDirectory);
   toSchedule =
-      performInsert(relativePath, completePath, startingNode, FILE, &rc_t);
+      performInsert(relativePath, completePath, startingNode, IS_FILE, &rc_t);
   // printf("qui mi rompo\n");
   // MAYBE RELEASE THE LOCK???
   if (rc_t == SUCCESS) {
@@ -591,11 +538,11 @@ int readBashLines(int *fd, char *dst, int childPid) {
   int bytesRead = 1;
   char charRead;
   int counter = 0;
-  rc_cds_1 = closeDescriptor(fd[WRITE]);
+  rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
   // Ho messo il dowhile
   while (bytesRead > 0 || (kill(childPid, 0) == 0)) {
     // printf("carattere: %d\n", charRead);
-    bytesRead = read(fd[READ], &charRead, 1);
+    bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
     if (bytesRead > 0) {
       if (charRead != '\n') {
         dst[counter] = charRead;
@@ -605,7 +552,7 @@ int readBashLines(int *fd, char *dst, int childPid) {
   }
   dst[counter] = '\0';
   // TODO... Deal with pipe
-  rc_cds_2 = closeDescriptor(fd[READ]);
+  rc_cds_2 = closeDescriptor(fd[READ_CHANNEL]);
   // Missing error handling
   if (rc_cds_1 != SUCCESS) {
     printError("Allllllllllora, non funziona la close descriptor in fd write "
@@ -624,9 +571,9 @@ int readBashLines(int *fd, char *dst, int childPid) {
 int writeBashProcess(int *fd, char *argv[]) {
   // TODO... Fix the pipe in order to be not blocking
   int rc_t;
-  int rc_cds_1 = closeDescriptor(fd[READ]);
-  int rc_cdp = createDup(fd[WRITE], 1);
-  int rc_cds_2 = closeDescriptor(fd[WRITE]);
+  int rc_cds_1 = closeDescriptor(fd[READ_CHANNEL]);
+  int rc_cdp = createDup(fd[WRITE_CHANNEL], 1);
+  int rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
   int rc_ex = execvp(argv[0], argv);
   if (rc_ex < 0) {
     char *msgErr = (char *)malloc(sizeof(char) * 1000);
@@ -655,7 +602,7 @@ int callBashProcess(char *dst, char *argv[]) {
   int rc_wb;
   int fd[2];
   int rc_fd = createUnidirPipe(fd);
-  fcntl(fd[READ], F_SETFL, O_NONBLOCK);
+  fcntl(fd[READ_CHANNEL], F_SETFL, O_NONBLOCK);
   if (rc_fd == SUCCESS) {
     int f = fork();
     if (f > 0) {
@@ -870,9 +817,9 @@ void *readDirectivesLoop(void *ptr) {
 
   char *newPath = (char *)malloc(sizeof(char) * PATH_MAX);
   rc_al = checkAllocationError(newPath);
-  char *nWorker = (char *)malloc(sizeof(char) * MAXLEN);
+  char *nWorker = (char *)malloc(sizeof(char) * PATH_MAX);
   rc_al2 = checkAllocationError(nWorker);
-  char *nManager = (char *)malloc(sizeof(char) * MAXLEN);
+  char *nManager = (char *)malloc(sizeof(char) * PATH_MAX);
   rc_al3 = checkAllocationError(nManager);
   char *tmpCwd = malloc(sizeof(char) * PATH_MAX);
   rc_al4 = checkAllocationError(tmpCwd);
@@ -937,7 +884,7 @@ void *readDirectivesLoop(void *ptr) {
         if (type == DIRECTORY) {
           addForwardSlash(newPath);
         }
-        if (type == DIRECTORY || type == FILE) {
+        if (type == DIRECTORY || type == IS_FILE) {
           toSkip = 0;
           startingNode = NULL;
           pthread_mutex_lock(&(sharedResources->mutex));
@@ -1054,11 +1001,11 @@ Manager newManager() {
 }
 
 int addManagers(PriorityQueue managers, int amount) {
-  int rc_t = OK;
-  int rc_en = OK;
+  int rc_t = SUCCESS;
+  int rc_en = SUCCESS;
   int i = 0;
   if (managers != NULL) {
-    for (i = 0; i < amount && rc_t == OK; i++) {
+    for (i = 0; i < amount && rc_t == SUCCESS; i++) {
       // TODO... create manager struct
       Manager manager = newManager();
       if (manager == NULL)
@@ -1133,7 +1080,7 @@ void destroyManager(void *data) {
 }
 
 int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   while (amount != 0 && managers->size != 0) {
     Manager m = popPriorityQueue(managers);
     if (m != NULL) {
@@ -1169,7 +1116,7 @@ int changeManagersAmount(PriorityQueue managers, const int currentManagers,
 
 int sendFile(Manager manager, TreeNode file, List filesToAssign,
              int currentWorker) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int rc_po = pop(filesToAssign);
   int rc_en = enqueue(manager->filesInExecution, file);
 
@@ -1177,7 +1124,7 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
     int *pipe = manager->pipe;
     char *nworkers = malloc((INT_MAX_LEN + 1) * sizeof(char));
     int rc_al = checkAllocationError(nworkers);
-    if (rc_al < OK)
+    if (rc_al < SUCCESS)
       rc_t = MALLOC_FAILURE;
     else {
       // TODO... add check for sprintf (wrapping function)
@@ -1188,7 +1135,7 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
         int rc_wr =
             writeDescriptor(pipe[WRITE_CHANNEL], ((FileInfo)file->data)->path);
         int rc_wr_2 = writeDescriptor(pipe[WRITE_CHANNEL], nworkers);
-        if (rc_wr < OK || rc_wr_2 < OK)
+        if (rc_wr < SUCCESS || rc_wr_2 < SUCCESS)
           rc_t = SEND_FAILURE;
       } else
         rc_t = SEND_FAILURE;
@@ -1228,6 +1175,7 @@ int rescheduleFiles(List toDestroy, List toReschedule) {
   return rc_t;
 }
 
+
 void *sendFileLoop(void *ptr) {
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
   Node node = NULL;
@@ -1243,11 +1191,11 @@ void *sendFileLoop(void *ptr) {
   int found = 0;
   int *pipe = NULL;
   char *path = (char *)malloc(sizeof(char) * PATH_MAX);
-  char *number = (char *)malloc(sizeof(char) * MAXLEN);
+  char *number = (char *)malloc(sizeof(char) * PATH_MAX);
   // TODO... contorllare il loro fallimento
   char charRead = 'a';
   // TODO... da cambiare con una define
-  int numbersToRead = TABLE_LEN;
+  int numbersToRead = NCHAR_TABLE;
   int bytesRead = 1;
   int counter = 0;
   int insertCounter = 0;
@@ -1255,16 +1203,17 @@ void *sendFileLoop(void *ptr) {
   // TODO... magari una define anche per questa?
   char *controlWord = (char *)malloc(sizeof(char) * CONTROL_WORD_LEN);
   Manager manager = NULL;
+  finished = newList();
   PriorityQueue tmpManagers = newPriorityQueue();
   int rc_ca = checkAllocationError(path);
   int rc_ca2 = checkAllocationError(number);
   int rc_ca3 = checkAllocationError(controlWord);
-  List finished = newList();
   if (tmpManagers == NULL || rc_ca != SUCCESS || rc_ca2 != SUCCESS ||
       rc_ca3 != SUCCESS) {
     rc_t = MALLOC_FAILURE;
   }
   unsigned long long accumulator = 0;
+  unsigned long long accumulatorNUMBER = 0;
   while (rc_t == SUCCESS) {
     // TODO... check if this type of approach is blocking or not
     pthread_mutex_lock(&(sharedResources->mutex));
@@ -1326,7 +1275,8 @@ void *sendFileLoop(void *ptr) {
               rc_t = FILE_NOT_FOUND;
             } else {
               insertCounter = 0;
-              numbersToRead = TABLE_LEN;
+              numbersToRead = NCHAR_TABLE;
+              accumulatorNUMBER = 0;
               while (numbersToRead > 0 && isManagerAlive(manager) == SUCCESS) {
                 counter = 0;
                 charRead = 'a';
@@ -1340,14 +1290,16 @@ void *sendFileLoop(void *ptr) {
                   }
                 }
                 number[counter] = 0;
-                // printf("%s ", number);
-                // fflush(stdout);
+                /* printf("%s ", number);
+                fflush(stdout);*/
                 // usleep(10000);
                 // Posso fare l'inserimento
                 rc_ss = sscanf(number, "%llu", &charCounter);
                 unsigned long long ab = 0;
                 int a = sscanf(number, "%llu", &ab);
-                //accumulator += ab;
+                //printf("%s %llu\n", number, ab);
+                //fflush(stdout);
+                accumulatorNUMBER += ab;
                 if (rc_ss > 0) {
                   //pthread_mutex_lock(&(sharedResources->mutex));
                   info->fileTable[insertCounter] = charCounter;
@@ -1372,10 +1324,12 @@ void *sendFileLoop(void *ptr) {
                     printf("Done!!!\n");
                     accumulator++;
                     printf("Acc: %llu\n", accumulator);
+                    printf("NUMBER ACC: %llu\n", accumulatorNUMBER);
                     //pthread_mutex_lock(&(sharedResources->mutex));
                     //printf("ANALYZER %d: prima\n", getpid());
                     //printList(manager->filesInExecution, pasta);
-                    pasta(file);
+                    //toStringTable(info->fileTable);
+                    //pasta(file);
                     // pasta(node->data);
                     push(finished, info);
                     //printList(finished, pasta);
@@ -1383,7 +1337,7 @@ void *sendFileLoop(void *ptr) {
                     printf("HO SIZE: %d %d\n", manager->filesInExecution->size, manager->m_pid);
                     //printf("ANALYZER %d: dopo\n", getpid());
                     // usleep(100000);
-                    printList(manager->filesInExecution, pasta);
+                    //printList(manager->filesInExecution, pasta);
                     // fflush(stdout);
                     // sleep(5);
                     //pthread_mutex_unlock(&(sharedResources->mutex));
@@ -1396,7 +1350,7 @@ void *sendFileLoop(void *ptr) {
               } else {
                 //pthread_mutex_lock(&(sharedResources->mutex));
                 rc_em = endManager(manager, sharedResources->fileToAssign);
-                if (rc_em < OK) {
+                if (rc_em < SUCCESS) {
                   rc_t = rc_em;
                   printError("Error in save Manager Work\n");
                 }
@@ -1414,7 +1368,7 @@ void *sendFileLoop(void *ptr) {
           //pthread_mutex_lock(&(sharedResources->mutex));
           printf("e' morto quello con pid %d\n", manager->m_pid);
           // rc_em = endManager(manager, sharedResources->fileToAssign);
-          /*if(rc_em < OK){
+          /*if(rc_em < SUCCESS){
               rc_t = rc_em;
               printError("Error in save Manager Work\n");
           }*/
@@ -1448,47 +1402,55 @@ void *sendFileLoop(void *ptr) {
     usleep(1);
   }
   printf("SEND FILE LOOP rc_t %d\n", rc_t);
-  printList(finished, pasta2);
+  fflush(stdout);
+  sleep(1);
+  // kill(getpid(), SIGKILL);
+}
+
+void sighandle_print(int sig){
+  //printList(finished, pasta2);
+  int fd = open("/tmp/conteggio.txt", O_WRONLY);
   // printf("ACCUMULATORE %llu\n", accumulator);
-  // printf("Scorro tutto\n");
-  /*
+  printf("Scorro tutto\n");
   while(isEmptyList(finished) == NOT_EMPTY){
       //printf("SONO UN FIGLIO DI TROIA\n");
       FileInfo finfo = front(finished);
       pop(finished);
       unsigned long long counterSchifo = 0;
       int i = 0;
-      for(i = 0; i < TABLE_LEN; i++){
+      for(i = 0; i < NCHAR_TABLE; i++){
           counterSchifo += finfo->fileTable[i];
       }
-      printf("SONO IL MERDA DI FILE: %llu \t %s\n", counterSchifo, finfo->path);
+      char *stringa = calloc(PATH_MAX + INT_MAX_LEN + 1, sizeof(char));
+      sprintf(stringa, "%s;%llu\n", finfo->path, counterSchifo);
+      write(fd, stringa, strlen(stringa) + 1);
+      free(stringa);
   }
-  */
-  fflush(stdout);
-  sleep(1);
-  // kill(getpid(), SIGKILL);
+  close(fd);
+  printf("Ho finito di scrivere\n");
+  signal(SIGINT, SIG_DFL);
 }
 
 int manageFileToSend(PriorityQueue managers, int currentWorker,
                      List filesToAssign) {
-  int rc_t = OK;
-  int rc_sf = OK;
-  int rc_po = OK;
-  int rc_pu = OK;
-  int rc_em = OK;
-  int isAliveM = OK;
+  int rc_t = SUCCESS;
+  int rc_sf = SUCCESS;
+  int rc_po = SUCCESS;
+  int rc_pu = SUCCESS;
+  int rc_em = SUCCESS;
+  int isAliveM = SUCCESS;
   if (managers != NULL) {
     Manager m = (Manager)popPriorityQueue(managers);
     if (m != NULL) {
       isAliveM = isManagerAlive(m);
-      if (isAliveM == OK) {
+      if (isAliveM == SUCCESS) {
         if (isEmptyList(filesToAssign) == NOT_EMPTY) {
           TreeNode file = front(filesToAssign);
           if (file != NULL) {
             rc_sf = sendFile(m, file, filesToAssign, currentWorker);
             rc_pu = pushPriorityQueue(managers, m->filesInExecution->size,
                                       (void *)m);
-            if (rc_pu < OK) {
+            if (rc_pu < SUCCESS) {
               rc_t = rc_pu;
             } else {
               rc_t = rc_sf;
@@ -1500,7 +1462,7 @@ int manageFileToSend(PriorityQueue managers, int currentWorker,
       } else {
         // TODO... change behavior
         rc_em = endManager(m, filesToAssign);
-        if (rc_em < OK) {
+        if (rc_em < SUCCESS) {
           rc_t = rc_em;
           printError("Error in save Manager Work\n");
         }
@@ -1578,18 +1540,18 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid) {
   int rc_cdp = SUCCESS;
   int rc_exlp = SUCCESS;
   int rc_fd = createUnidirPipe(fd);
-  int rc_fc = fcntl(fd[READ], F_SETFL, O_NONBLOCK);
+  int rc_fc = fcntl(fd[READ_CHANNEL], F_SETFL, O_NONBLOCK);
   if (rc_fd == SUCCESS && rc_fc != -1) {
     int f = fork();
     if (f > 0) {
       // TODO... Deal with pipe
-      rc_cds_1 = closeDescriptor(fd[WRITE]);
+      rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
       *childPid = f;
     } else if (f == 0) {
       // TODO... Deal with pipe
-      rc_cds_1 = closeDescriptor(fd[READ]);
-      rc_cdp = createDup(fd[WRITE], 1);
-      rc_cds_2 = closeDescriptor(fd[WRITE]);
+      rc_cds_1 = closeDescriptor(fd[READ_CHANNEL]);
+      rc_cdp = createDup(fd[WRITE_CHANNEL], 1);
+      rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
       rc_exlp = execlp("find", "find", compactedPath, "-mindepth", "1",
                        "-readable", "-type", "f", NULL);
       printf("MUOIO CON LA FIND\n");
@@ -1678,7 +1640,7 @@ void *fileManageLoop(void *ptr) {
       childPid = 0;
       if (candidate->type == DIRECTORY) {
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
-        printf("Lo ho spawnato: %d - %d, %d\n", fd[READ], fd[WRITE], childPid);
+        printf("Lo ho spawnato: %d - %d, %d\n", fd[READ_CHANNEL], fd[WRITE_CHANNEL], childPid);
         readFlag = 1;
         if (rc_find != SUCCESS) {
           printError("Error in spawn find result");
@@ -1690,7 +1652,7 @@ void *fileManageLoop(void *ptr) {
         skipPath(candidate->path, relativePath, candidate->toSkip);
         pthread_mutex_lock(&(sharedResources->mutex));
         toSchedule = performInsert(relativePath, candidate->path,
-                                   candidate->startingNode, FILE, &rc_pi);
+                                   candidate->startingNode, IS_FILE, &rc_pi);
         // TODO... VEDERE L'ERRORE, vedere soprattutto il fatto dell'inserimento
         // doppio
         printf("sono un file\n");
@@ -1709,7 +1671,7 @@ void *fileManageLoop(void *ptr) {
 
     // Parte di lettura
     if (readFlag == SUCCESS) {
-      bytesRead = read(fd[READ], &charRead, 1);
+      bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
       if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
         if (bytesRead > 0) {
           candidate->path[counter + skipped] = charRead;
@@ -1748,7 +1710,7 @@ void *fileManageLoop(void *ptr) {
         }
 
       } else {
-        closeDescriptor(fd[READ]);
+        closeDescriptor(fd[READ_CHANNEL]);
         readFlag = FAILURE;
         destroyTreeNodeCandidate(candidate);
         // printf("Ho finito di leggere perche': %d\n", bytesRead);
@@ -1774,7 +1736,7 @@ void sighandle_int(int sig){
 
 int main() {
   signal(SIGCHLD, SIG_IGN);
-  // signal(SIGINT, sighandle_int);
+  signal(SIGINT, sighandle_print);
   sharedResourcesAnalyzer_t sharedResources;
   // Tree fs = NULL;
   TreeNode currentDirectory = NULL;

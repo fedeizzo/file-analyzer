@@ -1,5 +1,6 @@
 #include "list.h"
 #include <stdio.h>
+#include "../config/config.h"
 
 List newList() {
   List ret = NULL;

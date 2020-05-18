@@ -2,9 +2,9 @@
 #define __TREE_H_
 #include "../list/list.h"
 #include "../wrapping/wrapping.h"
+#include "../config/config.h"
 
-#define NULL_POINTER -4
-#define OVERRIDING_TREE -5
+
 
 /**
  * Handles a node of the tree

@@ -5,6 +5,7 @@
 
 #include "../wrapping/wrapping.h"
 #include "work.h"
+#include "../config/config.h"
 
 Work newWork(Table table, const int bufferStart, const int bufferEnd) {
   Work work = malloc(sizeof(struct WorkStr));

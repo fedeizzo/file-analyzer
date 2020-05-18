@@ -3,6 +3,7 @@
 
 #include "./priorityQueue.h"
 #include "../wrapping/wrapping.h"
+#include "../config/config.h"
 
 PriorityQueue newPriorityQueue(){
   PriorityQueue q = (PriorityQueue) calloc(1, sizeof(struct PriorityQueueStr));
@@ -19,7 +20,7 @@ int pushPriorityQueue(PriorityQueue q, int priority, void *data) {
     if (newPointer != NULL)
       q->nodes = newPointer;
     else
-      rc_t = -1;
+      rc_t = MALLOC_FAILURE;
   }
 
   int i = q->len + 1;
@@ -83,6 +84,7 @@ void destroyPriorityQueue(PriorityQueue q, void deleteData(void *)) {
 }
 
 int swapPriorityQueue(PriorityQueue first, PriorityQueue second){
+  //TODO cambiare questo errore di ritorno
   int ret = -1;
   Element *nodes;
   int size = 0;
@@ -101,7 +103,7 @@ int swapPriorityQueue(PriorityQueue first, PriorityQueue second){
     first->nodes = second->nodes;
     second->nodes = elements;
 
-    ret = 0;
+    ret = SUCCESS;
   }
   return ret;
 }

@@ -4,13 +4,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include "../wrapping/wrapping.h"
-
-#define MALLOC_FAILURE -2
-#define UNEXPECTED_LIST_ERROR -3 //This error should never but expected but it's handled anyway
-#define NOT_EMPTY 0
-#define EMPTY -1
-#define SUCCESS 0
-#define FAILURE -1
+#include "../config/config.h"
 
 /**
  * Handles a node of the list

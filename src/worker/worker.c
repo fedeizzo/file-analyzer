@@ -6,19 +6,8 @@
 
 #include "../wrapping/wrapping.h"
 #include "worker.h"
-
-#define OK 0
-#define WORKING 1
-#define NOT_WORKING -1
-#define CAST_FAILURE -2
-#define READ_DIRECTIVES_FAILURE -3
-#define CURSOR_FAILURE -4
-#define READ_FAILURE -5
-#define WRITE_FAILURE -6
-
-#define WRITE_CHANNEL 1
-#define READ_CHANNEL 0
-#define MAXLEN 4096
+#include "../config/config.h"
+#include <limits.h>
 
 /**
  * Inits worker realated operations
@@ -93,47 +82,47 @@ int main(int argc, char *argv[]) {
 
   int start;
   int end;
-  int rc_work = OK;
+  int rc_work = SUCCESS;
   int working = WORKING;
   int stopFlag = 0;
-  int rc_ack = OK;
+  int rc_ack = SUCCESS;
 
   int fd = initWork(&start, &end, &stopFlag);
   if (stopFlag == 1) {
     rc_ack = sendAcknowledgment();
     stopFlag = 0;
-    if (rc_ack < OK)
+    if (rc_ack < SUCCESS)
       working = NOT_WORKING;
     else
       fd = initWork(&start, &end, &stopFlag);
   }
 
-  if (fd < OK) {
+  if (fd < SUCCESS) {
     int rc_er = errorHandler(fd, end);
-    if (rc_er < OK)
+    if (rc_er < SUCCESS)
       working = NOT_WORKING;
   }
 
   while (working == WORKING) {
     rc_work = executeWork(fd, start, end);
-    if (rc_work < OK) {
+    if (rc_work < SUCCESS) {
       int rc_er = errorHandler(fd, end);
-      if (rc_er < OK)
+      if (rc_er < SUCCESS)
         working = NOT_WORKING;
     }
     fd = initWork(&start, &end, &stopFlag);
     if (stopFlag == 1) {
       rc_ack = sendAcknowledgment();
       stopFlag = 0;
-      if (rc_ack < OK)
+      if (rc_ack < SUCCESS)
         working = NOT_WORKING;
       else
         fd = initWork(&start, &end, &stopFlag);
     }
 
-    if (fd < OK) {
+    if (fd < SUCCESS) {
       int rc_er = errorHandler(fd, end);
-      if (rc_er < OK)
+      if (rc_er < SUCCESS)
         working = NOT_WORKING;
     }
   }
@@ -143,9 +132,9 @@ int main(int argc, char *argv[]) {
 
 int initWork(int *start, int *end, int *stopFlag) {
   int rc_t = 0;
-  char path[MAXLEN];
-  char bufferStart[MAXLEN];
-  char bufferEnd[MAXLEN];
+  char path[PATH_MAX];
+  char bufferStart[PATH_MAX];
+  char bufferEnd[PATH_MAX];
 
   // TODO fix \0 not read
   readDirectives(path, bufferStart, bufferEnd, stopFlag);
@@ -239,7 +228,7 @@ int executeWork(const int fd, const int start, const int end) {
   int workAmount = end - start + 1;
   char *charsRead = malloc((workAmount + 2) * sizeof(char));
   int rc_al = checkAllocationError(charsRead);
-  if (rc_al == OK) {
+  if (rc_al == SUCCESS) {
     // fprintf(stderr, "ALORA (ALLLLLLORA): %d\n", fd);
     bytesRead = readDescriptor(fd, charsRead, workAmount);
     int i;
@@ -280,7 +269,7 @@ int executeWork(const int fd, const int start, const int end) {
 }
 
 int sendAcknowledgment() {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   rc_t = writeDescriptor(WRITE_CHANNEL, "ackn");
   return rc_t;
 }

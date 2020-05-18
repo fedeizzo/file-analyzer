@@ -1,6 +1,8 @@
 #ifndef __TABLE_H__
 #define __TABLE_H__
 
+#include "../config/config.h"
+
 /**
  * Struct that handle a table for counting operation.
  * Is associated with a name

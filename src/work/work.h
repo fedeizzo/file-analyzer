@@ -2,6 +2,7 @@
 #define __WORK_H__
 
 #include "../table/table.h"
+#include "../config/config.h"
 
 /**
  * Handles a work. A work is a associated with:

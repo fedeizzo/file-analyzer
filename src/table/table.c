@@ -2,9 +2,8 @@
 #include <string.h>
 
 #include "../wrapping/wrapping.h"
+#include "../config/config.h"
 #include "table.h"
-
-#define NCHAR_TABLE 129
 
 Table newTable(const char *name) {
   // TODO if only one malloc fail we must free other
