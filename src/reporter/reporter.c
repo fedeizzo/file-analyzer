@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,30 +8,22 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../config/config.h"
 #include "../list/list.h"
 #include "../wrapping/wrapping.h"
 #include "./reporter.h"
 
-#define OK 0
-#define MAXLEN 4096
-
-#define CAST_FAILURE -2
-#define SEND_FAILURE -3
-
-#define WRITE_CHANNEL 1
-#define READ_CHANNEL 0
-
 UserInput newUserInput() {
   UserInput ui = malloc(sizeof(struct UserInputStr));
   int rc_al = checkAllocationError(ui);
-  int rc_al2 = OK;
-  int rc_al3 = OK;
-  int rc_al4 = OK;
+  int rc_al2 = SUCCESS;
+  int rc_al3 = SUCCESS;
+  int rc_al4 = SUCCESS;
 
-  if (rc_al == OK) {
+  if (rc_al == SUCCESS) {
     ui->paths = newList();
     ui->results = newList();
-    ui->tree = malloc(MAXLEN * sizeof(char));
+    ui->tree = malloc(PATH_MAX * sizeof(char));
     if (ui->paths == NULL)
       rc_al2 = -1;
     if (ui->results == NULL)
@@ -40,7 +33,8 @@ UserInput newUserInput() {
     ui->workers = 4;
   }
 
-  if (rc_al < OK || rc_al2 < OK || rc_al3 < OK || rc_al4 < OK)
+  if (rc_al < SUCCESS || rc_al2 < SUCCESS || rc_al3 < SUCCESS ||
+      rc_al4 < SUCCESS)
     ui = NULL;
 
   return ui;
@@ -90,7 +84,7 @@ int main() {
   pthread_join(userInputThraed, NULL);
   pthread_join(writeFifoThraed, NULL);
 
-  int rc_t = OK;
+  int rc_t = SUCCESS;
 
   destroyUserInput(userInput);
   return rc_t;
@@ -99,9 +93,9 @@ int main() {
 void *userInputLoop(void *ptr) {
   userInput_t *input = (userInput_t *)ptr;
 
-  int rc_t = OK;
-  while (rc_t == OK) {
-    char *dst = malloc(MAXLEN * sizeof(char));
+  int rc_t = SUCCESS;
+  while (rc_t == SUCCESS) {
+    char *dst = malloc(PATH_MAX * sizeof(char));
     int bytesRead = read(0, dst, 5);
     if (bytesRead > 0) {
       if (strncmp(dst, "dire", 4) == 0) {
@@ -145,14 +139,14 @@ int isAnalyzerAlive() {
 void *writeFifoLoop(void *ptr) {
   userInput_t *input = (userInput_t *)ptr;
 
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int fd;
-  char *fifoPath = malloc(MAXLEN * sizeof(char));
+  char *fifoPath = malloc(PATH_MAX * sizeof(char));
   pthread_mutex_lock(&(input->mutex));
   strcpy(fifoPath, input->writeFifo);
   pthread_mutex_unlock(&(input->mutex));
 
-  while (rc_t == OK) {
+  while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
     if (input->userInput->paths->size > 0) {
       char *path = front(input->userInput->paths);
@@ -192,15 +186,15 @@ void *writeFifoLoop(void *ptr) {
 }
 
 int readDirectives(List paths, int *numManager, int *numWorker) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   char readBuffer[2] = "a";
-  char *newPath = malloc(MAXLEN * sizeof(char));
+  char *newPath = malloc(PATH_MAX * sizeof(char));
   int rc_al = checkAllocationError(newPath);
-  if (rc_al < OK) {
+  if (rc_al < SUCCESS) {
     rc_t = MALLOC_FAILURE;
   }
-  char nWorker[MAXLEN];
-  char nManager[MAXLEN];
+  char nWorker[PATH_MAX];
+  char nManager[PATH_MAX];
   int counter = 0;
   int numberManager = 0;
   int numberWorker = 0;
@@ -248,7 +242,7 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
       printError(msgErr);
       free(msgErr);
     }
-  } else if (rc_t == OK) {
+  } else if (rc_t == SUCCESS) {
     enqueue(paths, newPath);
     *numManager = numberManager;
     *numWorker = numberWorker;
@@ -258,40 +252,41 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
 }
 
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
 
-  char *nManager = malloc(MAXLEN * sizeof(char));
+  char *nManager = malloc(PATH_MAX * sizeof(char));
   int rc_al = checkAllocationError(nManager);
-  char *nWorker = malloc(MAXLEN * sizeof(char));
+  char *nWorker = malloc(PATH_MAX * sizeof(char));
   int rc_al2 = checkAllocationError(nWorker);
 
   int rc_sp = sprintf(nManager, "%d", *numManager);
   int rc_sp2 = sprintf(nWorker, "%d", *numWorker);
 
-  if (rc_sp >= OK && rc_al2 >= OK && fd > OK) {
+  if (rc_sp >= SUCCESS && rc_al2 >= SUCCESS && fd > SUCCESS) {
     /* int rc_wr = writeDescriptor(fd, "dire"); */
-    int rc_wr = OK;
+    int rc_wr = SUCCESS;
     int rc_wr1 = writeDescriptor(fd, path);
     int rc_wr2 = writeDescriptor(fd, nManager);
     int rc_wr3 = writeDescriptor(fd, nWorker);
     int rc_wr4 = writeDescriptor(fd, "dire");
 
-    if (rc_wr < OK || rc_wr2 < OK || rc_wr3 < OK || rc_wr4 < OK)
+    if (rc_wr < SUCCESS || rc_wr2 < SUCCESS || rc_wr3 < SUCCESS ||
+        rc_wr4 < SUCCESS)
       rc_t = SEND_FAILURE;
   } else
     rc_t = SEND_FAILURE;
 
-  if (rc_al == OK)
+  if (rc_al == SUCCESS)
     free(nManager);
   else
     rc_t = MALLOC_FAILURE;
 
-  if (rc_al2 == OK)
+  if (rc_al2 == SUCCESS)
     free(nWorker);
   else
     rc_t = MALLOC_FAILURE;
 
-  if (fd < OK)
+  if (fd < SUCCESS)
     rc_t = SEND_FAILURE;
   else {
     /* closeDescriptor(fd); */
@@ -301,11 +296,11 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
 }
 
 int readResult(List pathResults) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int endFlag = 1;
 
-  while (endFlag && rc_t == OK) {
-    char *path = malloc(MAXLEN * sizeof(char));
+  while (endFlag && rc_t == SUCCESS) {
+    char *path = malloc(PATH_MAX * sizeof(char));
     int index = 0;
     char charRead = 'a';
     int bytesRead = -1;
@@ -319,7 +314,7 @@ int readResult(List pathResults) {
 
     if (strncmp(path, "requ", 4) == 0) {
       endFlag = 0;
-    } else if (path[0] != '\0' && rc_t == OK)
+    } else if (path[0] != '\0' && rc_t == SUCCESS)
       rc_t = enqueue(pathResults, path);
   }
 
@@ -327,17 +322,17 @@ int readResult(List pathResults) {
 }
 
 int sendResult(int fd, List pathResults) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   printf("enotr qui\n");
 
-  while (pathResults->size > 0 && rc_t == OK) {
+  while (pathResults->size > 0 && rc_t == SUCCESS) {
     char *path = front(pathResults);
     if (path != NULL) {
       printf("invio %s\n", path);
       rc_t = pop(pathResults);
-      if (rc_t == OK) {
+      if (rc_t == SUCCESS) {
         int rc_wr = writeDescriptor(fd, path);
-        if (rc_wr < OK)
+        if (rc_wr < SUCCESS)
           rc_t = -1;
       }
     }
@@ -349,7 +344,7 @@ int sendResult(int fd, List pathResults) {
 }
 
 int readTree(char *path) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
 
   int index = 0;
   char charRead = 'a';
@@ -365,10 +360,10 @@ int readTree(char *path) {
 }
 
 int sendTree(int fd, char *treePath) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
 
   int rc_wr = writeDescriptor(fd, treePath);
-  if (rc_wr < OK)
+  if (rc_wr < SUCCESS)
     rc_t = -1;
 
   writeDescriptor(fd, "tree");

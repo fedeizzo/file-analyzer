@@ -4,9 +4,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../config/config.h"
 #include "../wrapping/wrapping.h"
 #include "worker.h"
-#include "../config/config.h"
 #include <limits.h>
 
 /**
@@ -23,7 +23,7 @@
  * returns:
  *    positive (file descriptor) in case of success, otherwise negative
  */
-int initWork(int *start, int *end, int *stopFlag);
+int initWork(unsigned long long *start, unsigned long long *end, int *stopFlag);
 
 /**
  * Read all infos from pipe
@@ -51,7 +51,8 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
  * returns:
  *    0 in case of success, otherwise negative
  */
-int executeWork(const int fd, const int start, const int end);
+int executeWork(const int fd, const unsigned long long start,
+                const unsigned long long end);
 
 /**
  * Sends an acknowledgment to the father
@@ -80,8 +81,8 @@ int main(int argc, char *argv[]) {
   dup2(non_lo_so, 2);
   printError("Quello che vuoi");*/
 
-  int start;
-  int end;
+  unsigned long long start;
+  unsigned long long end;
   int rc_work = SUCCESS;
   int working = WORKING;
   int stopFlag = 0;
@@ -130,7 +131,8 @@ int main(int argc, char *argv[]) {
   return working;
 }
 
-int initWork(int *start, int *end, int *stopFlag) {
+int initWork(unsigned long long *start, unsigned long long *end,
+             int *stopFlag) {
   int rc_t = 0;
   char path[PATH_MAX];
   char bufferStart[PATH_MAX];
@@ -140,8 +142,8 @@ int initWork(int *start, int *end, int *stopFlag) {
   readDirectives(path, bufferStart, bufferEnd, stopFlag);
 
   if (*stopFlag == 0) {
-    int rc_sc = sscanf(bufferStart, "%d", start);
-    int rc_sc2 = sscanf(bufferEnd, "%d", end);
+    int rc_sc = sscanf(bufferStart, "%llu", start);
+    int rc_sc2 = sscanf(bufferEnd, "%llu", end);
 
     if (path[strlen(path) - 1] == '\n') {
       path[strlen(path) - 1] = '\0';
@@ -154,8 +156,6 @@ int initWork(int *start, int *end, int *stopFlag) {
       rc_t = READ_DIRECTIVES_FAILURE;
     if (rc_sc == 0 || rc_sc2 == 0)
       rc_t = CAST_FAILURE;
-    // fprintf(stderr, "WORKER: path->%s start->%d, end->%d\n", path, *start,
-    // *end);
   }
 
   return rc_t;
@@ -215,39 +215,49 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
   }
 }
 
-int executeWork(const int fd, const int start, const int end) {
+int executeWork(const int fd, const unsigned long long start,
+                const unsigned long long end) {
   int rc_t = 0;
   // TODO... edited here
-  //int rc_se = moveCursorFile(fd, start, SEEK_SET);
-  //printf("start: %d, end: %d\n", start, end);
+  // int rc_se = moveCursorFile(fd, start, SEEK_SET);
+  // printf("start: %d, end: %d\n", start, end);
   int rc_se = lseek(fd, start, SEEK_SET);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
-  int bytesRead;
-  int workAmount = end - start + 1;
+  unsigned long long bytesRead;
+  unsigned long long workAmount = end - start + 1;
   char *charsRead = malloc((workAmount + 2) * sizeof(char));
   int rc_al = checkAllocationError(charsRead);
-  if (rc_al == SUCCESS) {
-    // fprintf(stderr, "ALORA (ALLLLLLORA): %d\n", fd);
-    bytesRead = readDescriptor(fd, charsRead, workAmount);
-    int i;
-    if (bytesRead > 0)
-      for (i = 0; i < workAmount; i++)
-        if ((charsRead[i] < 32 || charsRead[i] > 127) && charsRead[i] != '\n')
-          charsRead[i] = -15;
+  int lectures = 1;
+  if (workAmount > 1500000000) {
+    lectures = (int)(workAmount / 1500000000);
+    workAmount = 1500000000;
+    if ((workAmount % 1500000000) > 0)
+      lectures++;
+  }
 
-    charsRead[workAmount] = '\0';
-    //fprintf(stderr,"Byteread: %d\n", bytesRead);
-    if (bytesRead > 0) {
-      //fprintf(stderr,"Charsread: %s\n", charsRead);
-      int rc_wr = write(WRITE_CHANNEL, charsRead, workAmount);
-      if (rc_wr == -1)
-        rc_t = WRITE_FAILURE;
-    } else {
-      rc_t = READ_FAILURE;
+  if (rc_al == SUCCESS) {
+    while (lectures != 0) {
+      bytesRead = readDescriptor(fd, charsRead, workAmount);
+      int i;
+      if (bytesRead > 0)
+        for (i = 0; i < workAmount; i++)
+          if ((charsRead[i] < 32 || charsRead[i] > 127) && charsRead[i] != '\n')
+            charsRead[i] = -15;
+
+      if (lectures == 1)
+        charsRead[bytesRead] = '\0';
+      if (bytesRead > 0) {
+        // fprintf(stderr,"Charsread: %s\n", charsRead);
+        int rc_wr = write(WRITE_CHANNEL, charsRead, bytesRead);
+        if (rc_wr == -1)
+          rc_t = WRITE_FAILURE;
+      } else {
+        rc_t = READ_FAILURE;
+      }
+      lectures--;
     }
-     //fprintf(stderr,"rc_t: %d\n", rc_t);
 
     // TODO fix this check
     if (rc_t != -1) {
@@ -255,15 +265,10 @@ int executeWork(const int fd, const int start, const int end) {
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
     }
-    //if (workAmount > 0 && charsRead != NULL) {
-      // fprintf(stderr, "Sto per freeeare %d\n", getpid());
-      free(charsRead);
-      // fprintf(stderr, "Ho freeeato %d\n", getpid());
-    //}
+    free(charsRead);
   } else {
     rc_t = -1; // TODO fix
   }
-  // GUAI A TE
   closeDescriptor(fd);
   return rc_t;
 }
@@ -279,7 +284,7 @@ int errorHandler(const int fd, const int end) {
   if (fd == -1)
     rc_t = READ_DIRECTIVES_FAILURE;
   // TODO... edited here
-  //int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
+  // int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
   int rc_se = lseek(fd, 0, SEEK_CUR);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
