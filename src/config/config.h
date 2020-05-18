@@ -45,6 +45,7 @@
 #define CONTROL_WORD_LEN 5
 #define CONTROL_DONE "done"
 #define CONTROL_UNDONE "undo"
+#define CONTROL_STOP "stop"
 
 #define HARAKIRI -1
 
@@ -95,5 +96,7 @@
 #define READ_DIRECTIVES_FAILURE -44
 #define CURSOR_FAILURE -45
 #define WRITE_FAILURE -46
+#define SSCANF_FAILURE -47
+#define SPRINTF_FAILURE -48
 
 #endif
