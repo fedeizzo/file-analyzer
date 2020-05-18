@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "tree.h"
+#include "../config/config.h"
 
 Tree newTree(void *data, int *msg, void destroy(void *), int toCompare(void *, void *)){
     Tree tree = (Tree) malloc (sizeof(struct Tree));

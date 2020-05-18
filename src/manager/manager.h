@@ -6,6 +6,7 @@
 #include "../list/list.h"
 #include "../work/work.h"
 #include "../table/table.h"
+#include "../config/config.h"
 
 /**
  * Holds directive information
@@ -17,8 +18,7 @@
  *    int newNWorker: new amount of worker
  */
 typedef struct DirectivesStruct {
-  char *path;
-  char *lastPath;
+  List paths;
   int currentWorkers;
   int newNWorker;
   int directiveStatus;

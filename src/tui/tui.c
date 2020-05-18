@@ -11,25 +11,7 @@
 #include "../list/list.h"
 #include "../wrapping/wrapping.h"
 #include "tui.h"
-
-#define FANCY_MODE 1
-#define NORMAL_MODE 0
-
-#define WRITE 1
-#define READ 0
-
-#define OK 0
-#define CAST_FAILURE -3
-#define HELP_PRINT -4
-#define DOUBLE_OPTION_FAILURE -5
-#define PIPE_FAILURE -6
-#define GET_SIZE_FAILURE -7
-#define PRINT_LOG_FAILURE -8
-#define GRAPHIC_LOOP_FAILURE -9
-#define INPUT_LOOP_FAILURE -10
-
-#define HOR_TABLE '-'
-#define VER_TABLE '|'
+#include "../config/config.h"
 
 const char *helpMsg =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
@@ -95,33 +77,33 @@ void destroyScreen(Screen screen) {
 }
 
 int getWidth(int *width) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int fd[2];
   int rc_pi = createUnidirPipe(fd);
-  if (rc_pi == OK) {
+  if (rc_pi == SUCCESS) {
     int f = fork();
     if (f > 0) {
       int rc_cl, rc_cl2, rc_al, rc_re, rc_ss;
-      rc_cl = closeDescriptor(fd[WRITE]);
+      rc_cl = closeDescriptor(fd[WRITE_CHANNEL]);
       char *dst = malloc(300 * sizeof(char));
       rc_al = checkAllocationError(dst);
-      if (rc_al == OK) {
-        rc_re = readDescriptor(fd[READ], dst, 300);
+      if (rc_al == SUCCESS) {
+        rc_re = readDescriptor(fd[READ_CHANNEL], dst, 300);
         rc_ss = sscanf(dst, "%d", width);
         wait(NULL);
-        rc_cl2 = closeDescriptor(fd[READ]);
+        rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
-        if (rc_cl < OK || rc_cl2 < OK || rc_re < OK || rc_ss == 0)
+        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS || rc_ss == 0)
           rc_t = GET_SIZE_FAILURE;
       } else {
         rc_t = MALLOC_FAILURE;
       }
     } else {
       int rc_cl, rc_cl2, rc_du;
-      rc_cl = closeDescriptor(fd[READ]);
-      rc_du = createDup(fd[WRITE], 1);
-      rc_cl2 = close(fd[WRITE]);
-      if (rc_cl < OK || rc_cl2 < OK || rc_du < OK)
+      rc_cl = closeDescriptor(fd[READ_CHANNEL]);
+      rc_du = createDup(fd[WRITE_CHANNEL], 1);
+      rc_cl2 = close(fd[WRITE_CHANNEL]);
+      if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_du < SUCCESS)
         rc_t = GET_SIZE_FAILURE;
       execlp("tput", "tput", "cols", NULL);
     }
@@ -132,33 +114,33 @@ int getWidth(int *width) {
 }
 
 int getHeigth(int *heigth) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int fd[2];
   int rc_pi = createUnidirPipe(fd);
-  if (rc_pi == OK) {
+  if (rc_pi == SUCCESS) {
     int f = fork();
     if (f > 0) {
       int rc_cl, rc_cl2, rc_al, rc_re, rc_ss;
-      rc_cl = closeDescriptor(fd[WRITE]);
+      rc_cl = closeDescriptor(fd[WRITE_CHANNEL]);
       char *dst = malloc(300 * sizeof(char));
       rc_al = checkAllocationError(dst);
-      if (rc_al == OK) {
-        rc_re = readDescriptor(fd[READ], dst, 300);
+      if (rc_al == SUCCESS) {
+        rc_re = readDescriptor(fd[READ_CHANNEL], dst, 300);
         rc_ss = sscanf(dst, "%d", heigth);
         wait(NULL);
-        rc_cl2 = closeDescriptor(fd[READ]);
+        rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
-        if (rc_cl < OK || rc_cl2 < OK || rc_re < OK || rc_ss == 0)
+        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS || rc_ss == 0)
           rc_t = GET_SIZE_FAILURE;
       } else {
         rc_t = MALLOC_FAILURE;
       }
     } else {
       int rc_cl, rc_cl2, rc_du;
-      rc_cl = closeDescriptor(fd[READ]);
-      rc_du = createDup(fd[WRITE], 1);
-      rc_cl2 = close(fd[WRITE]);
-      if (rc_cl < OK || rc_cl2 < OK || rc_du < OK)
+      rc_cl = closeDescriptor(fd[READ_CHANNEL]);
+      rc_du = createDup(fd[WRITE_CHANNEL], 1);
+      rc_cl2 = close(fd[WRITE_CHANNEL]);
+      if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_du < SUCCESS)
         rc_t = GET_SIZE_FAILURE;
       execlp("tput", "tput", "lines", NULL);
     }
@@ -181,7 +163,7 @@ void writeScreen(Screen screen, char *str, int x, int y) {
 }
 
 int insertBorder(Screen screen) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
 
   int i = 0;
   int c = 0;
@@ -210,7 +192,7 @@ int insertBorder(Screen screen) {
   int row = 7;
   char *msg = malloc(300 * sizeof(char));
   int rc_al = checkAllocationError(msg);
-  if (rc_al == OK) {
+  if (rc_al == SUCCESS) {
     writeScreen(screen, "  | cont   ", 21, 6);
     for (i = 33; i < 127; i++) {
       sprintf(msg, "  |        ");
@@ -242,7 +224,7 @@ void writeScreenLog(int heigth, char *str) {
 int printLog(Screen screen, int fd) {
   char dst[300];
   int rc_rd = readDescriptor(fd, dst, 300);
-  if (rc_rd == OK)
+  if (rc_rd == SUCCESS)
     writeScreen(screen, dst, 21, screen->rows - 3);
   else {
     rc_rd = PRINT_LOG_FAILURE;
@@ -355,7 +337,7 @@ int getkey() {
 
 int initScreen(Screen screen) {
   int rc_t = insertBorder(screen);
-  if (rc_t == OK) {
+  if (rc_t == SUCCESS) {
     writeScreen(screen, "input: ", 2, 1);
     writeScreen(screen,
                 " comandi: quit, n, m, tree, maiuscole, minuscole, punteg., "
@@ -376,7 +358,7 @@ int initScreen(Screen screen) {
 
 void *graphicsLoop(void *ptr) {
   screenMutex_t *p = (screenMutex_t *)(ptr);
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int rc_pi, rc_du, rc_in;
   int rc_commandCheck = 0;
   int rc_fileCheck = 0;
@@ -384,7 +366,7 @@ void *graphicsLoop(void *ptr) {
 
   // TODO add support for this log
   rc_pi = createUnidirPipe(fd);
-  if (rc_pi == OK)
+  if (rc_pi == SUCCESS)
     rc_du = dup2(fd[1], 2);
 
   clear();
@@ -395,9 +377,9 @@ void *graphicsLoop(void *ptr) {
   moveCursor(3, 2);
 
   int counter = 0;
-  if (rc_pi < OK || rc_du < OK || rc_in < OK)
+  if (rc_pi < SUCCESS || rc_du < SUCCESS || rc_in < SUCCESS)
     rc_t = GRAPHIC_LOOP_FAILURE;
-  while (rc_t == OK) {
+  while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(p->mutex));
     draw(p->screen);
     pthread_mutex_unlock(&(p->mutex));
@@ -425,11 +407,11 @@ void drawInputLine(Screen screen) {
 }
 
 void updateTable(Screen screen) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   char *msg = malloc(300 * sizeof(char));
 
   int rc_al = checkAllocationError(msg);
-  if (rc_al < OK)
+  if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
 
   int i = 0;
@@ -466,8 +448,8 @@ void updateTable(Screen screen) {
 
 void *inputLoop(void *ptr) {
   screenMutex_t *p = (screenMutex_t *)(ptr);
-  int rc_t = OK;
-  int rc_al, rc_al2, rc_al3, rc_al4, rc_si, rc_si2, rc_in = OK;
+  int rc_t = SUCCESS;
+  int rc_al, rc_al2, rc_al3, rc_al4, rc_si, rc_si2, rc_in = SUCCESS;
   int *oldWidth = malloc(sizeof(int));
   rc_al = checkAllocationError(oldWidth);
   int *oldHeigth = malloc(sizeof(int));
@@ -477,12 +459,12 @@ void *inputLoop(void *ptr) {
   rc_al3 = checkAllocationError(width);
   int *heigth = malloc(sizeof(int));
   rc_al4 = checkAllocationError(heigth);
-  if (rc_al == OK && rc_al2 == OK && rc_al3 == OK && rc_al4 == OK) {
+  if (rc_al == SUCCESS && rc_al2 == SUCCESS && rc_al3 == SUCCESS && rc_al4 == SUCCESS) {
     rc_si = getHeigth(heigth);
     rc_si2 = getWidth(width);
     *oldHeigth = *heigth;
     *oldWidth = *width;
-    if (rc_si < OK || rc_si2 < OK)
+    if (rc_si < SUCCESS || rc_si2 < SUCCESS)
       rc_t = GET_SIZE_FAILURE;
   } else
     rc_t = MALLOC_FAILURE;
@@ -496,7 +478,7 @@ void *inputLoop(void *ptr) {
   char key;
   char lastKey;
   int treeMode = 0;
-  while (rc_t == OK) {
+  while (rc_t == SUCCESS) {
     key = EOF;
     pthread_mutex_lock(&(p->mutex));
     updateTable(p->screen);
@@ -600,11 +582,11 @@ void *inputLoop(void *ptr) {
 
     rc_si = getHeigth(heigth);
     rc_si2 = getWidth(width);
-    if (rc_si < OK || rc_si2 < OK)
+    if (rc_si < SUCCESS || rc_si2 < SUCCESS)
       rc_t = GET_SIZE_FAILURE;
-    if ((*oldHeigth != *heigth || *oldWidth != *width) && rc_t == OK) {
+    if ((*oldHeigth != *heigth || *oldWidth != *width) && rc_t == SUCCESS) {
       pthread_mutex_lock(&(p->mutex));
-      while ((*heigth < 28 || *width < 87) && rc_t == OK) {
+      while ((*heigth < 28 || *width < 87) && rc_t == SUCCESS) {
         clear();
         printf(
             "window dimension is to small, please increase window size or "
@@ -612,11 +594,11 @@ void *inputLoop(void *ptr) {
             "any size\n");
         rc_si = getHeigth(heigth);
         rc_si2 = getWidth(width);
-        if (rc_si < OK || rc_si2 < OK)
+        if (rc_si < SUCCESS || rc_si2 < SUCCESS)
           rc_t = GET_SIZE_FAILURE;
         sleep(1);
       }
-      if (rc_t == OK) {
+      if (rc_t == SUCCESS) {
         destroyScreen(p->screen);
         p->screen = newScreen(*width, *heigth);
         clear();
@@ -627,7 +609,7 @@ void *inputLoop(void *ptr) {
         *oldWidth = *width;
       }
     }
-    if (rc_t < OK || rc_in < OK || rc_si < OK || rc_si2 < OK)
+    if (rc_t < SUCCESS || rc_in < SUCCESS || rc_si < SUCCESS || rc_si2 < SUCCESS)
       rc_t = INPUT_LOOP_FAILURE;
     usleep(50000);
   }
@@ -677,7 +659,7 @@ int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
     } else {
       // TODO find a way to handle files before options
       int rc_pu = push(args, (void *)argv[i]);
-      if (rc_pu < OK) {
+      if (rc_pu < SUCCESS) {
         rc_t = MALLOC_FAILURE;
       }
     }
@@ -691,7 +673,7 @@ void cannelloni(void *data) {
 }
 
 int main(int argc, char **argv) {
-  int rc_t = OK;
+  int rc_t = SUCCESS;
   int n = 3;
   int m = 4;
   int mode = FANCY_MODE;
@@ -702,7 +684,7 @@ int main(int argc, char **argv) {
   int rc_opt = optionsHandler(args, argc, argv, &n, &m, &mode);
   rc_t = rc_opt;
 
-  if (rc_t == OK) {
+  if (rc_t == SUCCESS) {
     printf("inizio il programma con n=%d e m=%d\n", n, m);
     printList(args, cannelloni);
     int *width = malloc(sizeof(int));

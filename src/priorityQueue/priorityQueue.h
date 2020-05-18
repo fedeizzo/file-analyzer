@@ -1,6 +1,8 @@
 #ifndef __PRIORITYQUEUE_H__
 #define __PRIORITYQUEUE_H__
 
+#include "../config/config.h"
+
 /**
  * Holds data and priority for an element of the priority queue
  *
@@ -71,4 +73,16 @@ void destroyElement(Element el, void deleteData(void *));
  *    void deleteData(void *): the funcion used for destroy operation
  */
 void destroyPriorityQueue(PriorityQueue q, void deleteData(void *));
+
+/**
+ * Swaps two priority queues and returns
+ *
+ * args:
+ *    PriorityQueue first: first priority queue
+ *    PriorityQueue second: second priority queue
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int swapPriorityQueue(PriorityQueue first, PriorityQueue second);
 #endif

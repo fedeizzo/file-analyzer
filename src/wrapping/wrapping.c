@@ -5,18 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#define READ_UNIDIR 0
-#define WRITE_UNIDIR 1
-
-#define READ_PARENT 0
-#define WRITE_PARENT 1
-#define READ_CHILD 2
-#define WRITE_CHILD 3
-
-#define MAXLEN_PIPE 300
-
-#define MAXLEN_ERR 300
+#include "../config/config.h"
 
 void printError(const char *msg) {
   fprintf(stderr, "ERROR: %s, pid: %d, parentPid: %d\n", msg, getpid(),
