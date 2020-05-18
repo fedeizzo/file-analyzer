@@ -249,23 +249,28 @@ int executeWork(const int fd, const int start, const int end) {
           charsRead[i] = -15;
 
     charsRead[workAmount] = '\0';
+    //fprintf(stderr,"Byteread: %d\n", bytesRead);
     if (bytesRead > 0) {
+      //fprintf(stderr,"Charsread: %s\n", charsRead);
       int rc_wr = write(WRITE_CHANNEL, charsRead, workAmount);
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
     } else {
       rc_t = READ_FAILURE;
     }
+     //fprintf(stderr,"rc_t: %d\n", rc_t);
+
+    // TODO fix this check
     if (rc_t != -1) {
       int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
       if (rc_wr == -1)
         rc_t = WRITE_FAILURE;
     }
-    if (workAmount > 0 && charsRead != NULL) {
+    //if (workAmount > 0 && charsRead != NULL) {
       // fprintf(stderr, "Sto per freeeare %d\n", getpid());
       free(charsRead);
       // fprintf(stderr, "Ho freeeato %d\n", getpid());
-    }
+    //}
   } else {
     rc_t = -1; // TODO fix
   }

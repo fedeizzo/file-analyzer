@@ -1347,7 +1347,7 @@ void *sendFileLoop(void *ptr) {
                 rc_ss = sscanf(number, "%llu", &charCounter);
                 unsigned long long ab = 0;
                 int a = sscanf(number, "%llu", &ab);
-                accumulator += ab;
+                //accumulator += ab;
                 if (rc_ss > 0) {
                   //pthread_mutex_lock(&(sharedResources->mutex));
                   info->fileTable[insertCounter] = charCounter;
@@ -1370,10 +1370,12 @@ void *sendFileLoop(void *ptr) {
                 if (bytesRead > 0) {
                   if (strcmp(controlWord, CONTROL_DONE) == 0) {
                     printf("Done!!!\n");
+                    accumulator++;
+                    printf("Acc: %llu\n", accumulator);
                     //pthread_mutex_lock(&(sharedResources->mutex));
                     //printf("ANALYZER %d: prima\n", getpid());
                     //printList(manager->filesInExecution, pasta);
-                    // pasta(file);
+                    pasta(file);
                     // pasta(node->data);
                     push(finished, info);
                     //printList(finished, pasta);

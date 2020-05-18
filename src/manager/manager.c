@@ -755,12 +755,12 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
   if (rc_t == OK) {
     if (bytesSent >= w->workAmount) {
       int rc_rd = read(readFromWorker, charSent, 5);
-      //printf("la parola di controllo: %s\n", charSent);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
-        endWork(w, tables, BAD_ENDING, todo, NULL);
+        //endWork(w, tables, BAD_ENDING, todo, NULL);
       } else {
         charSent[rc_rd] = '\0';
+        //printf("la parola di controllo: %s\n", charSent);
         if (strncmp(charSent, "done", 4) == 0) {
           endWork(w, tables, GOOD_ENDING, todo, summaryFlag);
         } else {
@@ -814,6 +814,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
   int rc_ca = OK;
   Work work = worker->doing;
   unsigned long long *workerTable = worker->table;
+  //printf("Entro nell'end work con %d\n", typeEnding);
 
   if (typeEnding == GOOD_ENDING) {
     updateTable(work->tablePointer->table, workerTable);
@@ -1081,16 +1082,16 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         t->workAssociated = 1;
       } else {
         //! da togliere senno' crasha analyzer
-        printf("entro nell'else\n");
+        //printf("entro nell'else\n");
         // TODO... check if this causes any bug!!!
         //pop(tables);
         // TODO... check error code
-        Work w = newWork(t, 0, 0);
+        Work w = newWork(t,0, -1);
         push(todoTmp, w);
         t->workAssociated = 1;
       }
       //! da togliere senno' crasha analyzer
-      printList(todoTmp, stopThisShitPrint);
+      //printList(todoTmp, stopThisShitPrint);
 
       int rc_cl = closeDescriptor(fd);
 
@@ -1154,7 +1155,8 @@ int sendSummary(List tables) {
   int rc_po = OK;
   int rc_pu = OK;
   int tablesSize = tables->size;
-  // printList(tables, toStringTable);
+  // TODO remove print 
+  //printList(tables, toStringTable);
   int i = 0;
 
   for (i = 0; i < tablesSize; i++) {
@@ -1193,7 +1195,7 @@ int sendSummary(List tables) {
       }
 
       // TODO remove this acc
-      ////fprintf(stderr, "acc: %lld\n", acc);
+      //fprintf(stderr, "acc: %llu\n", acc);
     }
   }
 
