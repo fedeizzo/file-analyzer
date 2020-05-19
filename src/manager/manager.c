@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -6,14 +7,13 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <limits.h>
 
+#include "../config/config.h"
 #include "../list/list.h"
 #include "../manager/manager.h"
 #include "../table/table.h"
 #include "../worker/worker.h"
 #include "../wrapping/wrapping.h"
-#include "../config/config.h"
 
 // TODO see const arguments to function
 
@@ -333,6 +333,7 @@ void printFigo(void *data) {
 }
 
 // TODO write docs
+int clearWorkersWork(List workers, List todo, List tables);
 int remoduleWorks(List todo, List workers, List tables);
 
 int main(int argc, char *argv[]) {
@@ -401,8 +402,19 @@ void *workLoop(void *ptr) {
       sendSummary(sharedRes->tables);
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
-    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0) {
-      pthread_mutex_lock(&(sharedRes->mutex));
+    pthread_mutex_lock(&(sharedRes->mutex));
+    if (directives == STOP_MANAGER) {
+      clearWorkersWork(sharedRes->workers, sharedRes->todo, sharedRes->tables);
+      destroyList(sharedRes->tables, destroyTable);
+      destroyList(sharedRes->todo, destroyWork);
+
+      sharedRes->tables = newList();
+      sharedRes->todo = newList();
+      if (sharedRes->tables == NULL || sharedRes->todo == NULL)
+        rc_work = MALLOC_FAILURE;
+      sharedRes->directive->directiveStatus = SUMMARY;
+    } else if (directives == NEW_DIRECTIVES ||
+               sharedRes->directive->paths->size > 0) {
 
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
@@ -418,7 +430,8 @@ void *workLoop(void *ptr) {
       if (sharedRes->directive->paths->size > 0) {
         // TODO add control
         char *path = front(sharedRes->directive->paths);
-        ////fprintf(stderr, "sto per aggiungere le direttive al percorso %s con
+        ////fprintf(stderr, "sto per aggiungere le direttive al percorso %s
+        /// con
         /// size %d ---- %d\n", path,sharedRes->directive->paths->size,
         /// getpid());
         pop(sharedRes->directive->paths);
@@ -435,7 +448,6 @@ void *workLoop(void *ptr) {
         // printList(sharedRes->directive->paths, printFigo);
       }
 
-      pthread_mutex_unlock(&(sharedRes->mutex));
       if (rc_nd < SUCCESS && rc_wc < SUCCESS) {
         int r1 = errorHandler(rc_nd);
         int r2 = errorHandler(rc_wc);
@@ -449,6 +461,7 @@ void *workLoop(void *ptr) {
     } else if (directives < SUCCESS) {
       rc_work = errorHandler(directives);
     }
+    pthread_mutex_unlock(&(sharedRes->mutex));
     if (rc_work == SUCCESS) {
       pthread_mutex_lock(&(sharedRes->mutex));
       rc_work = executeWork(sharedRes->workers, sharedRes->tables,
@@ -709,7 +722,7 @@ int assignWork(Worker worker, Work work, List todo) {
   } else
     rc_t = ASSIGNWORK_MEMORY_FAILURE;
 
-  //printf("size: %d\n", todo->size);
+  // printf("size: %d\n", todo->size);
   return rc_t;
 }
 
@@ -726,10 +739,10 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
       int rc_rd = read(readFromWorker, charSent, 5);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
-        //endWork(w, tables, BAD_ENDING, todo, NULL);
+        // endWork(w, tables, BAD_ENDING, todo, NULL);
       } else {
         charSent[rc_rd] = '\0';
-        //printf("la parola di controllo: %s\n", charSent);
+        // printf("la parola di controllo: %s\n", charSent);
         if (strncmp(charSent, "done", 4) == 0) {
           endWork(w, tables, GOOD_ENDING, todo, summaryFlag);
         } else {
@@ -746,15 +759,15 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
         for (i = 0; i < rc_rd; i++) {
           int charCode = charSent[i];
           if (charCode < 128 && charCode > 0) {
-            if(w->table[charCode] < ULLONG_MAX){
+            if (w->table[charCode] < ULLONG_MAX) {
               w->table[charCode] += 1;
-            }else{
+            } else {
               rc_t = CHARACTER_OVERFLOW;
             }
           } else {
-            if(w->table[128] < ULLONG_MAX){
+            if (w->table[128] < ULLONG_MAX) {
               w->table[128] += 1;
-            }else{
+            } else {
               rc_t = CHARACTER_OVERFLOW;
             }
           }
@@ -790,7 +803,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
   int rc_ca = SUCCESS;
   Work work = worker->doing;
   unsigned long long *workerTable = worker->table;
-  //printf("Entro nell'end work con %d\n", typeEnding);
+  // printf("Entro nell'end work con %d\n", typeEnding);
 
   if (typeEnding == GOOD_ENDING) {
     updateTable(work->tablePointer->table, workerTable);
@@ -946,6 +959,7 @@ void *readDirectives(void *ptr) {
   char nWorker[PATH_MAX];
   int counter = 0;
   int castPlaceHolder = 0;
+  int stopFlag = 0;
 
   while (rc_t == SUCCESS) {
     // TODO check error allcoation
@@ -963,27 +977,36 @@ void *readDirectives(void *ptr) {
     if (newPath[strlen(newPath) - 1] == '\n') {
       newPath[strlen(newPath) - 1] = '\0';
     }
+    if (strncmp(newPath, "stop", 4) == 0)
+      stopFlag = 1;
+
     counter = 0;
     do {
       int rc = readChar(READ_CHANNEL, readBuffer);
       nWorker[counter++] = readBuffer[0];
     } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
     nWorker[counter] = '\0';
+    if (strncmp(nWorker, "stop", 4) == 0 && stopFlag == 1)
+      stopFlag = 1;
+    else
+      stopFlag = 0;
+
     // TODO... debug only
     fprintf(stderr, "Path %s, nWorker %s pid %d\n", newPath, nWorker, getpid());
     // usleep(10000);
 
     pthread_mutex_lock(&(sharedRes->mutex));
     int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
-    if (rc_sc == 0 ||
-        (sharedRes->directive->newNWorker == 9 && strcmp(nWorker, "9") == 0)) {
+    if (stopFlag != 1 &&
+        (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") == 0))) {
       rc_t = CAST_FAILURE;
     } else
       sharedRes->directive->newNWorker = castPlaceHolder;
     ////fprintf(stderr, "prima ---------------------------------\n");
     // printList(sharedRes->directive->paths, printFigo);
     ////fprintf(stderr, "finito ---------------------------------\n");
-    enqueue(sharedRes->directive->paths, newPath);
+    if (stopFlag != 1)
+      enqueue(sharedRes->directive->paths, newPath);
     ////fprintf(stderr, "dopo ---------------------------------\n");
     // printList(sharedRes->directive->paths, printFigo);
     ////fprintf(stderr, "finito ---------------------------------\n");
@@ -999,7 +1022,11 @@ void *readDirectives(void *ptr) {
         free(msgErr);
       }
     } else if (rc_t == SUCCESS) {
-      sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
+      if (stopFlag == 1) {
+        sharedRes->directive->directiveStatus = STOP_MANAGER;
+        stopFlag = 0;
+      } else
+        sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
     /* free(newPath); */
@@ -1023,7 +1050,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     int rc_pu = push(tables, t);
     if (rc_pu == 0) {
       int fd = openFile(path, O_RDONLY);
-      int fileDimension = moveCursorFile(fd, 0, SEEK_END);
+      unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+      printf("file dimension %lli\n", fileDimension);
       if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
         Work w = newWork(t, 0, fileDimension - 1);
         // TODO... check error code
@@ -1031,8 +1059,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         // TODO... check if this causes any bug!!!
         t->workAssociated = 1;
       } else if (fileDimension > 0 && nWorker > 0) {
-        int step = (int)fileDimension / nWorker;
-        int remainder = fileDimension % nWorker;
+        unsigned long long step = (unsigned long long)fileDimension / nWorker;
+        unsigned long long remainder = fileDimension % nWorker;
         int rc_pu2 = SUCCESS;
 
         int i = 0;
@@ -1058,16 +1086,16 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         t->workAssociated = 1;
       } else {
         //! da togliere senno' crasha analyzer
-        //printf("entro nell'else\n");
+        // printf("entro nell'else\n");
         // TODO... check if this causes any bug!!!
-        //pop(tables);
+        // pop(tables);
         // TODO... check error code
-        Work w = newWork(t,0, -1);
+        Work w = newWork(t, 0, -1);
         push(todoTmp, w);
         t->workAssociated = 1;
       }
       //! da togliere senno' crasha analyzer
-      //printList(todoTmp, stopThisShitPrint);
+      // printList(todoTmp, stopThisShitPrint);
 
       int rc_cl = closeDescriptor(fd);
 
@@ -1131,8 +1159,8 @@ int sendSummary(List tables) {
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
   int tablesSize = tables->size;
-  // TODO remove print 
-  //printList(tables, toStringTable);
+  // TODO remove print
+  // printList(tables, toStringTable);
   int i = 0;
 
   for (i = 0; i < tablesSize; i++) {
@@ -1251,7 +1279,8 @@ int errorHandler(int errorCode) {
     rc_t = SUCCESS;
     break;
   case CHARACTER_OVERFLOW:
-    printInfo("Preventing characters overflow, the statistics could not be reliable");
+    printInfo("Preventing characters overflow, the statistics could not be "
+              "reliable");
     rc_t = SUCCESS;
     break;
   default:

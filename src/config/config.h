@@ -29,6 +29,7 @@
 
 #define SUMMARY 0
 #define NEW_DIRECTIVES 1
+#define STOP_MANAGER 2
 
 #define FANCY_MODE 1
 #define NORMAL_MODE 0
