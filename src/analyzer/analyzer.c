@@ -1,4 +1,5 @@
 #include "./analyzer.h"
+#include "../config/config.h"
 #include "../manager/manager.h"
 #include "../priorityQueue/priorityQueue.h"
 #include "../table/table.h"
@@ -10,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "../config/config.h"
 
 int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
@@ -135,7 +135,7 @@ void *readDirectivesLoop(void *ptr);
 
 void skipPath(char *path, char *relativePath, int toSkip);
 
-void toStringTable(long long unsigned * table);
+void toStringTable(long long unsigned *table);
 
 int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign);
 
@@ -143,23 +143,22 @@ int informManager(Manager manager);
 
 List finished = NULL;
 
-
-int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign){
+int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign) {
   int rc_t = SUCCESS;
   rc_t = endManager(dead, fileToAssign);
   if (rc_t < SUCCESS) {
     printInfo("One or more managers are dead\n");
-  }else{
+  } else {
     rc_t = addManagers(managers, 1);
   }
   destroyManager((void *)dead);
   return rc_t;
 }
 
-void toStringTable(long long unsigned int * table){
+void toStringTable(long long unsigned int *table) {
   int i;
-  for(i = 0; i < NCHAR_TABLE; i++){
-    printf("%d - %llu\n", i+1, table[i]);
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    printf("%d - %llu\n", i + 1, table[i]);
   }
 }
 
@@ -553,11 +552,14 @@ int readBashLines(int *fd, char *dst, int childPid) {
   int rc_cds_1;
   int rc_cds_2;
   int bytesRead = 1;
-  char charRead;
+  char charRead = 'a';
   int counter = 0;
+  int firstCycleAfterDeath = 1;
+
   rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
   // Ho messo il dowhile
-  while (bytesRead > 0 || (kill(childPid, 0) == 0)) {
+  while (bytesRead > 0 || (kill(childPid, 0) == 0) ||
+         firstCycleAfterDeath > 0) {
     // printf("carattere: %d\n", charRead);
     bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
     if (bytesRead > 0) {
@@ -566,6 +568,8 @@ int readBashLines(int *fd, char *dst, int childPid) {
         counter++;
       }
     }
+    if (kill(childPid, 0) != 0)
+      firstCycleAfterDeath--;
   }
   dst[counter] = '\0';
   // TODO... Deal with pipe
@@ -878,7 +882,7 @@ void *readDirectivesLoop(void *ptr) {
         changeManagersAmount(sharedResources->managers,
                              *(sharedResources->nManager), newNManager,
                              sharedResources->fileToAssign);
-        *(sharedResources->nManager) = newNManager;        
+        *(sharedResources->nManager) = newNManager;
       }
       pthread_mutex_unlock(&(sharedResources->mutex));
       printf("Path %s current Manager: %d, newManager: %d\n", newPath,
@@ -1093,33 +1097,33 @@ void destroyManager(void *data) {
   // printf("dopo free destroyManager\n");
 }
 
-int informManager(Manager manager){
+int informManager(Manager manager) {
   int rc_t = SUCCESS;
   int *fd = manager->pipe;
-  //TODO guardare se questo è sufficiente
+  // TODO guardare se questo è sufficiente
   char *stopMsg = malloc(sizeof(char) * PATH_MAX);
   int rc_al = checkAllocationError(stopMsg);
   int rc_ss = sprintf(stopMsg, "%s", CONTROL_STOP);
   int rc_ss2 = sprintf(stopMsg, "%s", CONTROL_STOP);
-  if(fd != NULL){
-    if(rc_al == SUCCESS){
-      if(rc_ss >= 0 && rc_ss2 >= 0){
+  if (fd != NULL) {
+    if (rc_al == SUCCESS) {
+      if (rc_ss >= 0 && rc_ss2 >= 0) {
         int rc_wr = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
-        if(rc_wr < SUCCESS){
-          //TODO die here
+        if (rc_wr < SUCCESS) {
+          // TODO die here
           rc_t = SEND_FAILURE;
         }
-      }else{
-        //TODO should it die here?
+      } else {
+        // TODO should it die here?
         printInfo("Sscanf error in informManager");
         rc_t = SPRINTF_FAILURE;
       }
-    }else{
-      //TODO die here
+    } else {
+      // TODO die here
       rc_t = MALLOC_FAILURE;
     }
-  }else{
-    //TODO maybe I should die
+  } else {
+    // TODO maybe I should die
     printError("NULL pipe, it should not be possibile (informManager)");
     rc_t = NULL_POINTER;
   }
@@ -1131,8 +1135,8 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
   int managerSize = managers->len;
   while (managerSize != 0) {
     Manager m = popPriorityQueue(managers);
-    // TODO... collect files from all other managers and inform them 
-    if(amount != 0){
+    // TODO... collect files from all other managers and inform them
+    if (amount != 0) {
       if (m != NULL) {
         endManager(m, fileToAssign);
         kill(m->m_pid, SIGKILL);
@@ -1143,9 +1147,9 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
       }
     } else {
       endManager(m, fileToAssign);
-      pushPriorityQueue(managers, m->filesInExecution->size, (void *) m);
+      pushPriorityQueue(managers, m->filesInExecution->size, (void *)m);
       // TODO... inform manager to stop working on files
-      //informManager(m);
+      // informManager(m);
     }
     managerSize--;
   }
@@ -1231,7 +1235,6 @@ int rescheduleFiles(List toDestroy, List toReschedule) {
   return rc_t;
 }
 
-
 void *sendFileLoop(void *ptr) {
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
   Node node = NULL;
@@ -1299,19 +1302,24 @@ void *sendFileLoop(void *ptr) {
                   if (strcmp(path, info->path) == 0) {
                     found = 1;
                   } else {
+                    fprintf(stderr, "ATTENZIONE: pathm: %s infoa: %s", path,
+                            info->path);
                     node = node->next;
                   }
                 } else {
-                  printError("A node in the tree rapresenting the File System is NULL");
+                  printError("A node in the tree rapresenting the File System "
+                             "is NULL");
                   rc_t = NULL_POINTER;
                 }
               } else {
-                printError("The Infos of a node in the tree rapresenting the File System are NULL");
+                printError("The Infos of a node in the tree rapresenting the "
+                           "File System are NULL");
                 rc_t = NULL_POINTER;
               }
             }
             if (found != 1 || rc_t != SUCCESS) {
-              // TODO... handle with ErrorHandler cause first case isn't harakiri but second it is
+              // TODO... handle with ErrorHandler cause first case isn't
+              // harakiri but second it is
               rc_t = FILE_NOT_FOUND;
             } else {
               insertCounter = 0;
@@ -1332,7 +1340,7 @@ void *sendFileLoop(void *ptr) {
                   info->fileTable[insertCounter] = charCounter;
                 } else {
                   printf("fail della scanf\n");
-                  //TODO non fare morire con errorHandler
+                  // TODO non fare morire con errorHandler
                   rc_t = SSCANF_FAILURE;
                   // TODO vedere che fare in caso di fallimento di sscanf
                 }
@@ -1340,42 +1348,57 @@ void *sendFileLoop(void *ptr) {
                 numbersToRead--;
               }
               counter = 0;
-              if (isManagerAlive(manager) == SUCCESS) {
-                // TODO... CHECK IF FILE IS FINISHED OR NOT
-                bytesRead = read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
-                if (bytesRead > 0) {
-                  if (strcmp(controlWord, CONTROL_DONE) == 0) {
-                    // TODO... remove this, is for debug only
-                    //printf("Done!!!\n");
-                    counterFiles++;
-                    printf("path: %s, size: %d\n", path, counterFiles);
-                    rc_t = detachNodeFromList(manager->filesInExecution, node);
-                  } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
-                    // TODO... remove this, is for debug only
-                    // printf("UNDONE!\n");
-                  } else {
-                    printError("The comunication word between manager and analyzer couldn't be understanded");
+              int stopRead = 0;
+              if (isManagerAlive(manager)) {
+                while (isManagerAlive(manager) == SUCCESS && stopRead == 0) {
+                  // TODO... CHECK IF FILE IS FINISHED OR NOT
+                  bytesRead =
+                      read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
+                  if (bytesRead > 0) {
+                    if (strcmp(controlWord, CONTROL_DONE) == 0) {
+                      // TODO... remove this, is for debug only
+                      // printf("Done!!!\n");
+                      counterFiles++;
+                      printf("path: %s, size: %d\n", path, counterFiles);
+                      rc_t =
+                          detachNodeFromList(manager->filesInExecution, node);
+                    } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
+                      // TODO... remove this, is for debug only
+                      // printf("UNDONE!\n");
+                    } else {
+                      fprintf(stderr,
+                              "SUPER ATTENZIONE: parola di comunicazione %s\n",
+                              controlWord);
+                      printError("The comunication word between manager and "
+                                 "analyzer couldn't be understanded");
+                    }
                   }
+                  stopRead = 1;
                 }
               } else {
-                rc_rm = respawnManager(sharedResources->managers, manager, sharedResources->fileToAssign);
+                rc_rm = respawnManager(sharedResources->managers, manager,
+                                       sharedResources->fileToAssign);
                 alreadyPushed = SUCCESS;
                 // TODO... check error
-                // TODO... implement strategy to inform managers of file redistribution 
+                // TODO... implement strategy to inform managers of file
+                // redistribution
               }
             }
           }
         } else {
-          rc_rm = respawnManager(sharedResources->managers, manager, sharedResources->fileToAssign);
+          rc_rm = respawnManager(sharedResources->managers, manager,
+                                 sharedResources->fileToAssign);
           alreadyPushed = SUCCESS;
           // TODO... check error
-          // TODO... implement strategy to inform managers of file redistribution
+          // TODO... implement strategy to inform managers of file
+          // redistribution
         }
       } else {
         rc_t = NULL_POINTER;
       }
-      if(alreadyPushed == FAILURE){
-        pushPriorityQueue(tmpManagers, manager->filesInExecution->size, manager);
+      if (alreadyPushed == FAILURE) {
+        pushPriorityQueue(tmpManagers, manager->filesInExecution->size,
+                          manager);
       } else {
         alreadyPushed = FAILURE;
       }
@@ -1397,34 +1420,36 @@ void *sendFileLoop(void *ptr) {
     // something) then ...
     usleep(500);
   }
+  printf("ATTENZIONE: sto a mori' qui %d\n", rc_t);
   kill(getpid(), SIGKILL);
 }
 
-void sighandle_print(int sig){
-  //printList(finished, pasta2);
+void sighandle_print(int sig) {
+  // printList(finished, pasta2);
   int fd = open("/tmp/conteggio.txt", O_WRONLY);
   // printf("ACCUMULATORE %llu\n", accumulator);
   printf("Scorro tutto\n");
-  while(isEmptyList(finished) == NOT_EMPTY){
-      //printf("SONO UN FIGLIO DI TROIA\n");
-      FileInfo finfo = front(finished);
-      pop(finished);
-      unsigned long long counterSchifo = 0;
-      int i = 0;
-      for(i = 0; i < NCHAR_TABLE; i++){
-          counterSchifo += finfo->fileTable[i];
-      }
-      char *stringa = calloc(PATH_MAX + INT_MAX_LEN + 1, sizeof(char));
-      sprintf(stringa, "%s;%llu\n", finfo->path, counterSchifo);
-      write(fd, stringa, strlen(stringa) + 1);
-      free(stringa);
+  while (isEmptyList(finished) == NOT_EMPTY) {
+    // printf("SONO UN FIGLIO DI TROIA\n");
+    FileInfo finfo = front(finished);
+    pop(finished);
+    unsigned long long counterSchifo = 0;
+    int i = 0;
+    for (i = 0; i < NCHAR_TABLE; i++) {
+      counterSchifo += finfo->fileTable[i];
+    }
+    char *stringa = calloc(PATH_MAX + INT_MAX_LEN + 1, sizeof(char));
+    sprintf(stringa, "%s;%llu\n", finfo->path, counterSchifo);
+    write(fd, stringa, strlen(stringa) + 1);
+    free(stringa);
   }
   close(fd);
   printf("Ho finito di scrivere\n");
   signal(SIGINT, SIG_DFL);
 }
 
-int manageFileToSend(PriorityQueue managers, int currentWorker, List filesToAssign) {
+int manageFileToSend(PriorityQueue managers, int currentWorker,
+                     List filesToAssign) {
   int rc_t = SUCCESS;
   int rc_sf = SUCCESS;
   int rc_po = SUCCESS;
@@ -1627,7 +1652,8 @@ void *fileManageLoop(void *ptr) {
       childPid = 0;
       if (candidate->type == DIRECTORY) {
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
-        printf("Lo ho spawnato: %d - %d, %d\n", fd[READ_CHANNEL], fd[WRITE_CHANNEL], childPid);
+        printf("Lo ho spawnato: %d - %d, %d\n", fd[READ_CHANNEL],
+               fd[WRITE_CHANNEL], childPid);
         readFlag = 1;
         if (rc_find != SUCCESS) {
           printError("Error in spawn find result");
@@ -1668,7 +1694,8 @@ void *fileManageLoop(void *ptr) {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                //printf("relativePath: %s, candidate->path: %s\n", relativePath, candidate->path);
+                // printf("relativePath: %s, candidate->path: %s\n",
+                // relativePath, candidate->path);
                 // usleep(100000);
                 pthread_mutex_lock(&(sharedResources->mutex));
                 rc_ia = insertAndSchedule(candidate->startingNode,

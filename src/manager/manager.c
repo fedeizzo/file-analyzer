@@ -1051,7 +1051,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     if (rc_pu == 0) {
       int fd = openFile(path, O_RDONLY);
       unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
-      printf("file dimension %lli\n", fileDimension);
+      /* printf("file dimension %lli\n", fileDimension); */
       if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
         Work w = newWork(t, 0, fileDimension - 1);
         // TODO... check error code
