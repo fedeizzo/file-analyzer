@@ -74,7 +74,7 @@ int sendAcknowledgment();
  * returns:
  *    0 in case of success, otherwise -1
  */
-int errorHandler(const int fd, const int end);
+int errorHandler(const int fd, const unsigned long long end);
 
 int main(int argc, char *argv[]) {
   /*int non_lo_so = openFile("err.txt", O_WRONLY);
@@ -279,7 +279,7 @@ int sendAcknowledgment() {
   return rc_t;
 }
 
-int errorHandler(const int fd, const int end) {
+int errorHandler(const int fd, const unsigned long long end) {
   int rc_t = 0;
   if (fd == -1)
     rc_t = READ_DIRECTIVES_FAILURE;
@@ -289,7 +289,7 @@ int errorHandler(const int fd, const int end) {
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
-  int workAmount = end - rc_se + 1;
+  unsigned long long workAmount = end - rc_se + 1;
 
   while (workAmount != 0 && rc_t == 0) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "a");
@@ -299,7 +299,7 @@ int errorHandler(const int fd, const int end) {
       workAmount--;
   }
 
-  if (workAmount == 0 && rc_t != -1) {
+  if (workAmount == 0 && rc_t < SUCCESS) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "erro");
     if (rc_wr == -1)
       rc_t = WRITE_FAILURE;
