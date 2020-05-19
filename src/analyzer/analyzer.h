@@ -11,7 +11,7 @@
  */
 typedef struct FileInfo{
     char *name;
-    unsigned long long *fileTable;
+    unsigned long long int *fileTable;
     char *path;
     int isDirectory;
 } *FileInfo;

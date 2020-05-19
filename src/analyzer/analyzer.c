@@ -158,8 +158,9 @@ int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign) {
 void toStringTable(long long unsigned int *table) {
   int i;
   for (i = 0; i < NCHAR_TABLE; i++) {
-    printf("%d - %llu\n", i + 1, table[i]);
+    printf("%llu ", table[i]);
   }
+  printf("\n");
 }
 
 void destroyTreeNodeCandidate(void *data) {
@@ -276,7 +277,7 @@ int checkStrcpy(char *dst, char *src) {
  *  File info toString
  */
 void pasta(void *data) {
-  printf("File : %s name %s isFolder %d\n",
+  fprintf(stderr, "File : %s name %s isFolder %d\n",
          ((FileInfo)((TreeNode)data)->data)->path,
          ((FileInfo)((TreeNode)data)->data)->name,
          ((FileInfo)((TreeNode)data)->data)->isDirectory);
@@ -558,8 +559,8 @@ int readBashLines(int *fd, char *dst, int childPid) {
 
   rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
   // Ho messo il dowhile
-  while (bytesRead > 0 || (kill(childPid, 0) == 0) ||
-         firstCycleAfterDeath > 0) {
+  while ( bytesRead > 0 || (kill(childPid, 0) == 0) ||
+         firstCycleAfterDeath >= 0) {
     // printf("carattere: %d\n", charRead);
     bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
     if (bytesRead > 0) {
@@ -1274,6 +1275,7 @@ void *sendFileLoop(void *ptr) {
   }
   unsigned long long accumulator = 0;
   while (rc_t == SUCCESS) {
+    //sleep(100);
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
     while (nManager > 0 && rc_t == SUCCESS) {
@@ -1337,19 +1339,22 @@ void *sendFileLoop(void *ptr) {
                 number[counter] = 0;
                 rc_ss = sscanf(number, "%llu", &charCounter);
                 if (rc_ss > 0) {
-                  info->fileTable[insertCounter] = charCounter;
+                  info->fileTable[insertCounter++] = charCounter;
                 } else {
                   printf("fail della scanf\n");
                   // TODO non fare morire con errorHandler
                   rc_t = SSCANF_FAILURE;
                   // TODO vedere che fare in caso di fallimento di sscanf
                 }
+                printf("%s ", number);
                 number[0] = 0;
                 numbersToRead--;
               }
+              //printf("\n");
               counter = 0;
               int stopRead = 0;
-              if (isManagerAlive(manager)) {
+              // TODO... move after the loop
+              if (isManagerAlive(manager) == SUCCESS) {
                 while (isManagerAlive(manager) == SUCCESS && stopRead == 0) {
                   // TODO... CHECK IF FILE IS FINISHED OR NOT
                   bytesRead =
@@ -1360,8 +1365,11 @@ void *sendFileLoop(void *ptr) {
                       // printf("Done!!!\n");
                       counterFiles++;
                       printf("path: %s, size: %d\n", path, counterFiles);
+                      //toStringTable(info->fileTable);
                       rc_t =
                           detachNodeFromList(manager->filesInExecution, node);
+                      //printList(manager->filesInExecution, pasta);
+                      push(finished, info);
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       // TODO... remove this, is for debug only
                       // printf("UNDONE!\n");
@@ -1372,8 +1380,8 @@ void *sendFileLoop(void *ptr) {
                       printError("The comunication word between manager and "
                                  "analyzer couldn't be understanded");
                     }
+                    stopRead = 1;
                   }
-                  stopRead = 1;
                 }
               } else {
                 rc_rm = respawnManager(sharedResources->managers, manager,
@@ -1433,14 +1441,19 @@ void sighandle_print(int sig) {
     // printf("SONO UN FIGLIO DI TROIA\n");
     FileInfo finfo = front(finished);
     pop(finished);
+    //! nome file \n tabella tutta su una riga separata da spazi \n
     unsigned long long counterSchifo = 0;
+    char *stringa = calloc(PATH_MAX + 1, sizeof(char));
+    strcpy(stringa, finfo->path);
+    write(fd, stringa, strlen(stringa) + 1);
+    write(fd, "\n", 1);
     int i = 0;
     for (i = 0; i < NCHAR_TABLE; i++) {
-      counterSchifo += finfo->fileTable[i];
+      counterSchifo = finfo->fileTable[i];
+      sprintf(stringa, "%llu ", counterSchifo);
+      write(fd, stringa, strlen(stringa) + 1);
     }
-    char *stringa = calloc(PATH_MAX + INT_MAX_LEN + 1, sizeof(char));
-    sprintf(stringa, "%s;%llu\n", finfo->path, counterSchifo);
-    write(fd, stringa, strlen(stringa) + 1);
+    write(fd, "\n", 1);
     free(stringa);
   }
   close(fd);
@@ -1683,19 +1696,20 @@ void *fileManageLoop(void *ptr) {
 
     // Parte di lettura
     if (readFlag == SUCCESS) {
+      //printf("ciao\n");
       bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
       if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
         if (bytesRead > 0) {
           candidate->path[counter + skipped] = charRead;
-          // printf("charRead in find: %c, %d\n", charRead, charRead);
+          //printf("charRead in find: %c, %d\n", charRead, charRead);
           // usleep(100000);
           if (skipped >= candidate->toSkip) {
             if (charRead == '\n' || charRead == '\0') {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                // printf("relativePath: %s, candidate->path: %s\n",
-                // relativePath, candidate->path);
+                //printf("relativePath: %s, candidate->path: %s\n",
+                //relativePath, candidate->path);
                 // usleep(100000);
                 pthread_mutex_lock(&(sharedResources->mutex));
                 rc_ia = insertAndSchedule(candidate->startingNode,
