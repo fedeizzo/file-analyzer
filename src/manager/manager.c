@@ -1084,7 +1084,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         push(todoTmp, w);
         // TODO... check if this causes any bug!!!
         t->workAssociated = 1;
-      } else {
+      } else if (fileDimension == 0) {
         //! da togliere senno' crasha analyzer
         // printf("entro nell'else\n");
         // TODO... check if this causes any bug!!!

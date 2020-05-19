@@ -278,9 +278,9 @@ int checkStrcpy(char *dst, char *src) {
  */
 void pasta(void *data) {
   fprintf(stderr, "File : %s name %s isFolder %d\n",
-         ((FileInfo)((TreeNode)data)->data)->path,
-         ((FileInfo)((TreeNode)data)->data)->name,
-         ((FileInfo)((TreeNode)data)->data)->isDirectory);
+          ((FileInfo)((TreeNode)data)->data)->path,
+          ((FileInfo)((TreeNode)data)->data)->name,
+          ((FileInfo)((TreeNode)data)->data)->isDirectory);
 }
 
 void pasta2(void *data) {
@@ -559,7 +559,7 @@ int readBashLines(int *fd, char *dst, int childPid) {
 
   rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
   // Ho messo il dowhile
-  while ( bytesRead > 0 || (kill(childPid, 0) == 0) ||
+  while (bytesRead > 0 || (kill(childPid, 0) == 0) ||
          firstCycleAfterDeath >= 0) {
     // printf("carattere: %d\n", charRead);
     bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
@@ -1275,7 +1275,7 @@ void *sendFileLoop(void *ptr) {
   }
   unsigned long long accumulator = 0;
   while (rc_t == SUCCESS) {
-    //sleep(100);
+    // sleep(100);
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
     while (nManager > 0 && rc_t == SUCCESS) {
@@ -1350,7 +1350,7 @@ void *sendFileLoop(void *ptr) {
                 number[0] = 0;
                 numbersToRead--;
               }
-              //printf("\n");
+              // printf("\n");
               counter = 0;
               int stopRead = 0;
               // TODO... move after the loop
@@ -1365,10 +1365,10 @@ void *sendFileLoop(void *ptr) {
                       // printf("Done!!!\n");
                       counterFiles++;
                       printf("path: %s, size: %d\n", path, counterFiles);
-                      //toStringTable(info->fileTable);
+                      // toStringTable(info->fileTable);
                       rc_t =
                           detachNodeFromList(manager->filesInExecution, node);
-                      //printList(manager->filesInExecution, pasta);
+                      // printList(manager->filesInExecution, pasta);
                       push(finished, info);
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       // TODO... remove this, is for debug only
@@ -1445,13 +1445,13 @@ void sighandle_print(int sig) {
     unsigned long long counterSchifo = 0;
     char *stringa = calloc(PATH_MAX + 1, sizeof(char));
     strcpy(stringa, finfo->path);
-    write(fd, stringa, strlen(stringa) + 1);
+    write(fd, stringa, strlen(stringa));
     write(fd, "\n", 1);
     int i = 0;
     for (i = 0; i < NCHAR_TABLE; i++) {
       counterSchifo = finfo->fileTable[i];
       sprintf(stringa, "%llu ", counterSchifo);
-      write(fd, stringa, strlen(stringa) + 1);
+      write(fd, stringa, strlen(stringa));
     }
     write(fd, "\n", 1);
     free(stringa);
@@ -1696,20 +1696,20 @@ void *fileManageLoop(void *ptr) {
 
     // Parte di lettura
     if (readFlag == SUCCESS) {
-      //printf("ciao\n");
+      // printf("ciao\n");
       bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
       if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
         if (bytesRead > 0) {
           candidate->path[counter + skipped] = charRead;
-          //printf("charRead in find: %c, %d\n", charRead, charRead);
+          // printf("charRead in find: %c, %d\n", charRead, charRead);
           // usleep(100000);
           if (skipped >= candidate->toSkip) {
             if (charRead == '\n' || charRead == '\0') {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                //printf("relativePath: %s, candidate->path: %s\n",
-                //relativePath, candidate->path);
+                // printf("relativePath: %s, candidate->path: %s\n",
+                // relativePath, candidate->path);
                 // usleep(100000);
                 pthread_mutex_lock(&(sharedResources->mutex));
                 rc_ia = insertAndSchedule(candidate->startingNode,
