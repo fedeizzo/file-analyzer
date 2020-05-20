@@ -15,6 +15,12 @@
 #include "../worker/worker.h"
 #include "../wrapping/wrapping.h"
 
+// TODO LISTA DOMANDE
+// quando invio stop stop ad un manager tutti i lavori in todo vanno eliminati?
+// se invio due volte di fila lo stesso file viene aggiunto due volte
+// chiedetemi la questione delle doppie tabelle nel summary che e' piu facile da
+// spieagaer a voce piuttosto che scriverla
+
 // TODO see const arguments to function
 
 void stopThisShitPrint(void *data) {
@@ -22,6 +28,13 @@ void stopThisShitPrint(void *data) {
   printf("NAME: %s\n", w->tablePointer->name);
   printf("START: %d\n", w->bufferStart);
   printf("END: %d\n", w->bufferEnd);
+}
+
+void printWorker(void *data) {
+  Worker w = (Worker)data;
+  printf("il puntatore %p\n", w->doing);
+  /* stopThisShitPrint(w->doing); */
+  printf("work amoutn: %d\n", w->workAmount);
 }
 
 Worker newWorker() {
@@ -324,7 +337,8 @@ void *workLoop(void *ptr);
 // TODO... REMOVE PRINT FUNCTION FOR DEBUGGING
 void toStringTable(void *data) {
   Table table = (Table)data;
-  // fprintf(stderr, "<<< %s >>> ----- %d\n", table->name, getpid());
+  printf("name: %s\n", table->name);
+  printf("work associated: %d\n", table->workAssociated);
 }
 
 void printFigo(void *data) {
@@ -404,15 +418,27 @@ void *workLoop(void *ptr) {
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
     if (directives == STOP_MANAGER) {
+      /* printf("sto per stoppare i worker\n"); */
+      /* printList(sharedRes->todo, stopThisShitPrint); */
       clearWorkersWork(sharedRes->workers, sharedRes->todo, sharedRes->tables);
+      /* printList(sharedRes->todo, stopThisShitPrint); */
+      /* printf("ho stoppato i worker\n"); */
       destroyList(sharedRes->tables, destroyTable);
+      /* printf("ho distrutto le tabelle\n"); */
+      //! TODO simo/samu/emanuele se leggi questo commento ricordami che devo
+      //! chiederti una cos riguardo questo
       destroyList(sharedRes->todo, destroyWork);
+      destroyList(sharedRes->directive->paths, free);
+      /* printf("ho distrutto i lavori da fare\n"); */
 
       sharedRes->tables = newList();
       sharedRes->todo = newList();
+      sharedRes->directive->paths = newList();
       if (sharedRes->tables == NULL || sharedRes->todo == NULL)
         rc_work = MALLOC_FAILURE;
       sharedRes->directive->directiveStatus = SUMMARY;
+      /* printList(sharedRes->workers, printWorker); */
+      /* printf("arrivo qui senza problemi\n"); */
     } else if (directives == NEW_DIRECTIVES ||
                sharedRes->directive->paths->size > 0) {
 
@@ -463,10 +489,12 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
     if (rc_work == SUCCESS) {
+      /* printf("potrei rompermi qui\n"); */
       pthread_mutex_lock(&(sharedRes->mutex));
       rc_work = executeWork(sharedRes->workers, sharedRes->tables,
                             sharedRes->todo, &sharedRes->summaryFlag);
       pthread_mutex_unlock(&(sharedRes->mutex));
+      /* printf("e invece no\n"); */
       if (rc_work < SUCCESS)
         rc_work = errorHandler(rc_work);
     }
@@ -492,7 +520,7 @@ int initManager(List workers, const int nWorkers, List tables, List todo) {
 
 void deinitManager(List workers, List tables, List todo) {
   destroyList(workers, destroyWorker);
-  printf("SONO IN DEINIT MANAGER\n");
+  /* printf("SONO IN DEINIT MANAGER\n"); */
   destroyList(tables, destroyTable);
   destroyList(todo, destroyWork);
 }
@@ -619,6 +647,7 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
               rc_t = WORK_FAILURE;
           } else {
             if (todo->size != 0) {
+              /* printf("size: %d\n", todo->size); */
               Work work = front(todo);
               if (work != NULL) {
                 // fprintf(stderr, "Sono prima di assignWork\n");
@@ -683,6 +712,7 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
 int assignWork(Worker worker, Work work, List todo) {
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
+  /* printf("return code di pop: %d\n", rc_po); */
   if (rc_po != -1) {
     worker->doing = work;
     worker->workAmount = work->bufferEnd - work->bufferStart + 1;
@@ -700,8 +730,8 @@ int assignWork(Worker worker, Work work, List todo) {
       int rc_ca = sprintf(path, "%s", work->tablePointer->name);
       int rc_ca2 = sprintf(bufferStart, "%d", work->bufferStart);
       int rc_ca3 = sprintf(bufferEnd, "%d", work->bufferEnd);
-      ////fprintf(stderr, "ASDASDASDASDASD %s %s %s\n", path, bufferStart,
-      /// bufferEnd);
+      /* fprintf(stderr, "ASDASDASDASDASD %s %s %s\n", path, bufferStart, */
+      /*         bufferEnd); */
       if (rc_ca == SUCCESS || rc_al2 == SUCCESS || rc_al3 == SUCCESS) {
         int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], path);
         int rc_wr2 = writeDescriptor(pipe[WRITE_CHANNEL], bufferStart);
@@ -739,10 +769,10 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
       int rc_rd = read(readFromWorker, charSent, 5);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
-        // endWork(w, tables, BAD_ENDING, todo, NULL);
+        /* endWork(w, tables, BAD_ENDING, todo, NULL); */
       } else {
         charSent[rc_rd] = '\0';
-        // printf("la parola di controllo: %s\n", charSent);
+        /* printf("la parola di controllo: %s\n", charSent); */
         if (strncmp(charSent, "done", 4) == 0) {
           endWork(w, tables, GOOD_ENDING, todo, summaryFlag);
         } else {
@@ -868,11 +898,13 @@ int clearWorkersWork(List workers, List todo, List tables) {
             /* printf("ho letto %d su %d\n", worker->bytesSent, */
             /*        worker->workAmount); */
           }
-          int rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
-          if (rc_rd == 5) {
+          int rc_rd = -1;
+          while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
             rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
+            /* printf("ho letto %s\n", charSent); */
             if (rc_rd == 5) {
-              if (strncmp(charSent, "ackn", 4) == 0) {
+              if (strncmp(charSent, "done", 4) == 0) {
+                /* printf("sto per entrare nel while strano\n"); */
                 endWork(worker, tables, BAD_ENDING, todo, NULL);
               }
             }
@@ -901,6 +933,8 @@ int remoduleWorks(List todo, List workers, List tables) {
   /* printf("return code: %d\n", rc_t); */
   /* printf("dopo\n----------------------------------------------\n"); */
   /* printList(todo, print); */
+  /* printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); */
+  /* printList(tables, toStringTable); */
 
   int todoSize = todo->size;
   int nWorkers = workers->size;
@@ -916,7 +950,7 @@ int remoduleWorks(List todo, List workers, List tables) {
       if (rc_po == SUCCESS) {
         work->tablePointer->workAssociated--;
         int workDimension = work->bufferEnd - work->bufferStart + 1;
-        if (workDimension >= nWorkers) {
+        if (workDimension >= nWorkers && nWorkers > 0) {
           int step = (int)workDimension / nWorkers;
           int remainder = workDimension % nWorkers;
           int rc_pu2 = SUCCESS;
@@ -927,9 +961,9 @@ int remoduleWorks(List todo, List workers, List tables) {
             rc_pu2 = enqueue(todo, w);
           }
           if (rc_pu2 == SUCCESS) {
-            Work w = newWork(work->tablePointer,
-                             step * (nWorkers - 1) + work->bufferStart,
-                             step * nWorkers + remainder + work->bufferStart);
+            Work w = newWork(
+                work->tablePointer, step * (nWorkers - 1) + work->bufferStart,
+                step * nWorkers + remainder + work->bufferStart - 1);
             rc_pu2 = enqueue(todo, w);
           } else {
             rc_t = NEW_DIRECTIVES_FAILURE;
@@ -946,8 +980,11 @@ int remoduleWorks(List todo, List workers, List tables) {
         rc_t = 0;
     }
   }
-  /* printf("dopo finale\n----------------------------------------------\n"); */
+  /* printf("dopo dopo\n----------------------------------------------\n"); */
   /* printList(todo, print); */
+  /* printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); */
+  /* printList(tables, toStringTable); */
+  /* printf("dopo finale\n----------------------------------------------\n"); */
 
   return rc_t;
 }
@@ -1047,62 +1084,68 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
-    int rc_pu = push(tables, t);
-    if (rc_pu == 0) {
-      int fd = openFile(path, O_RDONLY);
-      unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
-      /* printf("file dimension %lli\n", fileDimension); */
-      if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
-        Work w = newWork(t, 0, fileDimension - 1);
-        // TODO... check error code
-        push(todoTmp, w);
-        // TODO... check if this causes any bug!!!
-        t->workAssociated = 1;
-      } else if (fileDimension > 0 && nWorker > 0) {
-        unsigned long long step = (unsigned long long)fileDimension / nWorker;
-        unsigned long long remainder = fileDimension % nWorker;
-        int rc_pu2 = SUCCESS;
+    if (access(path, F_OK) != -1) {
+      int rc_pu = push(tables, t);
+      if (rc_pu == 0) {
+        unsigned long long fileDimension;
+        int fd = -1;
+        fd = openFile(path, O_RDONLY);
+        fileDimension = moveCursorFile(fd, 0, SEEK_END);
+        /* printf("file dimension %lli\n", fileDimension); */
+        if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
+          Work w = newWork(t, 0, fileDimension - 1);
+          // TODO... check error code
+          push(todoTmp, w);
+          // TODO... check if this causes any bug!!!
+          t->workAssociated = 1;
+        } else if (fileDimension > 0 && nWorker > 0) {
+          unsigned long long step = (unsigned long long)fileDimension / nWorker;
+          unsigned long long remainder = fileDimension % nWorker;
+          int rc_pu2 = SUCCESS;
 
-        int i = 0;
-        for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
-          Work w = newWork(t, step * i, step * (i + 1) - 1);
-          rc_pu2 = push(todoTmp, w);
-        }
+          int i = 0;
+          for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
+            Work w = newWork(t, step * i, step * (i + 1) - 1);
+            rc_pu2 = push(todoTmp, w);
+          }
 
-        if (rc_pu2 == SUCCESS) {
-          // TODO per considerare anche EOF mettere solo -1
-          Work w =
-              newWork(t, step * (nWorker - 1), step * nWorker + remainder - 1);
-          rc_pu2 = push(todoTmp, w);
-        } else {
-          rc_t = NEW_DIRECTIVES_FAILURE;
+          if (rc_pu2 == SUCCESS) {
+            // TODO per considerare anche EOF mettere solo -1
+            Work w = newWork(t, step * (nWorker - 1),
+                             step * nWorker + remainder - 1);
+            rc_pu2 = push(todoTmp, w);
+          } else {
+            rc_t = NEW_DIRECTIVES_FAILURE;
+          }
+          t->workAssociated = nWorker;
+        } else if (fileDimension > 0 && nWorker == 0) {
+          Work w = newWork(t, 0, fileDimension - 1);
+          // TODO... check error code
+          push(todoTmp, w);
+          // TODO... check if this causes any bug!!!
+          t->workAssociated = 1;
+        } else if (fileDimension == 0) {
+          //! da togliere senno' crasha analyzer
+          // printf("entro nell'else\n");
+          // TODO... check if this causes any bug!!!
+          // pop(tables);
+          // TODO... check error code
+          Work w = newWork(t, 0, -1);
+          push(todoTmp, w);
+          t->workAssociated = 1;
         }
-        t->workAssociated = nWorker;
-      } else if (fileDimension > 0 && nWorker == 0) {
-        Work w = newWork(t, 0, fileDimension - 1);
-        // TODO... check error code
-        push(todoTmp, w);
-        // TODO... check if this causes any bug!!!
-        t->workAssociated = 1;
-      } else if (fileDimension == 0) {
         //! da togliere senno' crasha analyzer
-        // printf("entro nell'else\n");
-        // TODO... check if this causes any bug!!!
-        // pop(tables);
-        // TODO... check error code
-        Work w = newWork(t, 0, -1);
-        push(todoTmp, w);
-        t->workAssociated = 1;
+        // printList(todoTmp, stopThisShitPrint);
+
+        int rc_cl = SUCCESS;
+        if (fd != -1)
+          rc_cl = closeDescriptor(fd);
+
+        if (fd == -1 || rc_cl == -1)
+          rc_t = DESCRIPTOR_FAILURE;
+      } else {
+        rc_t = NEW_DIRECTIVES_FAILURE;
       }
-      //! da togliere senno' crasha analyzer
-      // printList(todoTmp, stopThisShitPrint);
-
-      int rc_cl = closeDescriptor(fd);
-
-      if (fd == -1 || rc_cl == -1)
-        rc_t = DESCRIPTOR_FAILURE;
-    } else {
-      rc_t = NEW_DIRECTIVES_FAILURE;
     }
     ////fprintf(stderr, "Stampo in add directives\n");
     // printList(tables, toStringTable);
@@ -1122,7 +1165,10 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   // fprintf(stderr, "FREEEEEE TODO TMP\n");
   free(todoTmp);
   // fprintf(stderr, "dopo free todo\n");
+  /* printf("prima dell'add directives\n"); */
   /* printList(todo, print); */
+  /* printList(tables, toStringTable); */
+  /* printf("dopo dell'add directives\n"); */
 
   return rc_t;
 }
@@ -1155,6 +1201,7 @@ int parentInitExecPipe(const int toParent[], const int toChild[]) {
 }
 
 int sendSummary(List tables) {
+  /* printf("ATTENZIONE: entro nel summary\n"); */
   int rc_t = SUCCESS;
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
@@ -1203,6 +1250,7 @@ int sendSummary(List tables) {
     }
   }
 
+  /* printf("ATTENZIONE: esco dal summary\n"); */
   return rc_t;
 }
 

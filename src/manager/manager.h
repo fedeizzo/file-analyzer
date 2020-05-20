@@ -27,8 +27,6 @@ typedef struct DirectivesStruct {
 typedef struct sharedResources {
   Directive directive;
   List todo;
-  List doing;
-  List done;
   List workers;
   List tables;
   int summaryFlag;

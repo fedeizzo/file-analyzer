@@ -156,6 +156,10 @@ int initWork(unsigned long long *start, unsigned long long *end,
       rc_t = READ_DIRECTIVES_FAILURE;
     if (rc_sc == 0 || rc_sc2 == 0)
       rc_t = CAST_FAILURE;
+
+    fprintf(stderr,
+            "ho ricevuto il lavoro %s che parte da %llu e arriva a%llu\n", path,
+            *start, *end);
   }
 
   return rc_t;
@@ -275,7 +279,8 @@ int executeWork(const int fd, const unsigned long long start,
 
 int sendAcknowledgment() {
   int rc_t = SUCCESS;
-  rc_t = writeDescriptor(WRITE_CHANNEL, "ackn");
+  fprintf(stderr, "sto per stamapre l'ack\n");
+  /* rc_t = writeDescriptor(WRITE_CHANNEL, "ackn"); */
   return rc_t;
 }
 
