@@ -886,8 +886,8 @@ void *readDirectivesLoop(void *ptr) {
         *(sharedResources->nManager) = newNManager;
       }
       pthread_mutex_unlock(&(sharedResources->mutex));
-      printf("Path %s current Manager: %d, newManager: %d\n", newPath,
-             newNManager, newNWorker);
+      /*printf("Path %s current Manager: %d, newManager: %d\n", newPath,
+             newNManager, newNWorker);*/
     } else {
       printInfo("Invalid Argument passed from input, syntax must "
                 "be:\n-Path\n-Number of Manager\n-Number of Worker\n");
@@ -1152,7 +1152,7 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
       endManager(m, fileToAssign);
       pushPriorityQueue(managers, m->filesInExecution->size, (void *)m);
       // TODO... inform manager to stop working on files
-      // informManager(m);
+      informManager(m);
     }
     managerSize--;
   }
@@ -1216,7 +1216,7 @@ int isManagerAlive(Manager m) {
     rc_t = DEAD_PROCESS;
   }
   // TODO non deve farlo
-  return SUCCESS;
+  return rc_t;
 }
 
 int rescheduleFiles(List toDestroy, List toReschedule) {
@@ -1281,14 +1281,13 @@ void *sendFileLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
     while (nManager > 0 && rc_t == SUCCESS) {
-      sleep(1); 
       manager = popPriorityQueue(sharedResources->managers);
       if (manager != NULL) {
-        printf("controllo se è vivo\n");
+        //printf("controllo se è vivo\n");
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
           pipe = manager->pipe;
-          printf("leggo da %d\n", manager->m_pid);
+          //printf("leggo da %d\n", manager->m_pid);
           bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
           if (bytesRead > 0) {
             while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
@@ -1388,7 +1387,7 @@ void *sendFileLoop(void *ptr) {
                 }
               } else {
                 printf("MUOIO pt 1\n");
-                rc_rm = respawnManager(sharedResources->managers, manager,
+                rc_rm = respawnManager(tmpManagers, manager,
                                        sharedResources->fileToAssign);
                 printf("RESPAWNO pt 1\n");
                 alreadyPushed = SUCCESS;
@@ -1404,7 +1403,7 @@ void *sendFileLoop(void *ptr) {
           }
         } else {
           printf("MUOIO pt 2\n");
-          rc_rm = respawnManager(sharedResources->managers, manager,
+          rc_rm = respawnManager(tmpManagers, manager,
                                  sharedResources->fileToAssign);
           printf("RESPAWNO pt 2\n");
           alreadyPushed = SUCCESS;
@@ -1429,13 +1428,11 @@ void *sendFileLoop(void *ptr) {
       printf("errore swap ciaone\n");
       rc_t = rc_sw;
     }
-    //! QUI
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
       rc_mfs = manageFileToSend(sharedResources->managers,
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
     }
-    //! QUI 
     pthread_mutex_unlock(&(sharedResources->mutex));
     // TODO... Handle with an handler for more specific errors if(rc_mfs ==
     // something) then ...
@@ -1775,7 +1772,7 @@ void sighandle_int(int sig){
 
 int main() {
   signal(SIGCHLD, SIG_IGN);
-  signal(SIGINT, sighandle_print);
+  //signal(SIGINT, sighandle_print);
   sharedResourcesAnalyzer_t sharedResources;
   // Tree fs = NULL;
   TreeNode currentDirectory = NULL;

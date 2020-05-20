@@ -157,9 +157,9 @@ int initWork(unsigned long long *start, unsigned long long *end,
     if (rc_sc == 0 || rc_sc2 == 0)
       rc_t = CAST_FAILURE;
 
-    fprintf(stderr,
+    /*fprintf(stderr,
             "ho ricevuto il lavoro %s che parte da %llu e arriva a%llu\n", path,
-            *start, *end);
+            *start, *end);*/
   }
 
   return rc_t;
