@@ -1056,6 +1056,7 @@ int addManagers(PriorityQueue managers, int amount) {
           } else {
             managerInitPipe(toParent, toChild);
             execlp("./manager", "./manager", NULL);
+            printf("lol muoio\n");
             kill(getpid(), SIGKILL);
           }
         }
@@ -1124,10 +1125,11 @@ int informManager(Manager manager) {
       rc_t = MALLOC_FAILURE;
     }
   } else {
-    // TODO maybe I should die
+    // TODO maybe "I" should die
     printError("NULL pipe, it should not be possibile (informManager)");
     rc_t = NULL_POINTER;
   }
+  free(stopMsg);
   return rc_t;
 }
 
@@ -1279,11 +1281,14 @@ void *sendFileLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
     while (nManager > 0 && rc_t == SUCCESS) {
+      sleep(1); 
       manager = popPriorityQueue(sharedResources->managers);
       if (manager != NULL) {
+        printf("controllo se è vivo\n");
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
           pipe = manager->pipe;
+          printf("leggo da %d\n", manager->m_pid);
           bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
           if (bytesRead > 0) {
             while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
@@ -1322,6 +1327,7 @@ void *sendFileLoop(void *ptr) {
             if (found != 1 || rc_t != SUCCESS) {
               // TODO... handle with ErrorHandler cause first case isn't
               // harakiri but second it is
+              fprintf(stderr, "The file you gave me does not exist, in sendFileLoop");
               rc_t = FILE_NOT_FOUND;
             } else {
               insertCounter = 0;
@@ -1346,7 +1352,7 @@ void *sendFileLoop(void *ptr) {
                   rc_t = SSCANF_FAILURE;
                   // TODO vedere che fare in caso di fallimento di sscanf
                 }
-                printf("%s ", number);
+                //printf("%s ", number);
                 number[0] = 0;
                 numbersToRead--;
               }
@@ -1374,9 +1380,6 @@ void *sendFileLoop(void *ptr) {
                       // TODO... remove this, is for debug only
                       // printf("UNDONE!\n");
                     } else {
-                      fprintf(stderr,
-                              "SUPER ATTENZIONE: parola di comunicazione %s\n",
-                              controlWord);
                       printError("The comunication word between manager and "
                                  "analyzer couldn't be understanded");
                     }
@@ -1384,18 +1387,26 @@ void *sendFileLoop(void *ptr) {
                   }
                 }
               } else {
+                printf("MUOIO pt 1\n");
                 rc_rm = respawnManager(sharedResources->managers, manager,
                                        sharedResources->fileToAssign);
+                printf("RESPAWNO pt 1\n");
                 alreadyPushed = SUCCESS;
                 // TODO... check error
                 // TODO... implement strategy to inform managers of file
                 // redistribution
               }
             }
+            // TODO... use error handler when implemented
+            if(rc_t == FILE_NOT_FOUND){
+              rc_t = SUCCESS;
+            }
           }
         } else {
+          printf("MUOIO pt 2\n");
           rc_rm = respawnManager(sharedResources->managers, manager,
                                  sharedResources->fileToAssign);
+          printf("RESPAWNO pt 2\n");
           alreadyPushed = SUCCESS;
           // TODO... check error
           // TODO... implement strategy to inform managers of file
@@ -1418,11 +1429,13 @@ void *sendFileLoop(void *ptr) {
       printf("errore swap ciaone\n");
       rc_t = rc_sw;
     }
+    //! QUI
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
       rc_mfs = manageFileToSend(sharedResources->managers,
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
     }
+    //! QUI 
     pthread_mutex_unlock(&(sharedResources->mutex));
     // TODO... Handle with an handler for more specific errors if(rc_mfs ==
     // something) then ...
@@ -1746,7 +1759,7 @@ void *fileManageLoop(void *ptr) {
   }
   printf("Ho rct %d perche' sono morto FILEMANAGE \n", rc_t);
   free(relativePath);
-  // kill(getpid(), SIGKILL);
+  kill(getpid(), SIGKILL);
 }
 
 Tree fs = NULL;
