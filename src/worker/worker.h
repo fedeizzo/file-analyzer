@@ -15,8 +15,8 @@
  *
  * fields:
  *    int pid: the pid
- *    int *table: the table for the counting operation
- *    int bytesSent: the amount of bytes sent
+ *    unsigned long long *table: the table for the counting operation
+ *    unsigend long long bytesSent: the amount of bytes sent
  *    const int workAmount: the remaining work
  *    Work doing: the work under execution
  *    int *pipe: the pipe for the communication with the manager
@@ -24,8 +24,8 @@
 typedef struct structWorker{
   int pid;
   unsigned long long *table;
-  int bytesSent;
-  int workAmount;
+  unsigned long long bytesSent;
+  unsigned long long workAmount;
   Work doing;
   int *pipe;
 } * Worker;
