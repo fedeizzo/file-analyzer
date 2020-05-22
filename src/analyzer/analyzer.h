@@ -21,6 +21,7 @@ typedef struct sharedResourcesAnalyzer {
   PriorityQueue managers;
   List fileToAssign;
   List candidateNode;
+  List requestedFiles;
   TreeNode currentDirectory;
   char *cwd;
   char *path;

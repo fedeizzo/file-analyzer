@@ -418,7 +418,7 @@ void *workLoop(void *ptr) {
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
     if (directives == STOP_MANAGER) {
-      /* printf("sto per stoppare i worker\n"); */
+      fprintf(stderr, "sto per stoppare i worker\n");
       /* printList(sharedRes->todo, stopThisShitPrint); */
       clearWorkersWork(sharedRes->workers, sharedRes->todo, sharedRes->tables);
       /* printList(sharedRes->todo, stopThisShitPrint); */
