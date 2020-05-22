@@ -1,4 +1,6 @@
 #include <fcntl.h>
+#include <limits.h>
+#include <linux/limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,10 +10,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../config/config.h"
 #include "../list/list.h"
+#include "../reporter/reporter.h"
 #include "../wrapping/wrapping.h"
 #include "tui.h"
-#include "../config/config.h"
 
 const char *helpMsg =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
@@ -93,7 +96,8 @@ int getWidth(int *width) {
         wait(NULL);
         rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
-        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS || rc_ss == 0)
+        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS ||
+            rc_ss == 0)
           rc_t = GET_SIZE_FAILURE;
       } else {
         rc_t = MALLOC_FAILURE;
@@ -130,7 +134,8 @@ int getHeigth(int *heigth) {
         wait(NULL);
         rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
-        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS || rc_ss == 0)
+        if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS ||
+            rc_ss == 0)
           rc_t = GET_SIZE_FAILURE;
       } else {
         rc_t = MALLOC_FAILURE;
@@ -147,6 +152,18 @@ int getHeigth(int *heigth) {
   } else {
     rc_t = PIPE_FAILURE;
   }
+  return rc_t;
+}
+
+int isStringEqual(void *data, void *data2) {
+  char *s1 = (char *)data;
+  char *s2 = (char *)data2;
+
+  int rc_t = -1;
+  if (strcmp(s1, s2) == 0) {
+    rc_t = 0;
+  }
+
   return rc_t;
 }
 
@@ -276,6 +293,48 @@ void draw(Screen screen) {
   fflush(stdout);
 }
 
+void drawTree(Screen screen, List directories, List files, List toggled,
+              char *cwd) {
+  char *line = malloc(17 * sizeof(char));
+  int lineCounter = 10;
+  Node element = directories->head;
+  while (element != NULL) {
+    strcpy(line, (char *)element->data);
+    line[16] = '\0';
+    if (lineCounter < screen->rows - 1) {
+      writeScreen(screen, "                ", 2, lineCounter);
+      writeScreen(screen, line, 2, lineCounter);
+      lineCounter++;
+    }
+    element = element->next;
+  }
+
+  char *totalPath = malloc(PATH_MAX * sizeof(char));
+  element = files->head;
+  while (element != NULL) {
+    strcpy(totalPath, cwd);
+    strcat(totalPath, "/");
+    strcat(totalPath, element->data);
+    int isToggled = isIn(toggled, totalPath, isStringEqual);
+    if (isToggled == SUCCESS) {
+      moveCursor(2, lineCounter + 1);
+      printf("\033[41m \033[m");
+    }
+
+    strcpy(line, (char *)element->data);
+    line[16] = '\0';
+    if (lineCounter < screen->rows - 1) {
+      writeScreen(screen, "                ", 2, lineCounter);
+      writeScreen(screen, line, 2, lineCounter);
+      lineCounter++;
+    }
+    element = element->next;
+  }
+  moveCursor(screen->cols, screen->rows);
+  free(totalPath);
+  free(line);
+}
+
 // TODO write command in tui.h if we use it
 int checkCommand(char *cmd) {
   int rc_t;
@@ -343,12 +402,10 @@ int initScreen(Screen screen) {
                 " comandi: quit, n, m, tree, maiuscole, minuscole, punteg., "
                 "cifre, tutto",
                 1, 3);
-    writeScreen(screen, " mode: ", 1, 7);
     /* writeScreen(p->screen, command, 7, 7); */
-    writeScreen(screen, " home ", 1, 8);
-    writeScreen(screen, " > documents ", 1, 9);
-    writeScreen(screen, "  > file.txt ", 1, 10);
-    writeScreen(screen, "  > file2.txt ", 1, 11);
+    writeScreen(screen, " /home/current ", 1, 7);
+    writeScreen(screen, " .. ", 1, 8);
+    writeScreen(screen, " . ", 1, 9);
     draw(screen);
     writeScreen(screen, "LOG/ERROR", 21, screen->rows - 4);
   }
@@ -357,7 +414,7 @@ int initScreen(Screen screen) {
 }
 
 void *graphicsLoop(void *ptr) {
-  screenMutex_t *p = (screenMutex_t *)(ptr);
+  userInput_t *p = (userInput_t *)(ptr);
   int rc_t = SUCCESS;
   int rc_pi, rc_du, rc_in;
   int rc_commandCheck = 0;
@@ -366,8 +423,8 @@ void *graphicsLoop(void *ptr) {
 
   // TODO add support for this log
   rc_pi = createUnidirPipe(fd);
-  if (rc_pi == SUCCESS)
-    rc_du = dup2(fd[1], 2);
+  /* if (rc_pi == SUCCESS) */
+  /*   rc_du = dup2(fd[1], 2); */
 
   clear();
 
@@ -382,9 +439,13 @@ void *graphicsLoop(void *ptr) {
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(p->mutex));
     draw(p->screen);
+    drawTree(p->screen, p->userInput->directories, p->userInput->files,
+             p->userInput->results, p->cwd);
     pthread_mutex_unlock(&(p->mutex));
     usleep(1000000);
+    /* usleep(10000000); */
   }
+  kill(getpid(), SIGKILL);
 }
 
 void drawInputLine(Screen screen) {
@@ -406,7 +467,7 @@ void drawInputLine(Screen screen) {
   fflush(stdout);
 }
 
-void updateTable(Screen screen) {
+void updateTable(Screen screen, unsigned long long *table) {
   int rc_t = SUCCESS;
   char *msg = malloc(300 * sizeof(char));
 
@@ -424,16 +485,17 @@ void updateTable(Screen screen) {
       sprintf(msg, "         ");
       writeScreen(screen, msg, col + 2, row++);
     } else {
-      int rndChoose = rand() % 2;
-      int rnd;
-      if (rndChoose == 0)
-        rnd = rand() % 1000;
-      else
-        rnd = rand() % 100;
+      /* int rndChoose = rand() % 2; */
+      /* int rnd; */
+      /* if (rndChoose == 0) */
+      /*   rnd = rand() % 1000; */
+      /* else */
+      /*   rnd = rand() % 100; */
+      unsigned long long count = table[i];
       sprintf(msg, "%c", i);
       writeScreen(screen, msg, col, row);
-      sprintf(msg, "%d", rnd);
-      if (rnd >= 1000000)
+      sprintf(msg, "%llu", count);
+      if (count >= 1000000)
         writeScreen(screen, msg, col + 2, row++);
       else
         writeScreen(screen, msg, col + 3, row++);
@@ -446,8 +508,17 @@ void updateTable(Screen screen) {
   free(msg);
 }
 
+void trim(char *string) {
+  int len = strlen(string) - 1;
+  while (string[len] == ' ') {
+    /* printf("%d %c\n", string[len], string[len]); */
+    len--;
+  }
+  string[len + 1] = '\0';
+}
+
 void *inputLoop(void *ptr) {
-  screenMutex_t *p = (screenMutex_t *)(ptr);
+  userInput_t *p = (userInput_t *)(ptr);
   int rc_t = SUCCESS;
   int rc_al, rc_al2, rc_al3, rc_al4, rc_si, rc_si2, rc_in = SUCCESS;
   int *oldWidth = malloc(sizeof(int));
@@ -459,7 +530,8 @@ void *inputLoop(void *ptr) {
   rc_al3 = checkAllocationError(width);
   int *heigth = malloc(sizeof(int));
   rc_al4 = checkAllocationError(heigth);
-  if (rc_al == SUCCESS && rc_al2 == SUCCESS && rc_al3 == SUCCESS && rc_al4 == SUCCESS) {
+  if (rc_al == SUCCESS && rc_al2 == SUCCESS && rc_al3 == SUCCESS &&
+      rc_al4 == SUCCESS) {
     rc_si = getHeigth(heigth);
     rc_si2 = getWidth(width);
     *oldHeigth = *heigth;
@@ -478,10 +550,12 @@ void *inputLoop(void *ptr) {
   char key;
   char lastKey;
   int treeMode = 0;
+  int numberManagerMode = 0;
+  int numberWorkerMode = 0;
   while (rc_t == SUCCESS) {
     key = EOF;
     pthread_mutex_lock(&(p->mutex));
-    updateTable(p->screen);
+    updateTable(p->screen, p->userInput->table);
     pthread_mutex_unlock(&(p->mutex));
 
     pthread_mutex_lock(&(p->mutex));
@@ -490,60 +564,160 @@ void *inputLoop(void *ptr) {
       if (key == 10) {
         int i;
         int cmdCounter = 0;
-        char *cmd = malloc(10 * sizeof(char));
+        char *cmd = malloc(PATH_MAX * sizeof(char));
         for (i = 9; i < p->screen->cols - 1; i++) {
-          if (cmdCounter < 10 && p->screen->grid[i][1] != '|') {
+          if (p->screen->grid[i][1] != '|') {
             cmd[cmdCounter++] = p->screen->grid[i][1];
           }
-          p->screen->grid[i][1] = ' ';
+          if (treeMode == 0) {
+            p->screen->grid[i][1] = ' ';
+          }
         }
         cmd[cmdCounter] = '\0';
+        trim(cmd);
         /* p->screen->cmd = 4; */
 
-        if (strncmp(cmd, "maiuscole ", 9) == 0) {
+        if (strcmp(cmd, "maiuscole") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 1;
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "minuscole ", 9) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "minuscole") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 2;
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "punteg. ", 7) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "punteg.") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 3;
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "cifre ", 5) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "cifre") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 4;
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "tutto ", 5) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "tutto") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 5;
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "tree ", 4) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "tree") == 0) {
           writeScreen(p->screen, "tree:  press esc to return in input mode", 2,
                       1);
           row = 5;
           column = 2;
           treeMode = 1;
-        } else if (strncmp(cmd, "quit ", 4) == 0) {
+          free(cmd);
+        } else if (strcmp(cmd, "quit") == 0) {
           clear();
+          moveCursor(0, 0);
+          free(cmd);
           exit(0);
-        } else if (strncmp(cmd, "n ", 1) == 0) {
+        } else if (strcmp(cmd, "n") == 0) {
           writeScreen(p->screen, "n    : ", 2, 1);
           row = 1;
           column = 9;
-        } else if (strncmp(cmd, "m ", 1) == 0) {
+          free(cmd);
+          numberWorkerMode = 1;
+        } else if (strcmp(cmd, "m") == 0) {
           writeScreen(p->screen, "m    : ", 2, 1);
           row = 1;
           column = 9;
+          free(cmd);
+          numberManagerMode = 1;
+        } else {
+          if (numberManagerMode == 1) {
+            writeScreen(p->screen, "input: ", 2, 1);
+            int castPlaceholder;
+            sscanf(cmd, "%d", &castPlaceholder);
+            p->userInput->managers = castPlaceholder;
+            numberManagerMode = 0;
+            free(cmd);
+            row = 1;
+            column = 9;
+          } else if (numberWorkerMode == 1) {
+            writeScreen(p->screen, "input: ", 2, 1);
+            int castPlaceholder;
+            sscanf(cmd, "%d", &castPlaceholder);
+            p->userInput->workers = castPlaceholder;
+            numberWorkerMode = 0;
+            free(cmd);
+            row = 1;
+            column = 9;
+          } else if (treeMode == 1) {
+            writeScreen(p->screen, "input: ", 2, 1);
+            free(cmd);
+            char *tree = malloc(PATH_MAX * sizeof(char));
+            cmdCounter = 0;
+            for (i = 2; i < 18; i++) {
+              if (p->screen->grid[i][5] != '|') {
+                tree[cmdCounter++] = p->screen->grid[i][5];
+              }
+              p->screen->grid[i][5] = ' ';
+            }
+            tree[cmdCounter] = '\0';
+            trim(tree);
+            if (strcmp(tree, "..") == 0) {
+              free(p->userInput->tree);
+              p->userInput->tree = tree;
+            } else if (strcmp(tree, ".") == 0) {
+              Node element = p->userInput->files->head;
+              while (element != NULL) {
+                char *totalPath = malloc(PATH_MAX * sizeof(char));
+                char *f = malloc(PATH_MAX * sizeof(char));
+                strcpy(f, element->data);
+                strcpy(totalPath, p->cwd);
+                strcat(totalPath, "/");
+                strcat(totalPath, f);
+                int isToggled = deleteNode(p->userInput->results, totalPath,
+                                           isStringEqual, free);
+                if (isToggled != SUCCESS) {
+                  push(p->userInput->results, totalPath);
+                } else {
+                  free(totalPath);
+                }
+                free(f);
+                element = element->next;
+              }
+              // TODO ask to other if also directories must have the same
+              // behavior
+            } else {
+              int isDirectory =
+                  isIn(p->userInput->directories, tree, isStringEqual);
+              if (isDirectory == SUCCESS) {
+                p->userInput->tree = tree;
+              } else {
+                int isFile = isIn(p->userInput->files, tree, isStringEqual);
+
+                if (isFile == SUCCESS) {
+                  char *cwd = malloc(PATH_MAX * sizeof(char));
+                  strcpy(cwd, p->cwd);
+                  strcat(cwd, "/");
+                  strcat(cwd, tree);
+                  int rc_re =
+                      removeNode(p->userInput->results, cwd, isStringEqual);
+                  if (rc_re != SUCCESS)
+                    push(p->userInput->results, cwd);
+                }
+                free(tree);
+              }
+            }
+            row = 5;
+            column = 2;
+          } else if (strcmp(cmd, "") != 0) {
+            writeScreen(p->screen, "input: ", 2, 1);
+            /* printf("sto incodando come un caimano %lu\n", strlen(cmd)); */
+            enqueue(p->userInput->paths, cmd);
+            row = 1;
+            column = 9;
+          }
         }
-        free(cmd);
 
         p->screen->grid[column][row] = '|';
       } else if (key == 27) {
@@ -569,10 +743,20 @@ void *inputLoop(void *ptr) {
         lastKey = key;
       } else if (!((key == 65 || key == 66 || key == 67 || key == 68) &&
                    lastKey == '[')) {
-        if ((column < p->screen->cols - 2 && !treeMode) ||
-            (treeMode && column < 18)) {
-          p->screen->grid[column++][row] = key;
-          p->screen->grid[column][row] = '|';
+        if (numberManagerMode == 0 && numberWorkerMode == 0) {
+          if ((column < p->screen->cols - 2 && !treeMode) ||
+              (treeMode && column < 18)) {
+            p->screen->grid[column++][row] = key;
+            p->screen->grid[column][row] = '|';
+          }
+        } else {
+          if ((column < p->screen->cols - 2 && !treeMode) ||
+              (treeMode && column < 18)) {
+            if (key >= 48 && key <= 57) {
+              p->screen->grid[column++][row] = key;
+              p->screen->grid[column][row] = '|';
+            }
+          }
         }
       }
       drawInputLine(p->screen);
@@ -609,7 +793,8 @@ void *inputLoop(void *ptr) {
         *oldWidth = *width;
       }
     }
-    if (rc_t < SUCCESS || rc_in < SUCCESS || rc_si < SUCCESS || rc_si2 < SUCCESS)
+    if (rc_t < SUCCESS || rc_in < SUCCESS || rc_si < SUCCESS ||
+        rc_si2 < SUCCESS)
       rc_t = INPUT_LOOP_FAILURE;
     usleep(50000);
   }
@@ -663,76 +848,6 @@ int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
         rc_t = MALLOC_FAILURE;
       }
     }
-  }
-  return rc_t;
-}
-
-void cannelloni(void *data) {
-  char *str = (char *)data;
-  printf("%s\n", str);
-}
-
-int main(int argc, char **argv) {
-  int rc_t = SUCCESS;
-  int n = 3;
-  int m = 4;
-  int mode = FANCY_MODE;
-  List args = newList();
-  if (args == NULL)
-    rc_t = MALLOC_FAILURE;
-
-  int rc_opt = optionsHandler(args, argc, argv, &n, &m, &mode);
-  rc_t = rc_opt;
-
-  if (rc_t == SUCCESS) {
-    printf("inizio il programma con n=%d e m=%d\n", n, m);
-    printList(args, cannelloni);
-    int *width = malloc(sizeof(int));
-    int *heigth = malloc(sizeof(int));
-
-    getHeigth(heigth);
-    getWidth(width);
-    if (*heigth < 28 || *width < 87) {
-      printf(
-          "For a better user experience we suggest you to increase the size of "
-          "the terminal window. We develped a fancy graphics with a better "
-          "UI\n");
-      sleep(2);
-      mode = NORMAL_MODE;
-    }
-    if (mode == FANCY_MODE) {
-      pthread_t graphics, input;
-      int iret1, iret2;
-      set_input_mode();
-      screenMutex_t screen_mutex;
-      pthread_mutex_init(&screen_mutex.mutex, NULL);
-
-      Screen screen = newScreen(*width, *heigth);
-
-      screen_mutex.screen = screen;
-
-      iret1 =
-          pthread_create(&graphics, NULL, graphicsLoop, (void *)&screen_mutex);
-      iret2 = pthread_create(&input, NULL, inputLoop, (void *)&screen_mutex);
-
-      pthread_join(graphics, NULL);
-      pthread_join(input, NULL);
-      clear();
-
-      // CASI LIMITE
-      // 87 28
-      fflush(stdout);
-      clear();
-
-      free(width);
-      free(heigth);
-      destroyScreen(screen);
-    } else {
-      printf("\033[43m \033[m\n");
-    }
-  } else {
-    printError("Bad usage or malformed option");
-    printf("%s\n", helpMsg);
   }
   return rc_t;
 }
