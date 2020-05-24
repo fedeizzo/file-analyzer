@@ -136,6 +136,7 @@ int initWork(unsigned long long *start, unsigned long long *end,
   if (*stopFlag == 0) {
     int rc_sc = sscanf(bufferStart, "%llu", start);
     int rc_sc2 = sscanf(bufferEnd, "%llu", end);
+    fprintf(stderr, "ho ricevuto %s %llu %llu\n", path, *start, *end);
 
     if (path[strlen(path) - 1] == '\n') {
       path[strlen(path) - 1] = '\0';
