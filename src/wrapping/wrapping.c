@@ -17,6 +17,7 @@ void printInfo(const char *msg) {
           getpid(), getppid());
 }
 
+// TODO... should return MALLOC_FAILURE
 int checkAllocationError(void *ptr) {
   int rc_t = 0;
   if (ptr == NULL) {

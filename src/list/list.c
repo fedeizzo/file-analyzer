@@ -346,7 +346,7 @@ int swap(List first, List second) {
   int ret = FAILURE;
   int size = 0;
   Node node = NULL;
-  if (!(first == NULL || second == NULL)) {
+  if (first != NULL && second != NULL) {
     size = first->size;
     first->size = second->size;
     second->size = size;

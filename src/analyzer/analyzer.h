@@ -11,7 +11,7 @@
  */
 typedef struct FileInfo{
     char *name;
-    unsigned long long *fileTable;
+    unsigned long long int *fileTable;
     char *path;
     int isDirectory;
 } *FileInfo;
@@ -21,6 +21,7 @@ typedef struct sharedResourcesAnalyzer {
   PriorityQueue managers;
   List fileToAssign;
   List candidateNode;
+  List requestedFiles;
   TreeNode currentDirectory;
   char *cwd;
   char *path;

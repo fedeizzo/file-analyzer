@@ -1,4 +1,5 @@
 #include "./analyzer.h"
+#include "../config/config.h"
 #include "../manager/manager.h"
 #include "../priorityQueue/priorityQueue.h"
 #include "../table/table.h"
@@ -10,45 +11,515 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "../config/config.h"
 
-int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
+/**
+ * Initializes the root of the Tree
+ *
+ * args:
+ *    int *msg: message used to check error in the root initialization
+ *
+ * returns
+ *    A FileInfo with the initialized Root or NULL
+ */
+FileInfo initFileInfoRoot(int *msg);
+
+/**
+ * Function that creates a new FileInfo
+ *
+ * args:
+ *    char *name: the name of the file (it won't be copied so the original data mustn't be freed)
+ *    int isDirectory: parameter to specify if the informations are about a file (ISFILE) or a directory (DIRECTORY)
+ *    char *path: the complete path of the file, it can be relative from the program folder or absolute (it will be copied with a strcpy so the original data must be freed afterwords)
+ *    int *msg: message used to check error in the FileInfo creation
+ *
+ * returns
+ *    A specific FileInfo with the name, isDirectory and path passed as parameters
+ */
 FileInfo newFileInfo(char *name, int isDirectory, char *path, int *msg);
 
+/**
+ * Function that allocate a newPath for a FileInfo, if the passed path is NULL then FileInfo's
+ * path paramether will be set to NULL too
+ * 
+ * args:
+ *    FileInfo fileinfo: a FileInfo with no previous path element allocated in the structure
+ *    char *string: the path (which will be copied) for the first parameter FileInfo
+ *
+ * returns
+ *    SUCCESS otherwhise a negative number to inform malloc or strcpy failure
+ */
 int allocatePath(FileInfo fileinfo, char *string);
 
+/**
+ * Destructor for a FileInfo instance
+ * 
+ * args:
+ *    void *toDestroy: a FileInfo instance which must be destroyed
+ *
+ */
 void destroyFileInfo(void *toDestroy);
 
+/**
+ * Function that checks if the strcpy function went rigth or not
+ * 
+ * args:
+ *    char *dst: a reference to the memory where will be copied the src string
+ *    char *src: the string which will be copied
+ *
+ * returns
+ *    SUCCESS if strcpy didn't fail otherwise FAILURE
+ */
 int checkStrcpy(char *dst, char *src);
 
-Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
-                 int *found, int *match, int *counter, int *resetCounter,
-                 int *tmpCounter);
+/**
+ * Function that creates the Tree and initializes it for the Analyzer 
+ * 
+ * args:
+ *    FileInfo data: the info which will be passed to the Tree to create the root
+ *    int *msg: message used to check for errors in the newTree function
+ *    void destroyer(void *): a void function which accept a void * parameter and will be used to destroy
+ *      the data of the TreeNode 
+ *
+ * returns
+ *    An instance of the initialized Tree or NULL 
+ */
+Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *));
 
-int checkIfMatch(FileInfo dataToExamine, char *path, int *counter,
-                 int *resetCounter, int *tmpCounter);
+/**
+ * Function that insert a TreeNode inside the tree searching from a starting point for the least common ancestor
+ * which has been already inserted in the tree and then it adds the remaining files to the tree.
+ * 
+ * args:
+ *    char *path: a compacted path to a file which is returned from a bash call to the find function
+ *    char *completePath: a complete path to a file which is returned from a bash call to the find function
+ *    TreeNode startingPoint: the TreeNode (aka the directory) from where it will be started a search for
+ *      the least common ancestor
+ *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file
+ *    int *msg: message used to check error in the performInsert function 
+ *    List requestedFiles: a list of requested files from the users in order to keep him informed when the managers
+ *      will send a partial or complete evaluation of a file
+ *   
+ *
+ * returns
+ *    A TreeNode that points to a TreeNode inside the Tree in order to update the characters table of the file
+ *    NULL otherwise 
+ */
+TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
+                       int isDirectory, int *msg, List requestedFiles);
 
+/**
+ * Function that obtains the least common ancestor from the Tree based on the compacted path passed in input
+ * 
+ * args:
+ *    TreeNode toExamine: a TreeNode of the Tree which must be examined and will be used to get their children if
+ *      a match happened
+ *    FileInfo dataToExamine: the infos of the TreeNode element that must be examined
+ *    Node actualNode: a List element which contains the TreeNode to Examined and will be used to get the next child
+ *      of the starting point in case of no match with the current TreeNode
+ *    char *path: the compacted path obtained form the compactPath function
+ *    int *found: pointer to an integer which is used to check if the TreeNode which is being examined
+ *      corresponds to the LCA
+ *    int *match: pointer to an integer which is used to check if the words in the name of the TreeNode examined
+ *      matches that of the path
+ *    int *counter: pointer to an integer which is used to keep track of the current word in the path
+ *    int *resetCounter: a pointer to an integer which is used to reset the counter parameter in case of not match
+ *    int *tmpCounter: a pointer to an integer which is used to keep track of the current word in the TreeNode
+ *
+ * returns
+ *    the Node of the List which contains the TreeNode that was examined in case of match or the
+ *    next element in the list (aka the brother of the node the function has examined) 
+ */
 Node getNodeWhereToInsert(TreeNode toExamine, FileInfo dataToExamine,
                           Node actualNode, char *path, int *found, int *match,
                           int *counter, int *resetCounter, int *tmpCounter);
 
-TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
-                              TreeNode whereToInsert, int *tmpCounter,
-                              char *pathName, int isDirectory,
-                              char *completePath, int *msg);
-
+/**
+ * Function that checks if the name in the FileInfo of a specific TreeNode matches a specific part of the
+ * compacted path passed as input
+ * 
+ * args:
+ *    FileInfo dataToExamine: the infos of the TreeNode element that must be examined
+ *    char *path: the compacted path obtained form the compactPath function
+ *    int *counter: pointer to an integer which is used to keep track of the current word in the path
+ *    int *resetCounter: a pointer to an integer which is used to reset the counter parameter in case of not match
+ *    int *tmpCounter: a pointer to an integer which is used to keep track of the current word in the TreeNode
+ *
+ * returns
+ *    0 in case the two names match or -1 in case they don't 
+ */
+int checkIfMatch(FileInfo dataToExamine, char *path, int *counter,
+                 int *resetCounter, int *tmpCounter);
+                 
+/**
+ * Function that check the value of the checkIfMatch function (also performs other operations to verify if
+ * the element is a false positive) and sets (or resets) counters, nodes and the found variables for the next match
+ * 
+ * args:
+ *    TreeNode toExamine: a TreeNode of the Tree which must be examined
+ *    FileInfo dataToExamine: the infos of the TreeNode element that must be examined
+ *    char *path: the compacted path obtained form the compactPath function
+ *    int *found: pointer to an integer which is used to check if the TreeNode which is being examined
+ *      corresponds to the LCA
+ *    int *match: pointer to an integer which is used to check if the words in the name of the TreeNode examined
+ *      matches that of the path
+ *    int *counter: pointer to an integer which is used to keep track of the current word in the path
+ *    int *resetCounter: a pointer to an integer which is used to reset the counter parameter in case of not match
+ *    int *tmpCounter: a pointer to an integer which is used to keep track of the current word in the TreeNode
+ *
+ * returns
+ *    the Node of the first element in the List of the TreeNode the function was checking in case of found == 1 and in
+ *    the case it has at least one element otherwise NULL which must be handled in the calling function 
+ */
+Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
+                 int *found, int *match, int *counter, int *resetCounter,
+                 int *tmpCounter);
+/**
+ * Function that creates one or more TreeNodes in a way that the first is the parent of the second, the second is the 
+ * parent of the third, and so on... based on the remaining path which hasn't matched in the perform insert function
+ * 
+ * args:
+ *    TreeNode whereToInsert: the element of the Tree where it will added the next child 
+ *    int *counter: pointer to an integer which is used to keep track of the current word in the path
+ *    char *path: the compacted path obtained form the compactPath function
+ *    char *pathName: a pointer to a memory location for a string of size char*PATH_MAX which will cointains the name
+ *      of the file or the folder (without the complete relative or absolute path)
+ *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file
+ *    char *completePath: a string (which will be copied and so the original must be freed afterwords) which contains
+ *      the full path (relative from the analyzer starting directory or absolute) to the file 
+ *    int *msg: message used to check error in the createNewTwig function 
+ *    List requestedFiles: a list of requested files from the users in order to keep him informed when the managers
+ *      will send a partial or complete evaluation of a file
+ *
+ * returns
+ *    A TreeNode to the file which must be examined or NULl 
+ */
 TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
                        char *pathName, int isDirectory, char *completePath,
-                       int *msg);
+                       int *msg, List requestedFiles);
 
-TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
-                       int isDirectory, int *msg);
+/**
+ * Function that creates one or more TreeNodes in a way that the first is the parent of the second, the second is the 
+ * parent of the third, and so on... based on the remaining path which hasn't matched in the perform insert function
+ * 
+ * args:
+ *    FileInfo dataToInsert: a FileInfo instance where will be stored the data of the file it'll be inserted in
+ *      the toInsert TreeNode
+ *    TreeNode toInsert: a TreeNode instance which will be inserted in the Tree and linked to the whereToInsert element 
+ *    TreeNode whereToInsert: the element of the Tree where it will added the next child 
+ *    int *tmpCounter: pointer to an integer which is used to insert the next word in the pathName string
+ *    char *pathName: a pointer to a memory location for a string of size char*PATH_MAX which will cointains the name
+ *      of the file or the folder (without the complete relative or absolute path)
+ *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file
+ *    char *completePath: a string (which will be copied and so the original must be freed afterwords) which contains
+ *      the full path (relative from the analyzer starting directory or absolute) to the file 
+ *    int *msg: message used to check error in the createNewTreeElement function
+ *
+ * returns
+ *    A TreeNode to the file inserted in the Tree which will be used as dataToInsert for the next iteration 
+ */
+TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
+      TreeNode whereToInsert, int *tmpCounter,
+      char *pathName, int isDirectory,
+      char *completePath, int *msg);
+
+/**
+ * loop for reading the directives from the user or from the reporter
+ *
+ * args:
+ *    void *ptr: args for thread
+ */
+void *readDirectivesLoop(void *ptr);
+
+// TODO... check the returning value of this function cause it's always SUCCESS
+/**
+ * Function that waits (in a non blocking way) for user's input (or reporter comunication) for 3 parameters and then
+ * casts two of them to integer
+ * 
+ * args:
+ *    char *path: a pointer to a memory location to store the path of a file or a folder passed in input
+ *    int *nManager: a pointer to the the number of manager which will be spawned to handle the file passed in input
+ *    int *nWorker: a pointer to the the number of worker for each manager which will be spawned to handle
+ *      the file computation of the passed path 
+ *
+ * returns
+ *    SUCCESS in any case
+ */
+int readDirectives(char *path, char *nManager, char *nWorker);
+
+/**
+ * Function that changes the amount of total managers by adding or substracting them to the current number
+ * 
+ * 
+ * args:
+ *    PriorityQueue managers: priority queue containing the information of each manager
+ *    const int currentManagers: the current number of managers which are waiting or working on one or more files
+ *    const int newManagers: the new number of managers which will become the current number after saving the work
+ *      of the managers which will be removed or after spawning the new ones
+ *    List fileToAssign: a list of files which will be afterword assigned to the managers
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled and can means a problem while allocating the memory (for
+ *    different reasons) or while extracting the infos from the managers which will be deleated
+ */
+int changeManagersAmount(PriorityQueue managers, const int currentManagers,
+                         const int newManagers, List fileToAssign);
+
+/**
+ * Function that adds a number (specified by amount) of managers to the current ones and stores their informations
+ * in the respective priority Queue
+ * 
+ * 
+ * args:
+ *    PriorityQueue managers: priority queue containing the information of each manager
+ *    int amount: the number of managers which will be added to the current ones
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled and can means a problem while allocating the memory (for
+ *    different reasons), errors that can be associated to the list or relative to the comunication pipe
+ */
+int addManagers(PriorityQueue managers, int amount);
+
+/**
+ * Inits Manager's pipes
+ *
+ * args:
+ *    const int readPipe[]: read pipe
+ *    const int writePipe[]: write pipe
+ *
+ * returns
+ *    0 in case of success, negative number otherwise
+ */
+int managerInitPipe(const int toParent[], const int toChild[]);
+
+/**
+ * Function that creates a new manager intializing the pipes, the list of files which will be later sends for a
+ * future execution and his pid
+ * 
+ * 
+ * returns
+ *    SUCCESS otherwise -1 if there's a problem while using malloc
+ */
+Manager newManager();
+
+/**
+ * Function which removes a specific amount of managers and stores their files into a list for be re-assigned
+ * afterwords, it then collects the files from the remaining managers in order to re-distribute the amount
+ * of works between them and informs them to stop doing their work
+ * 
+ * 
+ * args:
+ *    PriorityQueue managers: priority queue containing the information of each manager
+ *    int amount: the number of managers which will be removed from the current ones
+ *    List fileToAssign: a list of files which will be used afterword assigned to the managers
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled and can means a problem while removing the managers
+ *    from the list or removing/storing their files
+ */
+int removeManagers(PriorityQueue managers, int amount, List fileToAssign);
+
+/**
+ * Function which removes all the files from the list of a specific manager in order to store them
+ * into a List and re-distribute the files in a second moment
+ * 
+ * 
+ * args:
+ *    Manager m: the Manager from which the files will be removed
+ *    List fileToAssign: a list of files which will be used afterword assigned to the managers
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled and can means a problem while swapping or appending the
+ *    list or an error while allocating the list at the start
+ */
+int endManager(Manager m, List fileToAssign);
+
+/**
+ * Function which closes the comunication pipe between the manager and the analyzer and does frees
+ * some informations about the manager such as the ppipe or the main pointer to the list (which must be deallocated
+ * in a separate action in order to not lose information about the files)
+ * 
+ * 
+ * args:
+ *    void *data: a void pointer to a Manager instance
+ */
+void destroyManager(void *data);
+
+/**
+ * Function which informs the manager to stop processing their files by sending two "stop" message
+ * 
+ * 
+ * args:
+ *    Manager m: the Manager which will be informed to stop processing the list of files
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled and can means a problem allocating the memory for the
+ *    message, while sending the message using the pipe or casting it using sscanf
+ */
+int informManager(Manager manager);
+
+/**
+ * Function which precomputes the path recived from the users (or the reporter) identifying if it's ABSOLUTE or
+ * RELATIVE while compacting it in order to find the starting directory
+ * 
+ * 
+ * args:
+ *    char *cwd: a string containing the path to the current working directory
+ *    char *path: a string containing the path which will be compacted in order to avoid useless directory loops
+ *    int *msg: message used to check error in the precomputeAnalyzerInput function
+ *
+ * returns
+ *    The type of the path which was passed in input to the function (RELATIVE or ABSOLUTE)
+ */
+int precomputeAnalyzerInput(char *cwd, char *path, int *msg);
+
+/**
+ * Function which compacts the path passed in input from the user (or the reporter) in order to avoid loops of some
+ * kind passed in input by calling an istance of BashCall
+ * 
+ * 
+ * args:
+ *    char *path: a string containing the path which will be compacted in order to avoid useless directory loops
+ *    char *cwd: a string containing the path to the current working directory
+ *    int isAbsolute: an integer which specifies if the path is RELATIVE or ABSOLUTE
+ *
+ * returns
+ *    SUCCESS otherwise an error while reading from the realpath bash call
+ */
+int compactPath(char *path, char *cwd, int isAbsolute);
+
+/**
+ * Function that executes a fork and the child execute the command passed as parameter while the father reads from a non blocking pipe
+ * the informations returned
+ * 
+ * 
+ * args:
+ *    char *dst: a pointer to a memory location which will store the infromations returned from the child
+ *    char *argv[]: a vector of string which will be used as argument for the execpv call 
+ *
+ * returns
+ *    SUCCESS otherwise a negative number which must be handled and can means an error while forking or reading/writing on the pipe
+ */
+int callBashProcess(char *dst, char *argv[]);
+
+/**
+ * Function that initializes the pipe for the child and then executes a execvp with the argument specified in *argv[] 
+ * 
+ * 
+ * args:
+ *    int *fd: the file descriptor created using the pipe function in the calling function
+ *    char *argv[]: a vector of string which will be used as argument for the execpv call 
+ *
+ * returns
+ *    SUCCESS otherwise a negative number which indicates an error while executing execvp
+ */
+int writeBashProcess(int *fd, char *argv[]);
+
+// TODO... remember to fix this return code
+/**
+ * Function that reads the informations writed by the child on a non blocking pipe
+ * 
+ * 
+ * args:
+ *    int *fd: the file descriptor created using the pipe function in the calling function
+ *    char *dst: a pointer to a memory location which will store the infromations returned from the child
+ *    int childPid: the pid of the child created in the calling function in order to verify if it's not dead and not be stucked in the
+ *      non blocking pipe
+ *
+ * returns
+ *    SUCCESS and only success at the moment
+ */
+int readBashLines(int *fd, char *dst, int childPid);
+
+/**
+ * Function that sets up a bash call in order to retrive the type of the path passed in input (if it's a file, a folder or it
+ * doesn't exist in that particular scope or at all) 
+ * 
+ * 
+ * args:
+ *    char *name: the name (or the path) of a file or a folder which is passed in input 
+ *
+ * returns
+ *    SUCCESS otherwise a negative number which must be handled and indicates an error while processing the informations retrived
+ *    from the bash call
+ */
+int checkFileType(char *name);
+
+/**
+ * Function that adds a forward slash in case it's not already present in the valid path passed as input
+ * 
+ * 
+ * args:
+ *    char *path: the valid path of a file or a folder which is passed in input 
+ */
+void addForwardSlash(char *path);
+
+/**
+ * Function that precomputs the starting point, based on the path passed in input, starting from the cwd (or from the root of the file
+ * sistem stored in the tree if it starts with a forward slash)
+ * 
+ * args:
+ *    Tree fs: the Tree which rapresents the file system discovered so far based on the user's request
+ *    TreeNode currentDirectory: the TreeNode (aka the directory) from where the main program has been executed
+ *    char *path: the compacted path to an existing file (or directory)
+ *    int *toSkip: a pointer to an integer which will be initialized to the number of characters to skip because are not part of the
+ *      file or folder name and only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNode that points to an element of Tree which will be used as starting point for search
+ */
+TreeNode precomputeStartingDirectory(Tree fs, TreeNode currentDirectory,
+                                     char *path, int *toSkip);
+
+/**
+ * Function that handle the multiple instance of .. inside the path in order to get at the highest level
+ * 
+ * args:
+ *    Tree fs: the Tree which rapresents the file system discovered so far based on the user's request
+ *    TreeNode currentDirectory: the TreeNode (aka the directory) from where the main program has been executed
+ *    char *path: the compacted path to an existing file (or directory)
+ *    int *toSkip: a pointer to an integer which will be initialized to the number of characters to skip because are not part of the
+ *      file or folder name and only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNode that points to an element of Tree which will be used as starting point for search
+ */                                  
+TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip);
+
+/**
+ * Function that handle the multiple instance of .. inside the path in order to get at the highest level
+ * 
+ * args:
+ *    TreeNode startingNode: the starting directory where the search inside the tree will start
+ *    int typeOfFile: the type of the file which will be analyzed (ISFILE or DIRECTORY)
+ *    char *path: the valid path of a file or a folder which is passed in input 
+ *    int characterToSkip:  number of characters to skip because are not part of the file or folder name and
+ *      only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNodeCandidate which will be put later on inside a list in order to be analyzed
+ */
+TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
+                                       char *path, int characterToSkip);
+
+/**
+ * Function that destroys a TreeNodeCandidate (N.B. not all data inside the TreeNodeCandidate will be freed
+ * because they'll be used in the next operations)
+ * 
+ * args:
+ *    void *data: the TreeNodeCandidate that needs to be destroyed
+ */
+void destroyTreeNodeCandidate(void *data);
+
+int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
 int scheduleFile(TreeNode toSchedule, Manager manager);
 
 int insertAndSchedule(TreeNode startingNode, List filesToAssign,
-                      char *relativePath, char *completePath);
+                      char *relativePath, char *completePath, List requestedFiles);
 
 int slicePath(TreeNode currentDirectory, PriorityQueue managers,
               List filesToAssign, int *fd, char *relativePath,
@@ -68,50 +539,16 @@ int saveFiles(Tree fs, TreeNode currentDirectory, char *compactedPath,
               int toSkip, int isDirectory, PriorityQueue managers,
               const int *nManager, const int *nWorker, List filesToAssign);
 
-int readBashLines(int *fd, char *dst, int childPid);
-
-int writeBashProcess(int *fd, char *argv[]);
-
-int callBashProcess(char *dst, char *argv[]);
-
-int checkFileType(char *name);
-
-int compactPath(char *string, char *cwd, int isAbsolute);
-
-TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip);
-
-TreeNode precomputeStartingDirectory(Tree fs, TreeNode currentDirectory,
-                                     char *path, int *toSkip);
-
-void addForwardSlash(char *path);
-
 int checkAnalyzeAndAssign(Tree fs, TreeNode currentDirectory, char *path,
                           int *toSkip, PriorityQueue managers,
                           const int *nManager, const int *nWorker,
                           List filesToAssign);
 
-int readDirectives(char *path, char *nManager, char *nWorker);
-
 int doWhatAnalyzerDoes(char *cwd, Tree fs, TreeNode currentDirectory,
                        PriorityQueue managers, int *nManager, int *nWorker,
                        List fileToAssign, char *path);
 
-int managerInitPipe(const int toParent[], const int toChild[]);
-
 int parentInitExecPipe(const int toParent[], const int toChild[]);
-
-Manager newManager();
-
-int addManagers(PriorityQueue managers, int amount);
-
-int endManager(Manager m, List fileToAssign);
-
-void destroyManager(void *data);
-
-int removeManagers(PriorityQueue managers, int amount, List fileToAssign);
-
-int changeManagersAmount(PriorityQueue managers, const int currentManagers,
-                         const int newManagers, List fileToAssign);
 
 int sendFile(Manager manager, TreeNode file, List filesToAssign,
              int currentWorker);
@@ -121,70 +558,36 @@ int rescheduleFiles(List toDestroy, List toReschedule);
 int manageFileToSend(PriorityQueue managers, int currentWorker,
                      List filesToAssign);
 
-FileInfo initFileInfoRoot(int *msg);
-
-Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *));
-
 int getCwd(char *dst);
 
 void *fileManageLoop(void *ptr);
 
 void *sendFileLoop(void *ptr);
 
-void *readDirectivesLoop(void *ptr);
-
 void skipPath(char *path, char *relativePath, int toSkip);
 
-void toStringTable(long long unsigned * table);
+void toStringTable(long long unsigned *table);
 
-List finished = NULL;
+int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign);
 
-void toStringTable(long long unsigned int * table){
-  int i;
-  for(i = 0; i < NCHAR_TABLE; i++){
-    printf("%d - %llu\n", i+1, table[i]);
-  }
-}
-
-void destroyTreeNodeCandidate(void *data) {
-  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
-  free(candidate->path);
-  free(candidate);
-}
-
-void printCandidateNode(void *data) {
-  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
-  printf("Starting node: %p, path: %s, tof: %d, toSkipper: %d\n",
-         candidate->startingNode, candidate->path, candidate->type,
-         candidate->toSkip);
-}
-
-TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
-                                       char *path, int characterToSkip) {
-  TreeNodeCandidate candidate =
-      (TreeNodeCandidate)malloc(sizeof(struct TreeNodeCandidate));
-  int rc_al = checkAllocationError(candidate);
-  if (rc_al == SUCCESS) {
-    candidate->path = (char *)malloc(sizeof(char) * PATH_MAX);
-    int rc_al2 = checkAllocationError(candidate->path);
-    if (rc_al2 == SUCCESS) {
-      candidate->startingNode = startingNode;
-      candidate->type = typeOfFile;
-      strcpy(candidate->path, path);
-      candidate->toSkip = characterToSkip;
-    } else {
-      free(path);
-      free(candidate);
-    }
+FileInfo initFileInfoRoot(int *msg) {
+  FileInfo rootData;
+  char *rootName = (char *)malloc(sizeof(char) * 2);
+  int rc_ca = checkAllocationError(rootName);
+  int rc_nc = SUCCESS;
+  if (rc_ca < 0) {
+    printError("I can't allocate memory");
   } else {
-    free(candidate);
+    if (strcpy(rootName, "/") != NULL)
+      rootData = newFileInfo((void *)rootName, DIRECTORY, NULL, &rc_nc);
   }
-  return candidate;
+  // Error checking
+  if (rc_ca == MALLOC_FAILURE || rc_nc == MALLOC_FAILURE) {
+    *msg = MALLOC_FAILURE;
+  }
+  return rootData;
 }
 
-/**
- * Costructor of the file info structure
- */
 FileInfo newFileInfo(char *name, int isDirectory, char *path, int *msg) {
   FileInfo toRtn = (FileInfo)malloc(sizeof(struct FileInfo));
   *msg = checkAllocationError(toRtn);
@@ -197,24 +600,16 @@ FileInfo newFileInfo(char *name, int isDirectory, char *path, int *msg) {
     if (*msg == SUCCESS) {
       *msg = allocatePath(toRtn, path);
       if (*msg != SUCCESS) {
-        // printf("free file table\n");
         free(toRtn->fileTable);
-        // printf("free toRtn\n");
         free(toRtn);
-        // printf("dopo free toRtn\n");
       }
     } else {
-      // printf("free toRtn 2\n");
       free(toRtn);
-      // printf("dopo free toRtn 2\n");
     }
   }
   return toRtn;
 }
 
-/**
- * Function that allocate path and check if it return a failure
- */
 int allocatePath(FileInfo fileinfo, char *string) {
   int rc_a = SUCCESS;
   if (string != NULL) {
@@ -222,8 +617,6 @@ int allocatePath(FileInfo fileinfo, char *string) {
     rc_a = checkAllocationError(fileinfo->name);
     if (rc_a == SUCCESS) {
       rc_a = checkStrcpy(fileinfo->path, string);
-    } else {
-      printf("Muoio sempre in allocate path 111\n");
     }
   } else {
     fileinfo->path = NULL;
@@ -231,23 +624,14 @@ int allocatePath(FileInfo fileinfo, char *string) {
   return rc_a;
 }
 
-/**
- * Destructor of the file info structure
- */
 void destroyFileInfo(void *toDestroy) {
   FileInfo data = (FileInfo)toDestroy;
-  printf("currently destroying %s\n", (char *)(data->name));
-  // printf("free destroyFileInfo\n");
   free(data->name);
   free(data->path);
   free(data->fileTable);
   free(toDestroy);
-  // printf("dopo destroyFileInfo\n");
 }
 
-/**
- * Function that check for strcpy
- */
 int checkStrcpy(char *dst, char *src) {
   int rc_cp = SUCCESS;
   if (strcpy(dst, src) == NULL) {
@@ -256,60 +640,25 @@ int checkStrcpy(char *dst, char *src) {
   return rc_cp;
 }
 
-/**
- *  File info toString
- */
-void pasta(void *data) {
-  printf("File : %s name %s isFolder %d\n",
-         ((FileInfo)((TreeNode)data)->data)->path,
-         ((FileInfo)((TreeNode)data)->data)->name,
-         ((FileInfo)((TreeNode)data)->data)->isDirectory);
-}
-
-void pasta2(void *data) {
-  printf("File : %s name %s isFolder %d\n", ((FileInfo)data)->path,
-         ((FileInfo)data)->name, ((FileInfo)data)->isDirectory);
-}
-
-/**
- * Manager toString function
- */
-void toStringManager(void *data) {
-  Manager manager = (Manager)data;
-  printf("size: %d\n", manager->filesInExecution->size);
-  printList(manager->filesInExecution, pasta);
-}
-
-int insertAndSchedule(TreeNode startingNode, List filesToAssign,
-                      char *relativePath, char *completePath) {
-  int rc_t = SUCCESS;
-  int rc_af = SUCCESS;
-  int rc_en = SUCCESS;
-  TreeNode toSchedule = NULL;
-  // LOCK
-  // pasta((void *)currentDirectory);
-  toSchedule =
-      performInsert(relativePath, completePath, startingNode, IS_FILE, &rc_t);
-  // printf("qui mi rompo\n");
-  // MAYBE RELEASE THE LOCK???
-  if (rc_t == SUCCESS) {
-    rc_en = enqueue(filesToAssign, (void *)toSchedule);
-    // rc_af = assignFileToManager(toSchedule, managers, nManager, nWorker);
-    if (rc_en != SUCCESS) {
-      printError("Error in assign file to manager");
-      rc_t = rc_en;
+Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *)) {
+  Tree tree = NULL;
+  tree = newTree((void *)data, msg, destroyer, NULL);
+  if (*msg != SUCCESS) {
+    char *msgErr = (char *)malloc(PATH_MAX);
+    int rc_ca = checkAllocationError(msgErr);
+    if (rc_ca < 0) {
+      printError("Cold not allocate memory to print the error message");
+    } else {
+      sprintf(msgErr, "Can't create tree inside Analyzer: %d", getpid());
+      printInfo(msgErr);
+      free(msgErr);
     }
-    // HANDLE THE MULTIPLE ERROR WITH THE ERROR HANDLER
   }
-  return rc_t;
-  // UNLOCK
+  return tree;
 }
 
-/**
- * Perform insert
- */
 TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
-                       int isDirectory, int *msg) {
+                       int isDirectory, int *msg, List requestedFiles) {
   Node actualNode = NULL;
   Node tmp = NULL;
   TreeNode toRtn = NULL;
@@ -322,9 +671,6 @@ TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
   int counter = 0;
   int tmpCounter = 0;
   int resetCounter = 0;
-  // printf("Ricevo -> path: %s, completePath: %s, isDirectory %d, msg %d\n",
-  // path, completePath, isDirectory, *msg); printf("size: %d\n",
-  // startingPoint->children->size);
   if (startingPoint != NULL && path != NULL) {
     if (isEmptyList(startingPoint->children) == NOT_EMPTY) {
       actualNode = startingPoint->children->head;
@@ -340,7 +686,6 @@ TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
         tmpCounter = 0;
       }
     }
-    // printf("found %d\n", found);
     if (found == 0) { // The new Element wasn't a children of mine then i need
                       // to add it to my children
       if (toExamine ==
@@ -350,24 +695,19 @@ TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
                // my father
         whereToInsert = toExamine->parent;
       }
-    } else if (found == 1) { // The element it's my first child (Probably never
-                             // going to happen buuuuuut... YNK)
+    } else if (found == 1) { // The element it's my first child
       whereToInsert = toExamine;
     }
     if (found != -1) {
-      // printf("sono il padre del nodo che stai analizzando e sono %s\n",
-      // ((FileInfo)whereToInsert->data)->name); printf("size: %d\n",
-      // whereToInsert->children->size); EFFICENCY OVER THE MEMORY OVER NINE
-      // THOUSAND
       char *pathName = (char *)malloc(sizeof(char) * PATH_MAX);
-      // tmpCounter = 0;
       rc_ca = checkAllocationError(pathName);
       if (rc_ca == SUCCESS) {
         toRtn = createNewTwig(whereToInsert, &counter, path, pathName,
-                              isDirectory, completePath, &rc_ca);
+                              isDirectory, completePath, &rc_ca, requestedFiles);
       }
       *msg = rc_ca;
     } else {
+      toRtn = toExamine;
       *msg = ALREADY_INSERTED;
     }
   } else {
@@ -381,8 +721,6 @@ Node getNodeWhereToInsert(TreeNode toExamine, FileInfo dataToExamine,
                           int *counter, int *resetCounter, int *tmpCounter) {
   if (dataToExamine != NULL) {
     if (dataToExamine->name != NULL) {
-      // printf("counter %d\n", counter);
-      // printf("controllo %s, tmpCounter = %d\n", dataToExamine->name,
       // *tmpCounter);
       *match =
           checkIfMatch(dataToExamine, path, counter, resetCounter, tmpCounter);
@@ -405,17 +743,11 @@ int checkIfMatch(FileInfo dataToExamine, char *path, int *counter,
     if (path[*counter] == dataToExamine->name[*tmpCounter]) {
       *counter += 1;
       *tmpCounter += 1;
-      // printf("counter = %d, tmpCounter = %d\n", *counter, *tmpCounter);
-      // printf("\tmatch carattere\n");
     } else {
-      // printf("\tnon faccio match per colpa di %c che dovrebbe essere %c\n",
-      // dataToExamine->name[*tmpCounter], path[*counter]);
       *counter = *resetCounter;
       match = -1;
     }
   }
-  // printf("counter = %d, resetCounter = %d, match = %d\n", *counter,
-  // *resetCounter, match);
   return match;
 }
 
@@ -426,13 +758,10 @@ Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
   if (*match == 0) {
     if (dataToExamine->name[*tmpCounter] ==
         '\0') { // Two names matches perfectly
-      // printf("MATCH\n");
       if (path[*counter] == '\0') { // It's already a folder or a file in the
                                     // actual tree no need to insert again
         *found = -1;
-        // printf("File Already Inserted\n");
       } else {
-        // printf("%s è l'uomo che fa per me\n", dataToExamine->name);
         if (isEmptyList(toExamine->children) ==
             NOT_EMPTY) { // If I have some inner files then we need to check if
                          // we can continue to have a match
@@ -448,7 +777,6 @@ Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
              // different
       *counter = *resetCounter;
       *match = -1;
-      // printf("I'm a false positive\n");
     }
   }
   return actualNode;
@@ -456,18 +784,25 @@ Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
 
 TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
                        char *pathName, int isDirectory, char *completePath,
-                       int *msg) {
+                       int *msg, List requestedFiles) {
   TreeNode toRtn = NULL;
   TreeNode toInsert = NULL;
   FileInfo dataToInsert = NULL;
+  int rc_en = SUCCESS;
   int tmpCounter = 0;
   while (path[*counter] != '\0' && *msg == SUCCESS) {
-    // printf("giro nel ciclo\n");
     if (path[*counter] == '/') {
       if (*counter != 0) { // Check if it's the root
         whereToInsert =
             createNewTreeElement(dataToInsert, toInsert, whereToInsert,
                                  &tmpCounter, pathName, DIRECTORY, NULL, msg);
+        //Requested file inserted
+        if(whereToInsert != NULL){
+          rc_en = enqueue(requestedFiles, whereToInsert);
+          if(rc_en != SUCCESS){
+            *msg = MALLOC_FAILURE;
+          }
+        }
         tmpCounter = 0;
         if (*msg == SUCCESS) {
           pathName = (char *)malloc(sizeof(char) * PATH_MAX);
@@ -484,6 +819,12 @@ TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
     toRtn =
         createNewTreeElement(dataToInsert, toInsert, whereToInsert, &tmpCounter,
                              pathName, isDirectory, completePath, msg);
+    if(toRtn != NULL){
+      rc_en = enqueue(requestedFiles, toRtn);
+      if(rc_en != SUCCESS){
+        *msg = MALLOC_FAILURE;
+      }
+    }
   }
   return toRtn;
 }
@@ -495,310 +836,16 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
   int rc_nc = SUCCESS;
   int rc_tc = SUCCESS;
   pathName[*tmpCounter] = '\0';
-  // printf("file: %s\n", pathName);
   dataToInsert = newFileInfo(pathName, isDirectory, completePath, &rc_nc);
   toInsert = newTreeNode(whereToInsert, (void *)dataToInsert, &rc_tc);
   if (rc_nc == SUCCESS && rc_tc == SUCCESS) {
     linkChild(whereToInsert, toInsert);
   } else {
-    // printf("free createNewTreeElement\n");
     free(dataToInsert);
     free(toInsert);
-    // printf("dopo free createNewTreeElement\n");
     *msg = MALLOC_FAILURE;
   }
   return toInsert;
-}
-
-/**
- * Function that schedule a file
- */
-int scheduleFile(TreeNode toSchedule, Manager manager) {
-  int rc_t = SUCCESS;
-  if (toSchedule != NULL) {
-    rc_t = checkAllocationError(manager->filesInExecution);
-    if (rc_t == SUCCESS) {
-      rc_t = enqueue(manager->filesInExecution, (void *)toSchedule);
-    } else {
-      rc_t = MALLOC_FAILURE;
-    }
-  } else {
-    rc_t = FILE_NULL_POINTER;
-  }
-  return rc_t;
-}
-
-/**
- * Function that read a line from bash call into the pipe opened
- */
-int readBashLines(int *fd, char *dst, int childPid) {
-  int rc_t = SUCCESS;
-  int rc_cds_1;
-  int rc_cds_2;
-  int bytesRead = 1;
-  char charRead;
-  int counter = 0;
-  rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
-  // Ho messo il dowhile
-  while (bytesRead > 0 || (kill(childPid, 0) == 0)) {
-    // printf("carattere: %d\n", charRead);
-    bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
-    if (bytesRead > 0) {
-      if (charRead != '\n') {
-        dst[counter] = charRead;
-        counter++;
-      }
-    }
-  }
-  dst[counter] = '\0';
-  // TODO... Deal with pipe
-  rc_cds_2 = closeDescriptor(fd[READ_CHANNEL]);
-  // Missing error handling
-  if (rc_cds_1 != SUCCESS) {
-    printError("Allllllllllora, non funziona la close descriptor in fd write "
-               "in read bash line");
-  } else if (rc_cds_2 != SUCCESS) {
-    printError("Allllllllllora, non funziona la close descriptor in fd read in "
-               "read bash line");
-  }
-  return rc_t;
-}
-
-/**
- * Function that call bash process and write on the pipe
- * It uses dup2 to override it's stdout
- */
-int writeBashProcess(int *fd, char *argv[]) {
-  // TODO... Fix the pipe in order to be not blocking
-  int rc_t;
-  int rc_cds_1 = closeDescriptor(fd[READ_CHANNEL]);
-  int rc_cdp = createDup(fd[WRITE_CHANNEL], 1);
-  int rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
-  int rc_ex = execvp(argv[0], argv);
-  if (rc_ex < 0) {
-    char *msgErr = (char *)malloc(sizeof(char) * 1000);
-    int rc_ca = checkAllocationError(msgErr);
-    if (rc_ca < 0) {
-      // TODO... HARAKIRI PROBABLY
-      printError("I can't allocate memory");
-    } else {
-      sprintf(msgErr, "Error while doing exec %s from bashCall\n", argv[0]);
-      perror(msgErr);
-      free(msgErr);
-    }
-    printf("FAILA LA BASHHHHHH\n");
-    kill(getpid(), SIGKILL);
-  }
-  return rc_t;
-}
-
-/**
- * Function that call a bash process and pass to it the argv parameter
- * In case of success returns in dst what the bash prints
- */
-int callBashProcess(char *dst, char *argv[]) {
-  int rc_t = SUCCESS;
-  int rc_rb;
-  int rc_wb;
-  int fd[2];
-  int rc_fd = createUnidirPipe(fd);
-  fcntl(fd[READ_CHANNEL], F_SETFL, O_NONBLOCK);
-  if (rc_fd == SUCCESS) {
-    int f = fork();
-    if (f > 0) {
-      rc_rb = readBashLines(fd, dst, f);
-    } else if (f == 0) {
-      rc_wb = writeBashProcess(fd, argv);
-    } else {
-      printError("The program couldn't execute a fork");
-      rc_t = FORK_FAILURE;
-    }
-    if (rc_t != SUCCESS) {
-      if (rc_rb != SUCCESS) {
-        printError("Error in call bash process -> read");
-      } else if (rc_wb != SUCCESS) {
-        printError("Error in call bash process -> write");
-      }
-    }
-  } else {
-    printError("Pipe creation in call bash process gone wrong");
-  }
-
-  return rc_t;
-}
-
-/**
- * Function that check the file type by calling a bash process
- */
-int checkFileType(char *name) {
-  int rc_t = SUCCESS;
-  int rc_sp = SUCCESS;
-  int rc_ss = SUCCESS;
-  char *command = (char *)malloc(sizeof(char) * (PATH_MAX * 2 + 150));
-  rc_t = checkAllocationError(command);
-  if (rc_t < 0) {
-    // TODO... HARAKIRI PROBABLY
-    printError("I can't allocate memory");
-  } else {
-    rc_sp = sprintf(
-        command,
-        "([ -f '%s' ] && echo '0') || ([ -d '%s' ] && echo '1') || echo '2'",
-        name, name);
-    if (rc_sp > 0) {
-      char *argv[4] = {"sh", "-c", command, NULL};
-      char type[2];
-      rc_t = callBashProcess(type, argv);
-      if (rc_t == SUCCESS) {
-        rc_ss = sscanf(type, "%d", &rc_t);
-        if (rc_ss <= 0) {
-          fprintf(stderr,
-                  "ERROR: Error in checkFileType due to scanf, is it really "
-                  "able to fail? type: %s rc_t %d rc_ss %d\n",
-                  type, rc_t, rc_ss);
-          // Scegliere cosa fare, se rimediabile o meno, blocchiamo tutto o non
-          // permettiamo di inserire il dato all'interno del comando?
-        }
-      }
-    } else {
-      // Stessa cosa di sopra
-      printError(
-          "Error in checkFileType due to sprintf, is it really able to fail?");
-    }
-    // printf("free command\n");
-    free(command);
-    // printf("dopo free command");
-  }
-  // Handle error
-  return rc_t;
-}
-
-/**
- * Function that compact the path given from input by calling a bash function
- */
-int compactPath(char *string, char *cwd, int isAbsolute) {
-  int rc_t = SUCCESS;
-  if (isAbsolute == ABSOLUTE) {
-    char *argv[4] = {"realpath", "-m", string, NULL};
-    rc_t = callBashProcess(string, argv);
-  } else {
-    char *argv[7] = {"realpath", "-m", "--relative-to", cwd, string, NULL};
-    rc_t = callBashProcess(string, argv);
-  }
-  return rc_t;
-}
-
-/**
- * Function in precompute path that goes up
- */
-TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip) {
-  TreeNode startingNode = NULL;
-  int keepGoing = 0;
-  int counter = 3;
-  startingNode = currentDirectory->parent;
-  while (path[counter] == '.' &&
-         keepGoing == 0) { // I still need to check if I need to go up more
-    if (path[counter + 1] == '.') {
-      if (path[counter + 2] == '/') {
-        counter += 3;
-        startingNode = startingNode->parent;
-        if (startingNode == NULL) {
-          keepGoing = -1;
-          printError("Something went terribly wrong in the path analysis so "
-                     "we'll attach it to the root");
-          startingNode = getRoot(fs);
-        }
-      }
-    } else { // I'm arrived at the rigth level
-      keepGoing = -1;
-    }
-  }
-  *toSkip = counter;
-  return startingNode;
-}
-
-/**
- * Function that precomputes the starting directory in wich files will be addes
- */
-TreeNode precomputeStartingDirectory(Tree fs, TreeNode currentDirectory,
-                                     char *path, int *toSkip) {
-  TreeNode startingNode = NULL;
-  *toSkip = 0;
-  if (path != NULL && fs != NULL &&
-      currentDirectory != NULL) { // Verify if everything is ok
-    if (path[0] == '/') { // if my path start with / then i'm talking about an
-                          // Absolute Path
-      startingNode = getRoot(fs);
-      *toSkip = 1;
-    } else if (path[0] == '.') { // if my path starts with a dot...
-      if (path[1] == '.') {      // and is followed by a dot...
-        if (path[2] == '/') {    // then I need to go up but...
-          startingNode = goUp(fs, currentDirectory, path, toSkip);
-        } else { // I didn't even know it could be possible to create a folder
-                 // called .......something
-          printInfo("You created a monster of a folder but I still handled the "
-                    "Error");
-          startingNode = currentDirectory;
-        }
-      } else {
-        if (path[1] == '/') { // If the first dot is followed by a slash then
-                              // I'm talking about the folder I'm in
-          *toSkip = 2;
-        } // Otherwise I'm talking about an hidden folder
-        startingNode = currentDirectory;
-      }
-    } else { // In any other case I'm talking about a folder or a file inside my
-             // current folder
-      startingNode = currentDirectory;
-    }
-  }
-  // printf("devo skippare %d carattere/i e la working directory e' %s\n",
-  // *toSkip, ((FileInfo)startingNode->data)->name);
-  return startingNode;
-}
-
-/**
- * Add Forward Slash if it is not empty
- */
-void addForwardSlash(char *path) {
-  int stringLength = strlen(path);
-  if (path[stringLength - 1] != '/') {
-    path[stringLength] = '/';
-    path[stringLength + 1] = '\0';
-  }
-}
-
-int readDirectives(char *path, char *nManager, char *nWorker) {
-  char readBuffer[2] = "a";
-  int rc_t = SUCCESS;
-  int counter = 0;
-
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    path[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  path[counter] = '\0';
-  if (path[strlen(path) - 1] == '\n') {
-    path[strlen(path) - 1] = '\0';
-  }
-
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    nManager[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  nManager[counter - 1] = '\0';
-
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    nWorker[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  nWorker[counter - 1] = '\0';
-
-  printf("Path: %s\n", path);
-  printf("Manager: %s\n", nManager);
-  printf("Worker: %s\n", nWorker);
-  return rc_t;
 }
 
 void *readDirectivesLoop(void *ptr) {
@@ -807,6 +854,7 @@ void *readDirectivesLoop(void *ptr) {
   TreeNodeCandidate toAnalyze;
   int rc_t = SUCCESS;
   int rc_rd = SUCCESS;
+  int rc_cma = SUCCESS;
   int rc_ct = SUCCESS;
   int rc_an = SUCCESS;
   int rc_al = SUCCESS;
@@ -834,14 +882,17 @@ void *readDirectivesLoop(void *ptr) {
     rc_t = MALLOC_FAILURE;
   } else {
     pthread_mutex_lock(&(sharedResources->mutex));
+    // TODO... check strcpy errors with the special function created just for this purpose
     strcpy(tmpCwd, sharedResources->cwd);
     pthread_mutex_unlock(&(sharedResources->mutex));
   }
 
-  // TODO... Check allocation
   while (rc_t == SUCCESS) {
     rc_ct = SUCCESS;
     rc_rd = readDirectives(newPath, nManager, nWorker);
+    if(rc_rd != SUCCESS){
+      rc_t = errorHandler(rc_rd);
+    }
     int rc_sc = sscanf(nManager, "%d", &newNManager);
     int rc_sc2 = sscanf(nWorker, "%d", &newNWorker);
     if (rc_sc == 0 || (newNManager == 9 && strcmp(nManager, "9") != 0) ||
@@ -853,32 +904,30 @@ void *readDirectivesLoop(void *ptr) {
       rc_ct = CAST_FAILURE;
     }
 
-    if (rc_ct != CAST_FAILURE) {
+    if (rc_rd == SUCCESS && rc_ct != CAST_FAILURE) {
       pthread_mutex_lock(&(sharedResources->mutex));
       *(sharedResources->nWorker) = newNWorker;
+      // TODO... same as above
       strcpy(sharedResources->path, newPath);
       if (*(sharedResources->nManager) != newNManager) {
-        changeManagersAmount(sharedResources->managers,
+        rc_cma = changeManagersAmount(sharedResources->managers,
                              *(sharedResources->nManager), newNManager,
                              sharedResources->fileToAssign);
+        if(rc_cma != SUCCESS){
+          rc_t = errorHandler(rc_cma);
+        }
         *(sharedResources->nManager) = newNManager;
       }
       pthread_mutex_unlock(&(sharedResources->mutex));
-      printf("Path %s current Manager: %d, newManager: %d\n", newPath,
-             newNManager, newNWorker);
     } else {
-      printInfo("Invalid Argument passed from input, syntax must "
-                "be:\n-Path\n-Number of Manager\n-Number of Worker\n");
+      rc_t = errorHandler(INVALID_SYNTAX_ERROR);
     }
-
-    // TODO... Check for other failure
+    
     if (rc_ct == SUCCESS) {
-      printf("Quanto vale: %s\n", newPath);
       type = precomputeAnalyzerInput(tmpCwd, newPath, &rc_an);
       if (rc_an != SUCCESS) {
         if (rc_an != EMPTY_PATH) {
-          printError("Error inside precompute analyzer Input");
-          rc_t = rc_an;
+          rc_t = errorHandler(rc_an);
         }
       } else {
         if (type == DIRECTORY) {
@@ -893,206 +942,75 @@ void *readDirectivesLoop(void *ptr) {
               &toSkip);
           toAnalyze = newTreeNodeCandidate(startingNode, type, newPath, toSkip);
           if (toAnalyze != NULL) {
-            printf("Lo pusho\n");
+            // TODO... check push return code
             push(sharedResources->candidateNode, toAnalyze);
-            // printList(sharedResources->candidateNode, printCandidateNode);
           } else {
-            rc_t = MALLOC_FAILURE;
+            rc_t = errorHandler(MALLOC_FAILURE);
           }
           pthread_mutex_unlock(&(sharedResources->mutex));
         } else {
-          // TODO... IL signore va gestito con l'error handler
           if (type == NOT_EXISTING) {
             char *msgInfo = (char *)malloc(sizeof(char) * (PATH_MAX + 300));
             rc_al5 = checkAllocationError(msgInfo);
             if (rc_al5 < 0) {
-              // TODO... HARAKIRI PROBABLY
-              printError("I can't allocate memory");
-              rc_t = MALLOC_FAILURE;
+              rc_t = errorHandler(MALLOC_FAILURE);
             } else {
               sprintf(msgInfo, "The File %s doesn't exist", newPath);
               printInfo(msgInfo);
               free(msgInfo);
             }
           } else {
-            printInfo("I didn't understand the file type of what you gave me "
-                      "(bash call error)");
+            rc_t = errorHandler(FILE_TYPE_NOT_RECOGNIZED);
           }
         }
       }
     }
     usleep(500);
   }
+  // TODO... debug only
   printf("sono morto in read directives loop: %d\n", rc_t);
   free(newPath);
   free(nWorker);
   free(nManager);
   free(tmpCwd);
-  // kill(getpid(), SIGKILL);
+  kill(getpid(), SIGKILL);
 }
 
-int precomputeAnalyzerInput(char *cwd, char *path, int *msg) {
-  *msg = SUCCESS;
-  int type = NOT_EXISTING;
-  int isAbsolutePath = RELATIVE;
-  if (path[0] == 0) {
-    *msg = EMPTY_PATH;
-  } else {
-    if (path[0] == '/') {
-      isAbsolutePath = ABSOLUTE;
-    }
-    *msg = compactPath(path, cwd, isAbsolutePath);
-    if (*msg == SUCCESS) {
-      type = checkFileType(path);
-    }
-  }
-  return type;
-}
-
-int managerInitPipe(const int toParent[], const int toChild[]) {
-  int rc_t = 0;
-  int rc_cl = closeDescriptor(toChild[WRITE_CHANNEL]);
-  int rc_cl2 = closeDescriptor(toParent[READ_CHANNEL]);
-  int rc_du = createDup(toChild[READ_CHANNEL], 0);
-  int rc_du2 = createDup(toParent[WRITE_CHANNEL], 1);
-  int rc_cl3 = closeDescriptor(toChild[READ_CHANNEL]);
-  int rc_cl4 = closeDescriptor(toParent[WRITE_CHANNEL]);
-
-  if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 ||
-      rc_du == -1 || rc_du2 == -1) {
-    rc_t = PIPE_FAILURE;
-  }
-
-  return rc_t;
-}
-
-int parentInitExecPipe(const int toParent[], const int toChild[]) {
-  int rc_t = 0;
-  int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
-  int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
-
-  if (rc_cl == -1 || rc_cl2 == -1) {
-    rc_t = PIPE_FAILURE;
-  }
-  return rc_t;
-}
-
-Manager newManager() {
-  Manager manager = (Manager)malloc(sizeof(struct Manager));
-  int rc_ca = checkAllocationError(manager);
-  if (rc_ca == SUCCESS) {
-    manager->filesInExecution = newList();
-    if (manager->filesInExecution == NULL) {
-      // printf("free newManager\n");
-      free(manager->filesInExecution);
-      free(manager);
-      // printf("dopo free newManager\n");
-    } else {
-      manager->pipe = (int *)malloc(sizeof(int) * 2);
-      rc_ca = checkAllocationError(manager->pipe);
-      if (rc_ca != SUCCESS) {
-        // printf("free newManager2\n");
-        free(manager->filesInExecution);
-        free(manager);
-      }
-    }
-  }
-  return manager;
-}
-
-int addManagers(PriorityQueue managers, int amount) {
+int readDirectives(char *path, char *nManager, char *nWorker) {
+  char readBuffer[2] = "a";
+  // TODO... I don't know the meaning of the returning parameter... maybe could be void function?
+  // TODO... in any case we need to adjust the comment if we change this
   int rc_t = SUCCESS;
-  int rc_en = SUCCESS;
-  int i = 0;
-  if (managers != NULL) {
-    for (i = 0; i < amount && rc_t == SUCCESS; i++) {
-      // TODO... create manager struct
-      Manager manager = newManager();
-      if (manager == NULL)
-        rc_t = NEW_MANAGER_FAILURE;
-      else {
-        rc_en = pushPriorityQueue(managers, manager->filesInExecution->size,
-                                  (void *)manager);
-        // rc_en = push(managers, manager);
-        if (rc_en == -1)
-          rc_t = MALLOC_FAILURE;
-        else {
-          int toParent[2];
-          int toChild[2];
-          // TODO... create pipe
-          createUnidirPipe(toParent);
-          createUnidirPipe(toChild);
-          int managerPid = fork();
-          if (managerPid > 0) {
-            int rc_pp = parentInitExecPipe(toParent, toChild);
-            int rc_fc = fcntl(toParent[READ_CHANNEL], F_SETFL, O_NONBLOCK);
-            if (rc_pp == -1 || rc_fc == -1)
-              rc_t = PIPE_FAILURE;
-            else {
-              manager->m_pid = managerPid;
-              manager->pipe[0] = toParent[READ_CHANNEL];
-              manager->pipe[1] = toChild[WRITE_CHANNEL];
-            }
-          } else {
-            managerInitPipe(toParent, toChild);
-            execlp("./manager", "./manager", NULL);
-            printf("Se muoio qua faccio cagare add Managers\n");
-            kill(getpid(), SIGKILL);
-          }
-        }
-      }
-    }
-  } else {
-    rc_t = MALLOC_FAILURE;
+  int counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    path[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  path[counter] = '\0';
+  if (path[strlen(path) - 1] == '\n') {
+    path[strlen(path) - 1] = '\0';
   }
-  return rc_t;
-}
 
-/**
- * Naive solution. It is not the best solution, but it is cheap
- * The function will assign
- */
-int endManager(Manager m, List fileToAssign) {
-  int rc_t = SUCCESS;
-  if (fileToAssign != NULL) {
-    if (isEmptyList(fileToAssign)) {
-      swap(fileToAssign, m->filesInExecution);
-    } else {
-      concat(fileToAssign, m->filesInExecution);
-    }
-  } else {
-    rc_t = MALLOC_FAILURE;
-  }
-  return rc_t;
-}
+  counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    nManager[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  nManager[counter - 1] = '\0';
 
-void destroyManager(void *data) {
-  Manager manager = (Manager)data;
-  if (manager->pipe != NULL) {
-    closeDescriptor(manager->pipe[0]);
-    closeDescriptor(manager->pipe[1]);
-  }
-  // printf("free destroyManager\n");
-  free(manager->pipe);
-  free(manager->filesInExecution);
-  free(manager);
-  // printf("dopo free destroyManager\n");
-}
-
-int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
-  int rc_t = SUCCESS;
-  while (amount != 0 && managers->size != 0) {
-    Manager m = popPriorityQueue(managers);
-    if (m != NULL) {
-      // int rc_po = pop(managers);
-      endManager(m, fileToAssign);
-      kill(m->m_pid, SIGKILL);
-      destroyManager((void *)m);
-      amount--;
-    } else {
-      rc_t = REMOVE_MANAGER_FAILURE; // VEDERE COME GESTIRE
-    }
-  }
+  counter = 0;
+  do {
+    int rc = readChar(READ_CHANNEL, readBuffer);
+    nWorker[counter++] = readBuffer[0];
+  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+  nWorker[counter - 1] = '\0';
+  
+  // TODO... debug only
+  /*
+  printf("Path: %s\n", path);
+  printf("Manager: %s\n", nManager);
+  printf("Worker: %s\n", nWorker);
+  */
   return rc_t;
 }
 
@@ -1114,6 +1032,602 @@ int changeManagersAmount(PriorityQueue managers, const int currentManagers,
   return rc_t;
 }
 
+int addManagers(PriorityQueue managers, int amount) {
+  int rc_t = SUCCESS;
+  int rc_en = SUCCESS;
+  int i = 0;
+  int toParent[2];
+  int toChild[2];
+  int rc_p1;
+  int rc_p2;
+  int rc_nm = SUCCESS;
+  if (managers != NULL) {
+    for (i = 0; i < amount && rc_t == SUCCESS; i++) {
+      Manager manager = newManager();
+      if (manager == NULL)
+        rc_t = NEW_MANAGER_FAILURE;
+      else {
+        rc_en = pushPriorityQueue(managers, manager->filesInExecution->size,
+                                  (void *)manager);
+        if (rc_en != SUCCESS)
+          rc_t = MALLOC_FAILURE;
+        else {
+          rc_p1 = createUnidirPipe(toParent);
+          rc_p2 = createUnidirPipe(toChild);
+          int managerPid = fork();
+          if(rc_p1 != SUCCESS || rc_p2 != SUCCESS){
+            rc_t = PIPE_FAILURE;
+          }else{
+            if (managerPid > 0) {
+              int rc_pp = parentInitExecPipe(toParent, toChild);
+              int rc_fc = fcntl(toParent[READ_CHANNEL], F_SETFL, O_NONBLOCK);
+              if (rc_pp == -1 || rc_fc == -1)
+                rc_t = PIPE_FAILURE;
+              else {
+                manager->m_pid = managerPid;
+                manager->pipe[0] = toParent[READ_CHANNEL];
+                manager->pipe[1] = toChild[WRITE_CHANNEL];
+              }
+            } else {
+              managerInitPipe(toParent, toChild);
+              rc_nm = execlp("./manager", "./manager", NULL);
+              if(rc_nm != SUCCESS){
+                rc_t = errorHandler(rc_nm);
+              }
+              kill(getpid(), SIGKILL);
+            }
+          }
+        }
+      }
+    }
+  } else {
+    rc_t = MALLOC_FAILURE;
+  }
+  return rc_t;
+}
+
+int managerInitPipe(const int toParent[], const int toChild[]) {
+  int rc_t = 0;
+  int rc_cl = closeDescriptor(toChild[WRITE_CHANNEL]);
+  int rc_cl2 = closeDescriptor(toParent[READ_CHANNEL]);
+  int rc_du = createDup(toChild[READ_CHANNEL], 0);
+  int rc_du2 = createDup(toParent[WRITE_CHANNEL], 1);
+  int rc_cl3 = closeDescriptor(toChild[READ_CHANNEL]);
+  int rc_cl4 = closeDescriptor(toParent[WRITE_CHANNEL]);
+
+  if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 ||
+      rc_du == -1 || rc_du2 == -1) {
+    rc_t = PIPE_FAILURE;
+  }
+
+  return rc_t;
+}
+
+Manager newManager() {
+  Manager manager = (Manager)malloc(sizeof(struct Manager));
+  int rc_ca = checkAllocationError(manager);
+  if (rc_ca == SUCCESS) {
+    manager->filesInExecution = newList();
+    if (manager->filesInExecution == NULL) {
+      free(manager->filesInExecution);
+      free(manager);
+      manager = NULL;
+    } else {
+      manager->pipe = (int *)malloc(sizeof(int) * 2);
+      rc_ca = checkAllocationError(manager->pipe);
+      if (rc_ca != SUCCESS) {
+        free(manager->filesInExecution);
+        free(manager);
+        manager = NULL;
+      }
+    }
+  }
+  return manager;
+}
+
+int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
+  int rc_t = SUCCESS;
+  int rc_em = SUCCESS;
+  int rc_im = SUCCESS;
+  int rc_pu = SUCCESS;
+  int rc_sw = SUCCESS;
+  int managerSize = managers->len;
+  PriorityQueue tmpManagers = newPriorityQueue();
+  if(tmpManagers == NULL){
+    rc_t = MALLOC_FAILURE;
+  }
+  while (rc_t == SUCCESS && managerSize != 0) {
+    Manager m = popPriorityQueue(managers);
+    if(m != NULL){
+      if (amount != 0) {
+        if (m != NULL) {
+          rc_em = endManager(m, fileToAssign);
+          if(rc_em != SUCCESS){
+            rc_t = errorHandler(rc_em);
+          }
+          kill(m->m_pid, SIGKILL);
+          destroyManager((void *)m);
+          amount--;
+        } else {
+          rc_t = REMOVE_MANAGER_FAILURE;
+        }
+      } else {
+        rc_em = endManager(m, fileToAssign);
+        if(rc_em != SUCCESS){
+          rc_t = errorHandler(rc_em);
+        }
+        rc_im = informManager(m);
+        if(rc_t == SUCCESS && rc_im != SUCCESS){
+          rc_t = errorHandler(rc_im);
+        }
+        rc_pu = pushPriorityQueue(tmpManagers, m->filesInExecution->size, (void *)m);
+        if(rc_t == SUCCESS && rc_im != rc_pu){
+          rc_t = errorHandler(MALLOC_FAILURE);
+        }
+      }
+    } else {
+      rc_t = UNEXPECTED_PRIORITY_QUEUE_FAILURE;
+    }
+    managerSize--;
+  }
+  // TODO... check for swap errors
+  rc_sw = swapPriorityQueue(managers, tmpManagers);
+  destroyPriorityQueue(tmpManagers, free);
+  if(rc_sw != SUCCESS){
+    rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
+  }
+  return rc_t;
+}
+
+int endManager(Manager m, List fileToAssign) {
+  int rc_t = SUCCESS;
+  int rc_sw = SUCCESS;
+  int rc_cnt = SUCCESS;
+  if (fileToAssign != NULL) {
+    if (isEmptyList(fileToAssign) == EMPTY) {
+      rc_sw = swap(fileToAssign, m->filesInExecution);
+    } else {
+      rc_cnt = concat(fileToAssign, m->filesInExecution);
+    }
+    if(rc_sw != SUCCESS || rc_cnt != SUCCESS){
+      rc_t = UNEXPECTED_LIST_ERROR;
+    }
+  } else {
+    rc_t = MALLOC_FAILURE;
+  }
+  return rc_t;
+}
+
+void destroyManager(void *data) {
+  Manager manager = (Manager)data;
+  if (manager->pipe != NULL) {
+    closeDescriptor(manager->pipe[0]);
+    closeDescriptor(manager->pipe[1]);
+  }
+  free(manager->pipe);
+  free(manager->filesInExecution);
+  free(manager);
+}
+
+int informManager(Manager manager) {
+  int rc_t = SUCCESS;
+  int *fd = manager->pipe;
+  char *stopMsg = malloc(sizeof(char) * CONTROL_WORD_LEN);
+  int rc_al = checkAllocationError(stopMsg);
+  int rc_ss = sprintf(stopMsg, "%s", CONTROL_STOP);
+  if (fd != NULL) {
+    if (rc_al == SUCCESS) {
+      if (rc_ss >= 0) {
+        int rc_wr = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
+        int rc_wr2 = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
+        if (rc_wr < SUCCESS || rc_wr2 < SUCCESS) {
+          rc_t = SEND_FAILURE;
+        }
+      } else {
+        // TODO should it die here?
+        rc_t = SPRINTF_FAILURE;
+      }
+    } else {
+      rc_t = MALLOC_FAILURE;
+    }
+  } else {
+    rc_t = SEND_FAILURE;
+  }
+  free(stopMsg);
+  return rc_t;
+}
+
+int precomputeAnalyzerInput(char *cwd, char *path, int *msg) {
+  *msg = SUCCESS;
+  int type = NOT_EXISTING;
+  int isAbsolutePath = RELATIVE;
+  if (path[0] == 0) {
+    *msg = EMPTY_PATH;
+  } else {
+    if (path[0] == '/') {
+      isAbsolutePath = ABSOLUTE;
+    }
+    *msg = compactPath(path, cwd, isAbsolutePath);
+    if (*msg == SUCCESS) {
+      type = checkFileType(path);
+    }
+  }
+  return type;
+}
+
+int compactPath(char *path, char *cwd, int isAbsolute) {
+  int rc_t = SUCCESS;
+  if (isAbsolute == ABSOLUTE) {
+    char *argv[4] = {"realpath", "-m", path, NULL};
+    rc_t = callBashProcess(path, argv);
+  } else {
+    char *argv[7] = {"realpath", "-m", "--relative-to", cwd, path, NULL};
+    rc_t = callBashProcess(path, argv);
+  }
+  return rc_t;
+}
+
+int callBashProcess(char *dst, char *argv[]) {
+  int rc_t = SUCCESS;
+  int rc_rb;
+  int rc_wb;
+  int fd[2];
+  int rc_fd = createUnidirPipe(fd);
+  int rc_fc = fcntl(fd[READ_CHANNEL], F_SETFL, O_NONBLOCK);
+  if (rc_fd == SUCCESS && rc_fc == SUCCESS) {
+    int f = fork();
+    if (f > 0) {
+      rc_rb = readBashLines(fd, dst, f);
+    } else if (f == 0) {
+      rc_wb = writeBashProcess(fd, argv);
+    } else {
+      rc_t = FORK_FAILURE;
+    }
+    if (rc_t != SUCCESS) {
+      if (rc_rb != SUCCESS) {
+        rc_t = READ_BASH_FAILURE;
+      } else if (rc_wb != SUCCESS) {
+        rc_t = WRITE_BASH_FAILURE;
+      }
+    }
+  } else {
+    rc_t = PIPE_FAILURE;
+  }
+
+  return rc_t;
+}
+
+int writeBashProcess(int *fd, char *argv[]) {
+  int rc_t = SUCCESS;
+  int rc_cds_1 = closeDescriptor(fd[READ_CHANNEL]);
+  int rc_cdp = createDup(fd[WRITE_CHANNEL], 1);
+  int rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
+  if(rc_cds_1 != SUCCESS || rc_cdp != SUCCESS || rc_cds_2 != SUCCESS){
+    rc_t = PIPE_FAILURE;
+  }
+  int rc_ex = execvp(argv[0], argv);
+  if (rc_t == SUCCESS && rc_ex != SUCCESS) {
+    char *msgErr = (char *)malloc(sizeof(char) * 1000);
+    int rc_ca = checkAllocationError(msgErr);
+    if (rc_ca < 0) {
+      rc_t = errorHandler(MALLOC_FAILURE);
+    } else {
+      rc_t = errorHandler(BASH_FAILURE);
+      free(msgErr);
+    }
+    kill(getpid(), SIGKILL);
+  }
+  return rc_t;
+}
+
+//! SONO QUI PER FARE LE COSE DEI ERRORHANDLER 
+int readBashLines(int *fd, char *dst, int childPid) {
+  // TODO... also this return code is useless at the moment
+  int rc_t = SUCCESS;
+  int rc_cds_1;
+  int rc_cds_2;
+  int bytesRead = 1;
+  char charRead = 'a';
+  int counter = 0;
+  int firstCycleAfterDeath = 1;
+
+  rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
+
+  while (bytesRead > 0 || (kill(childPid, 0) == 0) ||
+         firstCycleAfterDeath >= 0) {
+    bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
+    if (bytesRead > 0) {
+      if (charRead != '\n') {
+        dst[counter] = charRead;
+        counter++;
+      }
+    }
+    if (kill(childPid, 0) != 0)
+      firstCycleAfterDeath--;
+  }
+  dst[counter] = '\0';
+  // TODO... Deal with pipe
+  rc_cds_2 = closeDescriptor(fd[READ_CHANNEL]);
+  //! Missing error handling
+  if (rc_cds_1 != SUCCESS) {
+    // TODO... maybe better errors?
+    printError("Allllllllllora, non funziona la close descriptor in fd write "
+               "in read bash line");
+  } else if (rc_cds_2 != SUCCESS) {
+    // TODO... maybe better errors?
+    printError("Allllllllllora, non funziona la close descriptor in fd read in "
+               "read bash line");
+  }
+  return rc_t;
+}
+
+int checkFileType(char *name) {
+  int rc_al = SUCCESS;
+  int rc_sp = SUCCESS;
+  int rc_ss = SUCCESS;
+  int rc_t = SUCCESS;
+  char *command = (char *)malloc(sizeof(char) * (PATH_MAX * 2 + 150));
+  rc_al = checkAllocationError(command);
+  if (rc_al != SUCCESS) {
+    rc_t = MALLOC_FAILURE;
+  } else {
+    rc_sp = sprintf(
+        command,
+        "([ -f '%s' ] && echo '0') || ([ -d '%s' ] && echo '1') || echo '2'",
+        name, name);
+    if (rc_sp > 0) {
+      char *argv[4] = {"sh", "-c", command, NULL};
+      char type[2];
+      rc_t = callBashProcess(type, argv);
+      if (rc_t == SUCCESS) {
+        rc_ss = sscanf(type, "%d", &rc_t);
+        if (rc_ss <= 0) {
+          //! ????
+          rc_t = errorHandler(SSCANF_FAILURE);
+        }
+      }
+    } else {
+      rc_t = errorHandler(SPRINTF_FAILURE);
+    }
+    free(command);
+  }
+  // Handle error
+  return rc_t;
+}
+
+void addForwardSlash(char *path) {
+  int stringLength = strlen(path);
+  if (path[stringLength - 1] != '/') {
+    path[stringLength] = '/';
+    path[stringLength + 1] = '\0';
+  }
+}
+
+TreeNode precomputeStartingDirectory(Tree fs, TreeNode currentDirectory,
+                                     char *path, int *toSkip) {
+  TreeNode startingNode = NULL;
+  *toSkip = 0;
+  if (path != NULL && fs != NULL &&
+      currentDirectory != NULL) { // Verify if everything is ok
+    if (path[0] == '/') { // if my path start with / then i'm talking about an
+                          // Absolute Path
+      startingNode = getRoot(fs);
+      *toSkip = 1;
+    } else if (path[0] == '.') { // if my path starts with a dot...
+      if (path[1] == '.') {      // and is followed by a dot...
+        if (path[2] == '/') {    // then I need to go up but...
+          startingNode = goUp(fs, currentDirectory, path, toSkip);
+        } else { // I didn't even know it could be possible to create a folder
+                 // called .......something
+          startingNode = currentDirectory;
+        }
+      } else {
+        if (path[1] == '/') { // If the first dot is followed by a slash then
+                              // I'm talking about the folder I'm in
+          *toSkip = 2;
+        } // Otherwise I'm talking about an hidden folder
+        startingNode = currentDirectory;
+      }
+    } else { // In any other case I'm talking about a folder or a file inside my
+             // current folder
+      startingNode = currentDirectory;
+    }
+  }
+  return startingNode;
+}
+
+TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip) {
+  TreeNode startingNode = NULL;
+  int keepGoing = 0;
+  int counter = 3;
+  startingNode = currentDirectory->parent;
+  while (path[counter] == '.' &&
+         keepGoing == 0) { // I still need to check if I need to go up more
+    if (path[counter + 1] == '.') {
+      if (path[counter + 2] == '/') {
+        counter += 3;
+        startingNode = startingNode->parent;
+        if (startingNode == NULL) {
+          keepGoing = -1;
+          printError("Something went terribly wrong in the path analysis so "
+                     "we'll attach it to the root");
+          startingNode = getRoot(fs);
+        }
+      }
+    } else { // I'm arrived at the rigth level
+      keepGoing = -1;
+    }
+  }
+  *toSkip = counter;
+  return startingNode;
+}
+
+TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
+                                       char *path, int characterToSkip) {
+  TreeNodeCandidate candidate =
+      (TreeNodeCandidate)malloc(sizeof(struct TreeNodeCandidate));
+  int rc_al = checkAllocationError(candidate);
+  if (rc_al == SUCCESS) {
+    candidate->path = (char *)malloc(sizeof(char) * PATH_MAX);
+    int rc_al2 = checkAllocationError(candidate->path);
+    if (rc_al2 == SUCCESS) {
+      candidate->startingNode = startingNode;
+      candidate->type = typeOfFile;
+      //TODO... handle with strcpy function for any errors
+      strcpy(candidate->path, path);
+      candidate->toSkip = characterToSkip;
+    } else {
+      free(path);
+      free(candidate);
+    }
+  } else {
+    free(candidate);
+  }
+  return candidate;
+}
+
+void destroyTreeNodeCandidate(void *data) {
+  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
+  free(candidate->path);
+  free(candidate);
+}
+
+//TODO... debug only, does it really need a comment?
+void printCandidateNode(void *data) {
+  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
+  printf("Starting node: %p, path: %s, tof: %d, toSkipper: %d\n",
+         candidate->startingNode, candidate->path, candidate->type,
+         candidate->toSkip);
+}
+
+/**
+ * Function that handle the multiple instance of .. inside the path in order to get at the highest level
+ * 
+ * args:
+ *    TreeNode startingNode: the starting directory where the search inside the tree will start
+ *    int typeOfFile: the type of the file which will be analyzed (ISFILE or DIRECTORY)
+ *    char *path: the valid path of a file or a folder which is passed in input 
+ *    int characterToSkip:  number of characters to skip because are not part of the file or folder name and
+ *      only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNodeCandidate which will be put later on inside a list in order to be analyzed
+ */
+
+
+
+
+
+//TODO... remove this global list of elements
+List finished = NULL;
+
+int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign) {
+  int rc_t = SUCCESS;
+  rc_t = endManager(dead, fileToAssign);
+  if (rc_t < SUCCESS) {
+    printInfo("One or more managers are dead\n");
+  } else {
+    rc_t = addManagers(managers, 1);
+  }
+  destroyManager((void *)dead);
+  return rc_t;
+}
+
+void toStringTable(long long unsigned int *table) {
+  int i;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    printf("%llu ", table[i]);
+  }
+  printf("\n");
+}
+
+/**
+ *  File info toString
+ */
+void pasta(void *data) {
+  fprintf(stderr, "File : %s name %s isFolder %d\n",
+          ((FileInfo)((TreeNode)data)->data)->path,
+          ((FileInfo)((TreeNode)data)->data)->name,
+          ((FileInfo)((TreeNode)data)->data)->isDirectory);
+}
+
+void pasta2(void *data) {
+  printf("File : %s name %s isFolder %d\n", ((FileInfo)data)->path,
+         ((FileInfo)data)->name, ((FileInfo)data)->isDirectory);
+}
+
+void printRequestedNodes(void *data) {
+  TreeNode node = (TreeNode)data;
+  FileInfo reqFile = (FileInfo) node->data;
+  pasta2(reqFile);
+}
+
+/**
+ * Manager toString function
+ */
+void toStringManager(void *data) {
+  Manager manager = (Manager)data;
+  printf("size: %d\n", manager->filesInExecution->size);
+  printList(manager->filesInExecution, pasta);
+}
+
+int insertAndSchedule(TreeNode startingNode, List filesToAssign,
+                      char *relativePath, char *completePath, List requestedFiles) {
+  int rc_t = SUCCESS;
+  int rc_af = SUCCESS;
+  int rc_en = SUCCESS;
+  TreeNode toSchedule = NULL;
+  // LOCK
+  // pasta((void *)currentDirectory);
+  toSchedule =
+      performInsert(relativePath, completePath, startingNode, IS_FILE, &rc_t, requestedFiles);
+  // printf("qui mi rompo\n");
+  // MAYBE RELEASE THE LOCK???
+  // TODO... Handle with the errorHandler (maybe write a message just to inform the user that the file was already passed) 
+  if (rc_t == SUCCESS || rc_t == ALREADY_INSERTED) {
+    rc_en = enqueue(filesToAssign, (void *)toSchedule);
+
+    // rc_af = assignFileToManager(toSchedule, managers, nManager, nWorker);
+    if (rc_en != SUCCESS) {
+      printError("Error in assign file to manager");
+      rc_t = rc_en;
+    }
+    // HANDLE THE MULTIPLE ERROR WITH THE ERROR HANDLER
+  }
+  return rc_t;
+  // UNLOCK
+}
+
+/**
+ * Function that schedule a file
+ */
+int scheduleFile(TreeNode toSchedule, Manager manager) {
+  int rc_t = SUCCESS;
+  if (toSchedule != NULL) {
+    rc_t = checkAllocationError(manager->filesInExecution);
+    if (rc_t == SUCCESS) {
+      rc_t = enqueue(manager->filesInExecution, (void *)toSchedule);
+    } else {
+      rc_t = MALLOC_FAILURE;
+    }
+  } else {
+    rc_t = FILE_NULL_POINTER;
+  }
+  return rc_t;
+}
+
+int parentInitExecPipe(const int toParent[], const int toChild[]) {
+  int rc_t = 0;
+  int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
+  int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
+
+  if (rc_cl == -1 || rc_cl2 == -1) {
+    rc_t = PIPE_FAILURE;
+  }
+  return rc_t;
+}
+
 int sendFile(Manager manager, TreeNode file, List filesToAssign,
              int currentWorker) {
   int rc_t = SUCCESS;
@@ -1127,11 +1641,8 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
     if (rc_al < SUCCESS)
       rc_t = MALLOC_FAILURE;
     else {
-      // TODO... add check for sprintf (wrapping function)
       int rc_sp1 = sprintf(nworkers, "%d", currentWorker);
-      // TODO... write m in pipe to manager
       if (rc_sp1 > 0) {
-        // printf("sprintf ok\n");
         int rc_wr =
             writeDescriptor(pipe[WRITE_CHANNEL], ((FileInfo)file->data)->path);
         int rc_wr_2 = writeDescriptor(pipe[WRITE_CHANNEL], nworkers);
@@ -1142,7 +1653,7 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
       free(nworkers);
     }
   } else
-    rc_t = ASSIGNFILE_MEMORY_FAILURE;
+    rc_t = MALLOC_FAILURE;
   return rc_t;
 }
 
@@ -1152,8 +1663,7 @@ int isManagerAlive(Manager m) {
   if (returnCode != 0) {
     rc_t = DEAD_PROCESS;
   }
-  // TODO non deve farlo
-  return SUCCESS;
+  return rc_t;
 }
 
 int rescheduleFiles(List toDestroy, List toReschedule) {
@@ -1161,6 +1671,9 @@ int rescheduleFiles(List toDestroy, List toReschedule) {
   if (isEmptyList(toReschedule) == EMPTY) {
     if (isEmptyList(toDestroy) != EMPTY) {
       rc_t = swap(toDestroy, toReschedule);
+      if(rc_t != SUCCESS){
+        rc_t = UNEXPECTED_LIST_ERROR;
+      }
     }
   } else {
     TreeNode file = NULL;
@@ -1169,12 +1682,16 @@ int rescheduleFiles(List toDestroy, List toReschedule) {
       rc_t = pop(toDestroy);
       if (rc_t == SUCCESS) {
         rc_t = enqueue(toReschedule, (void *)file);
+        if(rc_t != SUCCESS){
+          rc_t = errorHandler(MALLOC_FAILURE);
+        }
+      } else {
+        rc_t = errorHandler(UNEXPECTED_LIST_ERROR);
       }
     }
   }
   return rc_t;
 }
-
 
 void *sendFileLoop(void *ptr) {
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
@@ -1186,21 +1703,24 @@ void *sendFileLoop(void *ptr) {
   int rc_ss = SUCCESS;
   int rc_sw = SUCCESS;
   int rc_em = SUCCESS;
+  int rc_rm = SUCCESS;
+  int rc_pu = SUCCESS;
+  int rc_dn = SUCCESS;
+  int alreadyPushed = FAILURE;
   int nManager = 0;
   int isAliveM = 0;
   int found = 0;
+  int counter = 0;
+  unsigned long long charCounter = 0;
   int *pipe = NULL;
   char *path = (char *)malloc(sizeof(char) * PATH_MAX);
   char *number = (char *)malloc(sizeof(char) * PATH_MAX);
-  // TODO... contorllare il loro fallimento
   char charRead = 'a';
-  // TODO... da cambiare con una define
   int numbersToRead = NCHAR_TABLE;
   int bytesRead = 1;
-  int counter = 0;
   int insertCounter = 0;
-  unsigned long long charCounter = 0;
-  // TODO... magari una define anche per questa?
+  //! DEBUG ONLY
+  int counterFiles = 0;
   char *controlWord = (char *)malloc(sizeof(char) * CONTROL_WORD_LEN);
   Manager manager = NULL;
   finished = newList();
@@ -1210,28 +1730,20 @@ void *sendFileLoop(void *ptr) {
   int rc_ca3 = checkAllocationError(controlWord);
   if (tmpManagers == NULL || rc_ca != SUCCESS || rc_ca2 != SUCCESS ||
       rc_ca3 != SUCCESS) {
-    rc_t = MALLOC_FAILURE;
+    rc_t = errorHandler(MALLOC_FAILURE);
   }
   unsigned long long accumulator = 0;
-  unsigned long long accumulatorNUMBER = 0;
   while (rc_t == SUCCESS) {
-    // TODO... check if this type of approach is blocking or not
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
-    //pthread_mutex_unlock(&(sharedResources->mutex));
     while (nManager > 0 && rc_t == SUCCESS) {
-      //pthread_mutex_lock(&(sharedResources->mutex));
-      // printf("priorityQueue size %d\n", sharedResources->managers->size);
       manager = popPriorityQueue(sharedResources->managers);
-      //pthread_mutex_unlock(&(sharedResources->mutex));
       if (manager != NULL) {
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
           pipe = manager->pipe;
           bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
-          // printf("sono bloccato, bytesRead %d\n", bytesRead);
           if (bytesRead > 0) {
-            // printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
             while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
               if (bytesRead > 0) {
                 path[counter] = charRead;
@@ -1240,8 +1752,6 @@ void *sendFileLoop(void *ptr) {
               bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
             }
             path[counter] = 0;
-            //printf("--------------------- ANALYZER %d: path ricevuto %s\n", getpid(), path);
-            //pthread_mutex_lock(&(sharedResources->mutex));
             node = manager->filesInExecution->head;
             found = 0;
             while (node != NULL && found == 0 && rc_t == SUCCESS) {
@@ -1250,186 +1760,153 @@ void *sendFileLoop(void *ptr) {
                 info = (FileInfo)file->data;
                 if (info != NULL) {
                   if (strcmp(path, info->path) == 0) {
-                    // printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-                    // pasta(node->data);
-                    // pasta(file);
-                    // printf("guarda come non mi rompo: %s\n", info->path);
-                    // printf("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n");
                     found = 1;
                   } else {
                     node = node->next;
                   }
                 } else {
-                  printf("MUIO PER UN INFO DI FILE NULLO\n");
-                  rc_t = NULL_POINTER;
+                  rc_t = errorHandler(NON_EXISTING_FILE);
                 }
               } else {
-                printf("MUIO PER UN TREENODE NULLO\n");
-                rc_t = NULL_POINTER;
+                rc_t = errorHandler(NON_EXISTING_FILE);
               }
             }
-            //pthread_mutex_unlock(&(sharedResources->mutex));
-
-            if (found != 1 || rc_t != SUCCESS) {
-              printf("MUIO PERCHE' NON TROVO QUELLO CHE STAVO CERCANDO\n");
-              rc_t = FILE_NOT_FOUND;
+            if (rc_t != SUCCESS) {
+              rc_t = errorHandler(FILE_NOT_FOUND);
             } else {
               insertCounter = 0;
               numbersToRead = NCHAR_TABLE;
-              accumulatorNUMBER = 0;
               while (numbersToRead > 0 && isManagerAlive(manager) == SUCCESS) {
                 counter = 0;
                 charRead = 'a';
                 while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
                   bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
                   if (bytesRead > 0) {
-                    // printf("charRead in number: %c, %d\n", charRead,
-                    // charRead); usleep(100000);
                     number[counter] = charRead;
                     counter++;
                   }
                 }
                 number[counter] = 0;
-                /* printf("%s ", number);
-                fflush(stdout);*/
-                // usleep(10000);
-                // Posso fare l'inserimento
                 rc_ss = sscanf(number, "%llu", &charCounter);
-                unsigned long long ab = 0;
-                int a = sscanf(number, "%llu", &ab);
-                //printf("%s %llu\n", number, ab);
-                //fflush(stdout);
-                accumulatorNUMBER += ab;
                 if (rc_ss > 0) {
-                  //pthread_mutex_lock(&(sharedResources->mutex));
-                  info->fileTable[insertCounter] = charCounter;
-                  // printf("NUMERO %llu\n", info->fileTable[insertCounter]);
-                  insertCounter++;
-                  //pthread_mutex_unlock(&(sharedResources->mutex));
+                  if(found == 1){
+                    info->fileTable[insertCounter++] = charCounter;
+                  }
                 } else {
-                  printf("fail della scanf\n");
-                  // TODO vedere che fare in caso di fallimento di sscanf
+                  //!CHE CRISTO DI ERRORE FARE? Morire o vivere?
+                  rc_t = errorHandler(SSCANF_FAILURE);
                 }
                 number[0] = 0;
                 numbersToRead--;
               }
               counter = 0;
+              int stopRead = 0;
               if (isManagerAlive(manager) == SUCCESS) {
-                // TODO... CHECK IF FILE IS FINISHED OR NOT
-                bytesRead =
-                    read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
-                // printf("parola di controllo: %s\n", controlWord);
-                if (bytesRead > 0) {
-                  if (strcmp(controlWord, CONTROL_DONE) == 0) {
-                    printf("Done!!!\n");
-                    accumulator++;
-                    printf("Acc: %llu\n", accumulator);
-                    printf("NUMBER ACC: %llu\n", accumulatorNUMBER);
-                    //pthread_mutex_lock(&(sharedResources->mutex));
-                    //printf("ANALYZER %d: prima\n", getpid());
-                    //printList(manager->filesInExecution, pasta);
-                    //toStringTable(info->fileTable);
-                    //pasta(file);
-                    // pasta(node->data);
-                    push(finished, info);
-                    //printList(finished, pasta);
-                    rc_t = detachNodeFromList(manager->filesInExecution, node);
-                    printf("HO SIZE: %d %d\n", manager->filesInExecution->size, manager->m_pid);
-                    //printf("ANALYZER %d: dopo\n", getpid());
-                    // usleep(100000);
-                    //printList(manager->filesInExecution, pasta);
-                    // fflush(stdout);
-                    // sleep(5);
-                    //pthread_mutex_unlock(&(sharedResources->mutex));
-                  } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
-                    // printf("UNDONE!\n");
-                  } else {
-                    printf("Nn o kpt una kppa\n");
+                while (isManagerAlive(manager) == SUCCESS && stopRead == 0) {
+                  bytesRead = read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
+                  int i = 0;
+                  if (bytesRead > 0) {
+                    if (strcmp(controlWord, CONTROL_DONE) == 0) {
+                      if(found == 1){
+                        counterFiles++;
+                        //printf("path: %s, size: %d\n", path, counterFiles);
+                        rc_dn = detachNodeFromList(manager->filesInExecution, node);
+                        if(rc_dn != SUCCESS){
+                          rc_t = errorHandler(rc_dn);
+                        }
+                      }
+                      rc_pu = push(finished, info);
+                      if(rc_pu != SUCCESS){
+                        rc_t = errorHandler(MALLOC_FAILURE);
+                      }
+                    } else if (strcmp(controlWord, CONTROL_UNDONE) != 0) {
+                      //!Per il momento a success
+                      rc_t = errorHandler(ANALYZER_MANAGER_MISUNDERSTANDING);
+                    }
+                    stopRead = 1;
                   }
                 }
               } else {
-                //pthread_mutex_lock(&(sharedResources->mutex));
-                rc_em = endManager(manager, sharedResources->fileToAssign);
-                if (rc_em < SUCCESS) {
-                  rc_t = rc_em;
-                  printError("Error in save Manager Work\n");
-                }
-                printf("DISTRUGGO LO STRONZO pt 1\n");
-                destroyManager((void *)manager);
-                //pthread_mutex_unlock(&(sharedResources->mutex));
+                //printf("MUOIO pt 1\n");
+                rc_rm = respawnManager(tmpManagers, manager,
+                                       sharedResources->fileToAssign);
+                //printf("RESPAWNO pt 1\n");
+                alreadyPushed = SUCCESS;
+                rc_t = errorHandler(rc_rm);
               }
             }
           }
-          //pthread_mutex_lock(&(sharedResources->mutex));
-          pushPriorityQueue(tmpManagers, manager->filesInExecution->size,
-                            manager);
-          //pthread_mutex_unlock(&(sharedResources->mutex));
         } else {
-          //pthread_mutex_lock(&(sharedResources->mutex));
-          printf("e' morto quello con pid %d\n", manager->m_pid);
-          // rc_em = endManager(manager, sharedResources->fileToAssign);
-          /*if(rc_em < SUCCESS){
-              rc_t = rc_em;
-              printError("Error in save Manager Work\n");
-          }*/
-          printf("DISTRUGGO LO STRONZO pt 2\n");
-          // destroyManager((void *) manager);
-          //pthread_mutex_unlock(&(sharedResources->mutex));
+          //printf("MUOIO pt 2\n");
+          rc_rm = respawnManager(tmpManagers, manager,
+                                 sharedResources->fileToAssign);
+          //printf("RESPAWNO pt 2\n");
+          alreadyPushed = SUCCESS;
+          rc_t = errorHandler(rc_rm);
+        }
+        if (alreadyPushed == FAILURE) {
+          rc_pu = pushPriorityQueue(tmpManagers, manager->filesInExecution->size,
+                            manager);
+          if(rc_pu != SUCCESS){
+            rc_t = errorHandler(MALLOC_FAILURE);
+          }
+        } else {
+          alreadyPushed = FAILURE;
         }
       } else {
-        printf("MANAGER NULLO\n");
-        rc_t = NULL_POINTER;
+        rc_t = errorHandler(NULL_POINTER);
       }
       nManager--;
-      // TODO STAMPA COME WORD COUNTER
     }
-    //pthread_mutex_lock(&(sharedResources->mutex));
     rc_sw = swapPriorityQueue(sharedResources->managers, tmpManagers);
     if (rc_sw != SUCCESS) {
-      printf("errore swap ciaone\n");
-      rc_t = rc_sw;
+      rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
     }
-    //pthread_mutex_unlock(&(sharedResources->mutex));
-    // sleep(2);
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
       rc_mfs = manageFileToSend(sharedResources->managers,
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
+      if(rc_mfs != SUCCESS){
+        errorHandler(rc_mfs);
+      }
     }
     pthread_mutex_unlock(&(sharedResources->mutex));
-    // TODO... Handle with an handler for more specific errors if(rc_mfs ==
-    // something) then ...
-    usleep(1);
+    usleep(500);
   }
-  printf("SEND FILE LOOP rc_t %d\n", rc_t);
-  fflush(stdout);
-  sleep(1);
-  // kill(getpid(), SIGKILL);
+  printf("ATTENZIONE: sto a mori' qui %d\n", rc_t);
+  kill(getpid(), SIGKILL);
 }
 
-void sighandle_print(int sig){
-  //printList(finished, pasta2);
+/*
+void sighandle_print(int sig) {
+  // printList(finished, pasta2);
   int fd = open("/tmp/conteggio.txt", O_WRONLY);
   // printf("ACCUMULATORE %llu\n", accumulator);
   printf("Scorro tutto\n");
-  while(isEmptyList(finished) == NOT_EMPTY){
-      //printf("SONO UN FIGLIO DI TROIA\n");
-      FileInfo finfo = front(finished);
-      pop(finished);
-      unsigned long long counterSchifo = 0;
-      int i = 0;
-      for(i = 0; i < NCHAR_TABLE; i++){
-          counterSchifo += finfo->fileTable[i];
-      }
-      char *stringa = calloc(PATH_MAX + INT_MAX_LEN + 1, sizeof(char));
-      sprintf(stringa, "%s;%llu\n", finfo->path, counterSchifo);
-      write(fd, stringa, strlen(stringa) + 1);
-      free(stringa);
+  while (isEmptyList(finished) == NOT_EMPTY) {
+    // printf("SONO UN FIGLIO DI TROIA\n");
+    FileInfo finfo = front(finished);
+    pop(finished);
+    //! nome file \n tabella tutta su una riga separata da spazi \n
+    unsigned long long counterSchifo = 0;
+    char *stringa = calloc(PATH_MAX + 1, sizeof(char));
+    strcpy(stringa, finfo->path);
+    write(fd, stringa, strlen(stringa));
+    write(fd, "\n", 1);
+    int i = 0;
+    for (i = 0; i < NCHAR_TABLE; i++) {
+      counterSchifo = finfo->fileTable[i];
+      sprintf(stringa, "%llu ", counterSchifo);
+      write(fd, stringa, strlen(stringa));
+    }
+    write(fd, "\n", 1);
+    free(stringa);
   }
   close(fd);
   printf("Ho finito di scrivere\n");
   signal(SIGINT, SIG_DFL);
 }
+*/
 
 int manageFileToSend(PriorityQueue managers, int currentWorker,
                      List filesToAssign) {
@@ -1437,7 +1914,7 @@ int manageFileToSend(PriorityQueue managers, int currentWorker,
   int rc_sf = SUCCESS;
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
-  int rc_em = SUCCESS;
+  int rc_rm = SUCCESS;
   int isAliveM = SUCCESS;
   if (managers != NULL) {
     Manager m = (Manager)popPriorityQueue(managers);
@@ -1451,80 +1928,25 @@ int manageFileToSend(PriorityQueue managers, int currentWorker,
             rc_pu = pushPriorityQueue(managers, m->filesInExecution->size,
                                       (void *)m);
             if (rc_pu < SUCCESS) {
-              rc_t = rc_pu;
+              rc_t = MALLOC_FAILURE;
             } else {
               rc_t = rc_sf;
             }
           } else {
-            rc_t = ASSIGNWORK_FAILURE;
+            rc_t = ASSIGNWORK_FILE_FAILURE;
           }
         }
       } else {
-        // TODO... change behavior
-        rc_em = endManager(m, filesToAssign);
-        if (rc_em < SUCCESS) {
-          rc_t = rc_em;
-          printError("Error in save Manager Work\n");
-        }
-        destroyManager((void *)m);
-        // rc_t = DEAD_PROCESS;
+        rc_rm = respawnManager(managers, m, filesToAssign);
+        rc_t = DEAD_PROCESS;
       }
     }
   } else {
     rc_t = NULL_POINTER;
   }
-  //}
-  // printf("esco da manage file to send\n");
   return rc_t;
 }
 
-/**
- * Function that init the fileInfo root of the tree
- */
-// Ho spostato la funzione, speriamo bene che tutto funzioni correttametne
-FileInfo initFileInfoRoot(int *msg) {
-  FileInfo rootData;
-  char *rootName = (char *)malloc(sizeof(char) * 2);
-  int rc_ca = checkAllocationError(rootName);
-  int rc_nc = SUCCESS;
-  if (rc_ca < 0) {
-    // TODO... HARAKIRI PROBABLY
-    printError("I can't allocate memory");
-  } else {
-    if (strcpy(rootName, "/") != NULL)
-      rootData = newFileInfo((void *)rootName, DIRECTORY, NULL, &rc_nc);
-  }
-  // Error checking
-  if (rc_ca == MALLOC_FAILURE || rc_nc == MALLOC_FAILURE) {
-    *msg = MALLOC_FAILURE;
-  }
-  return rootData;
-}
-
-/**
- * Function that init the analyzer tree
- */
-Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *)) {
-  Tree tree = NULL;
-  tree = newTree((void *)data, msg, destroyer, NULL);
-  if (*msg != SUCCESS) {
-    char *msgErr = (char *)malloc(300);
-    int rc_ca = checkAllocationError(msgErr);
-    if (rc_ca < 0) {
-      // TODO... HARAKIRI PROBABLY
-      printError("I can't allocate memory");
-    } else {
-      sprintf(msgErr, "Can't create tree inside Analyzer: %d", getpid());
-      printInfo(msgErr);
-      free(msgErr);
-    }
-  }
-  return tree;
-}
-
-/**
- * Function that obtains the current working directory
- */
 int getCwd(char *dst) {
   int rc_cwd = SUCCESS;
   if (getcwd(dst, PATH_MAX) == NULL) {
@@ -1546,6 +1968,9 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid) {
     if (f > 0) {
       // TODO... Deal with pipe
       rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
+      if(rc_cds_1 != SUCCESS){
+        rc_t = PIPE_FAILURE;
+      }
       *childPid = f;
     } else if (f == 0) {
       // TODO... Deal with pipe
@@ -1554,16 +1979,17 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid) {
       rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
       rc_exlp = execlp("find", "find", compactedPath, "-mindepth", "1",
                        "-readable", "-type", "f", NULL);
-      printf("MUOIO CON LA FIND\n");
-      // kill(getpid(), SIGKILL);
-      // printf("fallisco miseramente\n");
+      if(rc_cds_1 != SUCCESS || rc_cdp != SUCCESS || rc_cds_2 != SUCCESS){
+        rc_t = errorHandler(PIPE_FAILURE);
+      } else if(rc_exlp != SUCCESS){
+        rc_t = errorHandler(FIND_FAILURE);
+      }
+      kill(getpid(), SIGKILL);
     } else {
-      printError("The program couldn't execute a fork");
       rc_t = FORK_FAILURE;
     }
   } else {
     rc_t = PIPE_FAILURE;
-    printError("Pipe find in saveFindResult gone wrong");
   }
   return rc_t;
 }
@@ -1610,22 +2036,20 @@ void *fileManageLoop(void *ptr) {
   rc_al = checkAllocationError(relativePath);
 
   if (rc_al != SUCCESS) {
-    rc_t = MALLOC_FAILURE;
+    rc_t = errorHandler(MALLOC_FAILURE);
   }
 
   while (rc_t == SUCCESS) {
     if (readFlag != SUCCESS) {
       pthread_mutex_lock(&(sharedResources->mutex));
-      // printf("size lista sharedResources %d\n",
-      // sharedResources->candidateNode->size);
       if (isEmptyList(sharedResources->candidateNode) == NOT_EMPTY) {
         candidate = (TreeNodeCandidate)front(sharedResources->candidateNode);
         int rt_po = pop(sharedResources->candidateNode);
         if (candidate == NULL || rt_po < SUCCESS) {
-          rc_t = UNEXPECTED_LIST_ERROR;
+          rc_t = errorHandler(UNEXPECTED_LIST_ERROR);
         } else {
-          printf("Setto insertFlag a true dovuto a %s, type %d, skip %d\n",
-                 candidate->path, candidate->type, candidate->toSkip);
+          //printf("Setto insertFlag a true dovuto a %s, type %d, skip %d\n",
+          //       candidate->path, candidate->type, candidate->toSkip);
           insertFlag = SUCCESS;
         }
       }
@@ -1633,18 +2057,17 @@ void *fileManageLoop(void *ptr) {
     } else {
       insertFlag = FAILURE;
     }
-
     // Parte di inserimento
     if (insertFlag == SUCCESS) {
-      printf("Precompute ok!!\n");
+      //printf("Precompute ok!!\n");
       childPid = 0;
       if (candidate->type == DIRECTORY) {
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
-        printf("Lo ho spawnato: %d - %d, %d\n", fd[READ_CHANNEL], fd[WRITE_CHANNEL], childPid);
+        //printf("Lo ho spawnato: %d - %d, %d\n", fd[READ_CHANNEL],
+        //       fd[WRITE_CHANNEL], childPid);
         readFlag = 1;
         if (rc_find != SUCCESS) {
-          printError("Error in spawn find result");
-          // TODO... NON FARE NULLA -> Need to be Handled in some way
+          rc_t = errorHandler(rc_find);
         } else {
           readFlag = SUCCESS;
         }
@@ -1652,17 +2075,15 @@ void *fileManageLoop(void *ptr) {
         skipPath(candidate->path, relativePath, candidate->toSkip);
         pthread_mutex_lock(&(sharedResources->mutex));
         toSchedule = performInsert(relativePath, candidate->path,
-                                   candidate->startingNode, IS_FILE, &rc_pi);
-        // TODO... VEDERE L'ERRORE, vedere soprattutto il fatto dell'inserimento
-        // doppio
-        printf("sono un file\n");
+                                   candidate->startingNode, IS_FILE, &rc_pi, sharedResources->requestedFiles);
         if (rc_pi == SUCCESS) {
           rc_en = SUCCESS;
           rc_en = enqueue(sharedResources->fileToAssign, (void *)toSchedule);
           if (rc_en != SUCCESS) {
-            printError("Error in assign file to manager");
-            rc_t = rc_en;
+            rc_t = errorHandler(MALLOC_FAILURE);
           }
+        } else {
+          rc_t = errorHandler(rc_pi);
         }
         pthread_mutex_unlock(&(sharedResources->mutex));
         insertFlag = FAILURE;
@@ -1675,24 +2096,18 @@ void *fileManageLoop(void *ptr) {
       if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
         if (bytesRead > 0) {
           candidate->path[counter + skipped] = charRead;
-          // printf("charRead in find: %c, %d\n", charRead, charRead);
-          // usleep(100000);
           if (skipped >= candidate->toSkip) {
             if (charRead == '\n' || charRead == '\0') {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                //printf("relativePath: %s, candidate->path: %s\n", relativePath, candidate->path);
-                // usleep(100000);
                 pthread_mutex_lock(&(sharedResources->mutex));
                 rc_ia = insertAndSchedule(candidate->startingNode,
                                           sharedResources->fileToAssign,
-                                          relativePath, candidate->path);
+                                          relativePath, candidate->path, sharedResources->requestedFiles);
                 pthread_mutex_unlock(&(sharedResources->mutex));
-                if (rc_ia != SUCCESS) {
-                  // TODO... handle if file already inserted or malloc failure
-                  printf("rc_ia %d\n", rc_ia);
-                  printError("Insert and schedule failed");
+                if (rc_ia != SUCCESS && rc_ia != ALREADY_INSERTED) {
+                  rc_t = errorHandler(rc_ia);
                 }
               }
               counter = 0;
@@ -1704,50 +2119,160 @@ void *fileManageLoop(void *ptr) {
           } else {
             skipped++;
           }
-        } else {
-          //! Strange case due to the scheduler: Thanks scheduler
-          // printf("infamata assurda!\n");
         }
-
       } else {
         closeDescriptor(fd[READ_CHANNEL]);
         readFlag = FAILURE;
+        pthread_mutex_lock(&(sharedResources->mutex));
         destroyTreeNodeCandidate(candidate);
-        // printf("Ho finito di leggere perche': %d\n", bytesRead);
+        pthread_mutex_unlock(&(sharedResources->mutex));
       }
     }
     usleep(500);
   }
   printf("Ho rct %d perche' sono morto FILEMANAGE \n", rc_t);
   free(relativePath);
-  // kill(getpid(), SIGKILL);
+  kill(getpid(), SIGKILL);
 }
 
-Tree fs = NULL;
+int errorHandler(int errorCode) {
+  int rc_t = SUCCESS;
+  switch (errorCode) {
+  case READ_FAILURE:
+    /* printInfo("reading from worker"); */
+    rc_t = SUCCESS;
+    break;
+  case PIPE_FAILURE:
+    printInfo("Something went wrong due to pipe bad behavior");
+    rc_t = HARAKIRI;
+    break;
+  case CHARACTER_OVERFLOW:
+    printInfo("Preventing characters overflow, the statistics could not be "
+              "reliable");
+    rc_t = SUCCESS;
+    break;
+  case MALLOC_FAILURE:
+    printError("I could not allocate enough memory to run the program correctly");
+    rc_t = HARAKIRI;
+  case CWD_ACCESS_DENIED:
+    printError("For some reasons that I do not know I could not access the current working directory");
+    rc_t = HARAKIRI;
+    break;
+  case UNEXPECTED_LIST_ERROR:
+    printError("Something gone wrong due to unespected list behavior");
+    rc_t = HARAKIRI;
+    break;
+  case FORK_FAILURE:
+    printError("The program couldn't execute a fork");
+    rc_t = HARAKIRI;
+    break;
+  case NULL_POINTER:
+    printInfo("Unexpected null pointer");
+    rc_t = SUCCESS;
+    break;
+  case FIND_FAILURE:
+    printError("Find function could not be called");
+    rc_t = HARAKIRI;
+    break;
+  case DEAD_PROCESS:
+    printInfo("One or more managers are dead, new one/s is/are spawned");
+    rc_t = SUCCESS;
+    break;
+  case ASSIGNWORK_FILE_FAILURE:
+    printInfo("No file to assign");
+    rc_t = SUCCESS;
+    break;
+  case UNEXPECTED_PRIORITY_QUEUE_FAILURE:
+    printError("Something went wrong due to unespected priority queue behavior");
+    rc_t = HARAKIRI;
+    break;
+  case FILE_NOT_FOUND:
+    //Niente da scrivere
+    rc_t = SUCCESS;
+    break;
+  case ANALYZER_MANAGER_MISUNDERSTANDING:
+    printInfo("There was a misunderstanding between Manager and Analyzer");
+    rc_t = SUCCESS;
+    break;
+  case SSCANF_FAILURE:
+    printInfo("Something went wrong due to unespected sscanf behavior");
+    rc_t = SUCCESS;
+    break;
+  case NON_EXISTING_FILE:
+    printError("The Infos of a node in the tree rapresenting the "
+                           "File System are NULL");
+    rc_t = HARAKIRI;
+    break;
+  case NON_EXISITING_FS_NODE:
+    printError("A node in the tree rapresenting the File System "
+                             "is NULL");
+    rc_t = HARAKIRI;
+    break;
+  case SEND_FAILURE:
+    printInfo("not able to send work to worker");
+    rc_t = SUCCESS;
+    break;
+  case NEW_WORKER_FAILURE:
+    printError("No memory for manager creation");
+    rc_t = HARAKIRI;
+    break;
+  case MANAGER_CREATION_FAILURE:
+    printError("Something went wrong in managers spawn");
+    rc_t = HARAKIRI;
+    break;
+  case CAST_FAILURE:
+    printInfo("Manager and Worker number must integers");
+    rc_t = SUCCESS;
+    break;
+  case INVALID_SYNTAX_ERROR:
+    printInfo("Invalid Argument passed from input, syntax must "
+                "be:\n-Path\n-Number of Manager\n-Number of Worker\n");
+    rc_t = SUCCESS;
+    break;
+  case FILE_TYPE_NOT_RECOGNIZED:
+    printInfo("I didn't understand the file type of what you gave me");
+    rc_t = SUCCESS;
+  break;
+  case SPRINTF_FAILURE:
+    printError("Something went wrong due to bad ssprintf behavior");
+    rc_t = SUCCESS;
+  break;
+  case READ_BASH_FAILURE:
+    printError("Error reading from Bash");
+    rc_t = HARAKIRI;
+  break;
+  case WRITE_BASH_FAILURE:
+    printError("Error writing using Bash");
+    rc_t = HARAKIRI;
+  break;
+  case BASH_FAILURE:
+    printError("Bash can not be called");
+    rc_t = HARAKIRI;
+  break;
+  default:
+    printError("unknown error");
+    rc_t = HARAKIRI;
+    break;
+  }
 
-/**
- * Signal handler for debug
-
-void sighandle_int(int sig){
-    destroyTree(fs);
-    signal(SIGINT, SIG_DFL);
+  return rc_t;
 }
-*/
 
 int main() {
   signal(SIGCHLD, SIG_IGN);
-  signal(SIGINT, sighandle_print);
+  //signal(SIGINT, sighandle_print);
   sharedResourcesAnalyzer_t sharedResources;
-  // Tree fs = NULL;
+  Tree fs = NULL;
   TreeNode currentDirectory = NULL;
   FileInfo root = NULL;
-  // TODO check for literals, ehm... I mean errors!
   PriorityQueue managers = newPriorityQueue();
   List fileToAssign = newList();
   List candidateNode = newList();
-  char cwd[PATH_MAX];
+  List requestedFiles = newList();
+  char *cwd = (char *)malloc(sizeof(char) * PATH_MAX);
+  int rc_al = checkAllocationError(cwd);
   char *path = (char *)malloc(sizeof(char) * PATH_MAX);
-  int rc_al = checkAllocationError(path);
+  int rc_al2 = checkAllocationError(path);
   int defaultManagers = 3;
   int defaultWorkers = 4;
   int rc_cwd = SUCCESS;
@@ -1756,39 +2281,48 @@ int main() {
   int rc_pi = SUCCESS;
   int rc_t = SUCCESS;
   int rc_am = SUCCESS;
-  // fprintf(stderr, "OOOOOOOO\n");
+  int rc_en = SUCCESS;
   rc_am = addManagers(managers, defaultManagers);
   rc_cwd = getCwd(cwd);
-  // fprintf(stdout, "Sono nel main!\n");
-  // Alla fine tutto  printError verranno sostituiti con un handler dell'errore,
-  // quindi si, sono brutti, ma diciamo che è rimediabile
-  if (rc_cwd == SUCCESS && rc_am == SUCCESS && managers != NULL &&
-      rc_al == SUCCESS && candidateNode != NULL && fileToAssign != NULL) {
-    // CANNOT MOVE THIS CODE (AT LEAST IF YOU DON'T WANT TO DEAL WITH COPY OF
-    // POINTER)
+  if(rc_cwd != SUCCESS){
+    rc_t = errorHandler(rc_cwd);
+  }
+  if(rc_t == SUCCESS && rc_am != SUCCESS){
+    rc_t = errorHandler(rc_am);
+  }
+  if(rc_t == SUCCESS && rc_al != SUCCESS){
+    rc_t = errorHandler(rc_al);
+  }
+  if(rc_t == SUCCESS && rc_al2 != SUCCESS){
+    rc_t = errorHandler(rc_al2);
+  }
+  if(rc_t == SUCCESS && (managers == NULL || candidateNode == NULL || fileToAssign == NULL || requestedFiles == NULL)){
+    rc_t = MALLOC_FAILURE;
+  }
+  if (rc_t == SUCCESS) {
     root = initFileInfoRoot(&rc_ir);
     if (rc_ir == SUCCESS) {
       // Inizializzazione dell'albero
       fs = initializeAnalyzerTree(root, &rc_it, destroyFileInfo);
-      if (rc_it == SUCCESS) {
-        currentDirectory =
-            performInsert(cwd, NULL, getRoot(fs), DIRECTORY, &rc_pi);
-        if (rc_pi != SUCCESS) {
-          rc_t = rc_pi;
-          printError("Unable to insert the current directory :(");
+      if (rc_it == SUCCESS) { 
+        rc_en = enqueue(requestedFiles, getRoot(fs));
+        if(rc_en == SUCCESS){
+          currentDirectory =
+            performInsert(cwd, NULL, getRoot(fs), DIRECTORY, &rc_pi, requestedFiles);
+          if (rc_pi != SUCCESS) {
+            rc_t = errorHandler(rc_pi);
+          }
+        }else{
+          rc_t = errorHandler(rc_en);
         }
       } else {
-        rc_t = rc_it;
-        printError("I am not able to initialize the root of the tree, that's "
-                   "terrible guys");
+        rc_t = errorHandler(rc_it);
       }
     } else {
-      rc_t = rc_ir;
-      printError(
-          "I am not able to allocate the root of the tree, this is very bad");
+      rc_t = errorHandler(rc_ir);
     }
-    // Guarda che casinoooooooo
     sharedResources.cwd = cwd;
+    sharedResources.requestedFiles = requestedFiles;
     sharedResources.fileToAssign = fileToAssign;
     sharedResources.currentDirectory = currentDirectory;
     sharedResources.fs = fs;
@@ -1804,27 +2338,14 @@ int main() {
     pthread_create(&fileManage, NULL, fileManageLoop, (void *)&sharedResources);
     pthread_t send;
     pthread_create(&send, NULL, sendFileLoop, (void *)&sharedResources);
-    printf("NON DEVO MORIRE\n");
     pthread_join(reads, NULL);
     pthread_join(fileManage, NULL);
     pthread_join(send, NULL);
-    printf("free tree\n");
-    destroyTree(fs);
-    printf("dopo free tree\n");
   } else {
-    // TODO... Create handler for these errors
-    if (rc_am != SUCCESS) {
-      rc_t = rc_am;
-    } else {
-      printError("I am not able to find the current working directory. This is "
-                 "a disgrace");
-      rc_t = CWD_ACCESS_DENIED;
-    }
+    rc_t = errorHandler(rc_t);
   }
-  // TODO... destroyList(fileToAssign, destructor);
-  printf("free manager\n");
+  destroyTree(fs);
   destroyPriorityQueue(managers, destroyManager);
-  printf("dopo free manager\n");
   return rc_t;
 }
 /*

@@ -15,9 +15,11 @@ Tree newTree(void *data, int *msg, void destroy(void *), int toCompare(void *, v
 }
 
 TreeNode getRoot(Tree tree){
+    TreeNode root = NULL;
     if(tree != NULL){
-        return tree->root;
+        root = tree->root;
     }
+    return root;
 }
 
 TreeNode newTreeNode(TreeNode parent, void *data, int *msg){

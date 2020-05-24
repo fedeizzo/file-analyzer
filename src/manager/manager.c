@@ -447,10 +447,12 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
     if (rc_work == SUCCESS) {
+      /* printf("potrei rompermi qui\n"); */
       pthread_mutex_lock(&(sharedRes->mutex));
       rc_work = executeWork(sharedRes->workers, sharedRes->tables,
                             sharedRes->todo, &sharedRes->summaryFlag);
       pthread_mutex_unlock(&(sharedRes->mutex));
+      /* printf("e invece no\n"); */
       if (rc_work < SUCCESS)
         rc_work = errorHandler(rc_work);
     }
@@ -641,6 +643,7 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
 int assignWork(Worker worker, Work work, List todo) {
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
+  /* printf("return code di pop: %d\n", rc_po); */
   if (rc_po != -1) {
     worker->doing = work;
     worker->workAmount = work->bufferEnd - work->bufferStart + 1;
@@ -815,11 +818,13 @@ int clearWorkersWork(List workers, List todo, List tables) {
             if (rc_rd > 0)
               worker->bytesSent += rc_rd;
           }
-          int rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
-          if (rc_rd == 5) {
+          int rc_rd = -1;
+          while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
             rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
+            /* printf("ho letto %s\n", charSent); */
             if (rc_rd == 5) {
-              if (strncmp(charSent, "ackn", 4) == 0) {
+              if (strncmp(charSent, "done", 4) == 0) {
+                /* printf("sto per entrare nel while strano\n"); */
                 endWork(worker, tables, BAD_ENDING, todo, NULL);
               }
             }
@@ -869,9 +874,9 @@ int remoduleWorks(List todo, List workers, List tables) {
             rc_pu2 = enqueue(todo, w);
           }
           if (rc_pu2 == SUCCESS) {
-            Work w = newWork(work->tablePointer,
-                             step * (nWorkers - 1) + work->bufferStart,
-                             step * nWorkers + remainder + work->bufferStart);
+            Work w = newWork(
+                work->tablePointer, step * (nWorkers - 1) + work->bufferStart,
+                step * nWorkers + remainder + work->bufferStart - 1);
             rc_pu2 = enqueue(todo, w);
           } else {
             rc_t = NEW_DIRECTIVES_FAILURE;
