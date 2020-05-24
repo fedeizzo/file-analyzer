@@ -505,6 +505,15 @@ TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip);
 TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
                                        char *path, int characterToSkip);
 
+/**
+ * Function that destroys a TreeNodeCandidate (N.B. not all data inside the TreeNodeCandidate will be freed
+ * because they'll be used in the next operations)
+ * 
+ * args:
+ *    void *data: the TreeNodeCandidate that needs to be destroyed
+ */
+void destroyTreeNodeCandidate(void *data);
+
 int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
 int scheduleFile(TreeNode toSchedule, Manager manager);
@@ -933,6 +942,7 @@ void *readDirectivesLoop(void *ptr) {
               &toSkip);
           toAnalyze = newTreeNodeCandidate(startingNode, type, newPath, toSkip);
           if (toAnalyze != NULL) {
+            // TODO... check push return code
             push(sharedResources->candidateNode, toAnalyze);
           } else {
             rc_t = errorHandler(MALLOC_FAILURE);
@@ -1489,6 +1499,24 @@ void printCandidateNode(void *data) {
          candidate->startingNode, candidate->path, candidate->type,
          candidate->toSkip);
 }
+
+/**
+ * Function that handle the multiple instance of .. inside the path in order to get at the highest level
+ * 
+ * args:
+ *    TreeNode startingNode: the starting directory where the search inside the tree will start
+ *    int typeOfFile: the type of the file which will be analyzed (ISFILE or DIRECTORY)
+ *    char *path: the valid path of a file or a folder which is passed in input 
+ *    int characterToSkip:  number of characters to skip because are not part of the file or folder name and
+ *      only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNodeCandidate which will be put later on inside a list in order to be analyzed
+ */
+
+
+
 
 
 //TODO... remove this global list of elements
