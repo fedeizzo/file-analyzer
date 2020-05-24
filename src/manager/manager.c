@@ -1062,7 +1062,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   int rc_al = checkAllocationError(t);
   List todoTmp = newList();
   int rc_al2 = checkAllocationError(todoTmp);
-  ////fprintf(stderr, "path in addDirectives %s\n", path);
+
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
@@ -1070,64 +1070,63 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
     if (rc_pu == 0) {
       int fd = openFile(path, O_RDONLY);
       unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
-      //printf("file dimension %lli\n", fileDimension);
+
       if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
         Work w = newWork(t, 0, fileDimension - 1);
-        // TODO... check error code
-        push(todoTmp, w);
-        // TODO... check if this causes any bug!!!
-        t->workAssociated = 1;
+        if (w != NULL) {
+          int rc_pu = push(todoTmp, w);
+          if (rc_pu < SUCCESS)
+            t->workAssociated = 1;
+          else
+            rc_t = rc_pu;
+        }
       } else if (fileDimension > 0 && nWorker > 0) {
         unsigned long long step = (unsigned long long)fileDimension / nWorker;
         unsigned long long remainder = fileDimension % nWorker;
         int rc_pu2 = SUCCESS;
 
-          int i = 0;
-          for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
-            Work w = newWork(t, step * i, step * (i + 1) - 1);
-            rc_pu2 = push(todoTmp, w);
-          }
-
-          if (rc_pu2 == SUCCESS) {
-            // TODO per considerare anche EOF mettere solo -1
-            Work w = newWork(t, step * (nWorker - 1),
-                             step * nWorker + remainder - 1);
-            rc_pu2 = push(todoTmp, w);
-          } else {
-            rc_t = NEW_DIRECTIVES_FAILURE;
-          }
-          t->workAssociated = nWorker;
-        } else if (fileDimension > 0 && nWorker == 0) {
-          Work w = newWork(t, 0, fileDimension - 1);
-          // TODO... check error code
-          push(todoTmp, w);
-          // TODO... check if this causes any bug!!!
-          t->workAssociated = 1;
-        } else if (fileDimension == 0) {
-          //! da togliere senno' crasha analyzer
-          // printf("entro nell'else\n");
-          // TODO... check if this causes any bug!!!
-          // pop(tables);
-          // TODO... check error code
-          Work w = newWork(t, 0, -1);
-          push(todoTmp, w);
-          t->workAssociated = 1;
+        int i = 0;
+        for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
+          Work w = newWork(t, step * i, step * (i + 1) - 1);
+          rc_pu2 = push(todoTmp, w);
         }
-        //! da togliere senno' crasha analyzer
-        // printList(todoTmp, stopThisShitPrint);
 
-        int rc_cl = SUCCESS;
-        if (fd != -1)
-          rc_cl = closeDescriptor(fd);
-
-        if (fd == -1 || rc_cl == -1)
-          rc_t = DESCRIPTOR_FAILURE;
+        if (rc_pu2 == SUCCESS) {
+          // TODO per considerare anche EOF mettere solo -1
+          Work w =
+              newWork(t, step * (nWorker - 1), step * nWorker + remainder - 1);
+          rc_pu2 = push(todoTmp, w);
+        } else {
+          rc_t = NEW_DIRECTIVES_FAILURE;
+        }
+        t->workAssociated = nWorker;
+      } else if (fileDimension > 0 && nWorker == 0) {
+        Work w = newWork(t, 0, fileDimension - 1);
+        if (w != NULL) {
+          int rc_pu = push(todoTmp, w);
+          if (rc_pu < SUCCESS)
+            t->workAssociated = 1;
+          else
+            rc_t = rc_pu;
+        }
       } else {
-        rc_t = NEW_DIRECTIVES_FAILURE;
+        Work w = newWork(t, 0, -1);
+        if (w != NULL) {
+          int rc_pu = push(todoTmp, w);
+          if (rc_pu < SUCCESS)
+            t->workAssociated = 1;
+          else
+            rc_t = rc_pu;
+        }
       }
+
+      int rc_cl = closeDescriptor(fd);
+
+      if (fd == -1 || rc_cl == -1)
+        rc_t = DESCRIPTOR_FAILURE;
+    } else {
+      rc_t = NEW_DIRECTIVES_FAILURE;
     }
-    ////fprintf(stderr, "Stampo in add directives\n");
-    // printList(tables, toStringTable);
   }
 
   if (rc_t == SUCCESS) {
@@ -1141,13 +1140,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
         rc_t = NEW_DIRECTIVES_FAILURE;
     }
   }
-  // fprintf(stderr, "FREEEEEE TODO TMP\n");
+
   free(todoTmp);
-  // fprintf(stderr, "dopo free todo\n");
-  /* printf("prima dell'add directives\n"); */
-  /* printList(todo, print); */
-  /* printList(tables, toStringTable); */
-  /* printf("dopo dell'add directives\n"); */
 
   return rc_t;
 }
