@@ -334,7 +334,7 @@ void *writeFifoLoop(void *ptr) {
       fd = open(fifoPath, O_WRONLY);
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "-", &(input->userInput->managers),
+        rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
       close(fd);
@@ -348,7 +348,7 @@ void *writeFifoLoop(void *ptr) {
       fd = open(fifoPath, O_WRONLY);
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "-", &(input->userInput->managers),
+        rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
       close(fd);

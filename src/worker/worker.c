@@ -246,7 +246,7 @@ int executeWork(const int fd, const unsigned long long start,
       lectures--;
     }
 
-    if (rc_t < SUCCESS) {
+    if (rc_t == SUCCESS) {
       int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
       if (rc_wr == FAILURE)
         rc_t = WRITE_FAILURE;

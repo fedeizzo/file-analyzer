@@ -25,6 +25,7 @@ typedef struct sharedResourcesAnalyzer {
   TreeNode currentDirectory;
   char *cwd;
   char *path;
+  char *toRetrive;
   int *nManager;
   int *nWorker;
   pthread_mutex_t mutex;
