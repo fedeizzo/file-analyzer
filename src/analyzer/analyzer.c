@@ -2258,6 +2258,83 @@ int errorHandler(int errorCode) {
   return rc_t;
 }
 
+void *readString(int fd, char *dst) {
+  int index = 0;
+  int byteRead = -1;
+  char charRead = 'a';
+
+  while (byteRead != 0 && charRead != '\0') {
+    byteRead = readChar(fd, &charRead);
+    /* if (charRead != 'a') */
+    /* printf("%d %c %d\n", charRead, charRead, byteRead); */
+    if (byteRead != 0) {
+      dst[index++] = charRead;
+    }
+  }
+  /* dst[index] = '\0'; */
+}
+
+void *readFromFIFOLoop(void *ptr){
+  sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
+  char *readFifo = "/tmp/reporterToAnalyzer";
+  /* remove(writeFifo); */
+  int rc_fi = mkfifo(readFifo, 0666);
+  int fifoDescriptor;
+  List dire = newList();
+  // TODO... add checks
+  while (1) {
+    int fd = open(readFifo, O_RDONLY);
+    printf("fd: %d\n", fd);
+    while (1) {
+      char *dst = malloc(PATH_MAX * sizeof(char));
+      dst[0] = '\0';
+      dst = readString(fd, dst);
+       printf("parola di controllo: %s\n", dst); 
+      if (strcmp(dst, "dire") == 0) {
+        char *msg = front(dire);
+        /* printf("size %d\n", dire->size); */
+        printf("path: %s\n", msg);
+        pop(dire);
+        free(msg);
+        msg = front(dire);
+        /* printf("size %d\n", dire->size); */
+        printf("manager: %s\n", msg);
+        pop(dire);
+        free(msg);
+        msg = front(dire);
+        /* printf("size %d\n", dire->size); */
+        printf("worker: %s\n", msg);
+        pop(dire);
+        free(msg);
+        break;
+      } else if (strcmp(dst, "requ") == 0) {
+        while (dire->size != 0) {
+          char *msg = front(dire);
+          printf("file: %s\n", msg);
+          pop(dire);
+          free(msg);
+        }
+        break;
+      } else if (strcmp(dst, "tree") == 0) {
+        char *msg = front(dire);
+        printf("voglio i figli di : %s\n", msg);
+        pop(dire);
+        free(msg);
+        break;
+      } else if (strcmp(dst, "") != 0) {
+        enqueue(dire, dst);
+        /* printf("ho encodato %s, newSize %d\n", dst, dire->size); */
+      } else {
+        /* printf("ho fatto la free\n"); */
+        free(dst);
+      }
+      usleep(1);
+    }
+    close(fd);
+    printf("chiudo\n");
+  }
+}
+
 int main() {
   signal(SIGCHLD, SIG_IGN);
   //signal(SIGINT, sighandle_print);
@@ -2338,9 +2415,12 @@ int main() {
     pthread_create(&fileManage, NULL, fileManageLoop, (void *)&sharedResources);
     pthread_t send;
     pthread_create(&send, NULL, sendFileLoop, (void *)&sharedResources);
+    pthread_t readFIFO;
+    pthread_create(&fileManage, NULL, readFromFIFOLoop, (void *)&sharedResources);
     pthread_join(reads, NULL);
     pthread_join(fileManage, NULL);
     pthread_join(send, NULL);
+    pthread_join(readFIFO, NULL);
   } else {
     rc_t = errorHandler(rc_t);
   }
