@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "tree.h"
+#include "../config/config.h"
 
 Tree newTree(void *data, int *msg, void destroy(void *), int toCompare(void *, void *)){
     Tree tree = (Tree) malloc (sizeof(struct Tree));
@@ -14,9 +15,11 @@ Tree newTree(void *data, int *msg, void destroy(void *), int toCompare(void *, v
 }
 
 TreeNode getRoot(Tree tree){
+    TreeNode root = NULL;
     if(tree != NULL){
-        return tree->root;
+        root = tree->root;
     }
+    return root;
 }
 
 TreeNode newTreeNode(TreeNode parent, void *data, int *msg){

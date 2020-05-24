@@ -2,6 +2,7 @@
 #define __WORKER_H__
 
 #include "../work/work.h"
+#include "../config/config.h"
 
 /**
  * Handles a worker. A worker is a associated with:
@@ -22,7 +23,7 @@
  */
 typedef struct structWorker{
   int pid;
-  long long *table;
+  unsigned long long *table;
   int bytesSent;
   int workAmount;
   Work doing;

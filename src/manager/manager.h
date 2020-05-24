@@ -6,6 +6,7 @@
 #include "../list/list.h"
 #include "../work/work.h"
 #include "../table/table.h"
+#include "../config/config.h"
 
 /**
  * Holds directive information
@@ -17,8 +18,7 @@
  *    int newNWorker: new amount of worker
  */
 typedef struct DirectivesStruct {
-  char *path;
-  char *lastPath;
+  List paths;
   int currentWorkers;
   int newNWorker;
   int directiveStatus;
@@ -27,17 +27,15 @@ typedef struct DirectivesStruct {
 typedef struct sharedResources {
   Directive directive;
   List todo;
-  List doing;
-  List done;
   List workers;
   List tables;
+  int summaryFlag;
   pthread_mutex_t mutex;
 } sharedResources_t;
 
 typedef struct Manager {
   int m_pid;
   int* pipe;
-  List filesToAssign;
   List filesInExecution;
 } *Manager;
 

@@ -20,8 +20,10 @@ $(BIN_FOLDER)manager.o: ./src/manager/manager.c \
 	./src/work/work.h
 	gcc $(FLAGS) $(FLAGS_THREAD) -c ./src/manager/manager.c -o $(BIN_FOLDER)manager.o
 
-$(BIN_FOLDER)reporter.o: ./src/reporter/reporter.c ./src/reporter/reporter.h
-	gcc $(FLAGS) -c ./src/reporter/reporter.c -o $(BIN_FOLDER)reporter.o
+$(BIN_FOLDER)reporter.o: ./src/reporter/reporter.c \
+	./src/reporter/reporter.h \
+	./src/list/list.c
+	gcc $(FLAGS) $(FLAGS_THREAD) -c ./src/reporter/reporter.c -o $(BIN_FOLDER)reporter.o
 
 $(BIN_FOLDER)list.o: ./src/list/list.c ./src/list/list.h
 	gcc $(FLAGS) -c ./src/list/list.c -o $(BIN_FOLDER)list.o
@@ -69,7 +71,7 @@ build: $(BIN_FOLDER)main.o \
   $(BIN_FOLDER)manager.o \
   $(BIN_FOLDER)reporter.o \
   $(BIN_FOLDER)list.o \
-	$(BIN_FOLDER)priorityQueue.o \
+  $(BIN_FOLDER)priorityQueue.o \
   $(BIN_FOLDER)table.o \
   $(BIN_FOLDER)tree.o \
   $(BIN_FOLDER)tui.o \
@@ -79,12 +81,12 @@ build: $(BIN_FOLDER)main.o \
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)analyzer \
 	  $(BIN_FOLDER)analyzer.o \
 	  $(BIN_FOLDER)list.o \
+	  $(BIN_FOLDER)priorityQueue.o \
 	  $(BIN_FOLDER)table.o \
 	  $(BIN_FOLDER)tree.o \
 	  $(BIN_FOLDER)wrapping.o
 	gcc $(FLAGS) -o $(BIN_FOLDER)counter \
 	  $(BIN_FOLDER)main.o \
-	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)work.o \
 	  $(BIN_FOLDER)wrapping.o
@@ -98,6 +100,10 @@ build: $(BIN_FOLDER)main.o \
 	  $(BIN_FOLDER)table.o \
 	  $(BIN_FOLDER)wrapping.o \
 	  $(BIN_FOLDER)work.o
+	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)reporter \
+	  $(BIN_FOLDER)list.o \
+	  $(BIN_FOLDER)reporter.o \
+	  $(BIN_FOLDER)wrapping.o
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)tui \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)tui.o \
@@ -108,6 +114,7 @@ clean:
 	  $(BIN_FOLDER)counter \
 	  $(BIN_FOLDER)worker \
 	  $(BIN_FOLDER)manager \
+	  $(BIN_FOLDER)reporter \
 	  $(BIN_FOLDER)tui \
 	  $(BIN_FOLDER)analyzer.o \
 	  $(BIN_FOLDER)list.o \
