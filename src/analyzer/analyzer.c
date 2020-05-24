@@ -840,7 +840,7 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
   toInsert = newTreeNode(whereToInsert, (void *)dataToInsert, &rc_tc);
   if (rc_nc == SUCCESS && rc_tc == SUCCESS) {
     linkChild(whereToInsert, toInsert);
-    //printf("inserisco %s tra i figli di %s\n", dataToInsert->name, ((FileInfo)whereToInsert)->name);
+    printf("inserisco %s tra i figli di %s\n", ((FileInfo)toInsert->data)->name, ((FileInfo)whereToInsert->data)->name);
   } else {
     free(dataToInsert);
     free(toInsert);
@@ -2339,6 +2339,7 @@ void *writeOnFIFOLoop(void *ptr){
   char *toSend = (char *) malloc(sizeof(char) * PATH_MAX);
   int rc_t = checkAllocationError(toSend);
   int msg = SUCCESS;
+  printf("muoio qui\n");
   char *writeFifo = "/tmp/analyzerToReporter";
   int rc_fi = mkfifo(writeFifo, 0666);
   // TODO... check for all the erorrs
@@ -2346,6 +2347,7 @@ void *writeOnFIFOLoop(void *ptr){
     pthread_mutex_lock(&(sharedResources->mutex));
     if(sharedResources->toRetrive != NULL){
       pthread_mutex_unlock(&(sharedResources->mutex));
+      printf("entro qui\n");
       int fd = open(writeFifo, O_WRONLY);
       pthread_mutex_lock(&(sharedResources->mutex));
       if(fd > 0){
@@ -2672,6 +2674,7 @@ int main() {
     sharedResources.nWorker = &defaultWorkers;
     sharedResources.path = path;
     sharedResources.candidateNode = candidateNode;
+    sharedResources.toRetrive = NULL;
     pthread_t reads;
     pthread_mutex_init(&sharedResources.mutex, NULL);
     pthread_create(&reads, NULL, readDirectivesLoop, (void *)&sharedResources);
@@ -2681,10 +2684,13 @@ int main() {
     pthread_create(&send, NULL, sendFileLoop, (void *)&sharedResources);
     pthread_t readFIFO;
     pthread_create(&fileManage, NULL, readFromFIFOLoop, (void *)&sharedResources);
+    pthread_t writeFIFO;
+    pthread_create(&fileManage, NULL, writeOnFIFOLoop, (void *)&sharedResources);
     pthread_join(reads, NULL);
     pthread_join(fileManage, NULL);
     pthread_join(send, NULL);
     pthread_join(readFIFO, NULL);
+    pthread_join(writeFIFO, NULL);
   } else {
     rc_t = errorHandler(rc_t);
   }
