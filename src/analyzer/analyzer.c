@@ -488,6 +488,23 @@ TreeNode precomputeStartingDirectory(Tree fs, TreeNode currentDirectory,
  */                                  
 TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip);
 
+/**
+ * Function that handle the multiple instance of .. inside the path in order to get at the highest level
+ * 
+ * args:
+ *    TreeNode startingNode: the starting directory where the search inside the tree will start
+ *    int typeOfFile: the type of the file which will be analyzed (ISFILE or DIRECTORY)
+ *    char *path: the valid path of a file or a folder which is passed in input 
+ *    int characterToSkip:  number of characters to skip because are not part of the file or folder name and
+ *      only useful for the navigation inside the tree
+ *   
+ *
+ * returns
+ *    A TreeNodeCandidate which will be put later on inside a list in order to be analyzed
+ */
+TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
+                                       char *path, int characterToSkip);
+
 int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
 int scheduleFile(TreeNode toSchedule, Manager manager);
@@ -543,9 +560,6 @@ void skipPath(char *path, char *relativePath, int toSkip);
 void toStringTable(long long unsigned *table);
 
 int respawnManager(PriorityQueue managers, Manager dead, List fileToAssign);
-
-TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
-                                       char *path, int characterToSkip);
 
 FileInfo initFileInfoRoot(int *msg) {
   FileInfo rootData;
@@ -884,6 +898,7 @@ void *readDirectivesLoop(void *ptr) {
     if (rc_rd == SUCCESS && rc_ct != CAST_FAILURE) {
       pthread_mutex_lock(&(sharedResources->mutex));
       *(sharedResources->nWorker) = newNWorker;
+      // TODO... same as above
       strcpy(sharedResources->path, newPath);
       if (*(sharedResources->nManager) != newNManager) {
         rc_cma = changeManagersAmount(sharedResources->managers,
@@ -1437,6 +1452,43 @@ TreeNode goUp(Tree fs, TreeNode currentDirectory, char *path, int *toSkip) {
   return startingNode;
 }
 
+TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
+                                       char *path, int characterToSkip) {
+  TreeNodeCandidate candidate =
+      (TreeNodeCandidate)malloc(sizeof(struct TreeNodeCandidate));
+  int rc_al = checkAllocationError(candidate);
+  if (rc_al == SUCCESS) {
+    candidate->path = (char *)malloc(sizeof(char) * PATH_MAX);
+    int rc_al2 = checkAllocationError(candidate->path);
+    if (rc_al2 == SUCCESS) {
+      candidate->startingNode = startingNode;
+      candidate->type = typeOfFile;
+      //TODO... handle with strcpy function for any errors
+      strcpy(candidate->path, path);
+      candidate->toSkip = characterToSkip;
+    } else {
+      free(path);
+      free(candidate);
+    }
+  } else {
+    free(candidate);
+  }
+  return candidate;
+}
+
+void destroyTreeNodeCandidate(void *data) {
+  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
+  free(candidate->path);
+  free(candidate);
+}
+
+//TODO... debug only, does it really need a comment?
+void printCandidateNode(void *data) {
+  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
+  printf("Starting node: %p, path: %s, tof: %d, toSkipper: %d\n",
+         candidate->startingNode, candidate->path, candidate->type,
+         candidate->toSkip);
+}
 
 
 //TODO... remove this global list of elements
@@ -1460,42 +1512,6 @@ void toStringTable(long long unsigned int *table) {
     printf("%llu ", table[i]);
   }
   printf("\n");
-}
-
-void destroyTreeNodeCandidate(void *data) {
-  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
-  free(candidate->path);
-  free(candidate);
-}
-
-void printCandidateNode(void *data) {
-  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
-  printf("Starting node: %p, path: %s, tof: %d, toSkipper: %d\n",
-         candidate->startingNode, candidate->path, candidate->type,
-         candidate->toSkip);
-}
-
-TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
-                                       char *path, int characterToSkip) {
-  TreeNodeCandidate candidate =
-      (TreeNodeCandidate)malloc(sizeof(struct TreeNodeCandidate));
-  int rc_al = checkAllocationError(candidate);
-  if (rc_al == SUCCESS) {
-    candidate->path = (char *)malloc(sizeof(char) * PATH_MAX);
-    int rc_al2 = checkAllocationError(candidate->path);
-    if (rc_al2 == SUCCESS) {
-      candidate->startingNode = startingNode;
-      candidate->type = typeOfFile;
-      strcpy(candidate->path, path);
-      candidate->toSkip = characterToSkip;
-    } else {
-      free(path);
-      free(candidate);
-    }
-  } else {
-    free(candidate);
-  }
-  return candidate;
 }
 
 /**

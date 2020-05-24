@@ -15,12 +15,6 @@
 #include "../worker/worker.h"
 #include "../wrapping/wrapping.h"
 
-// TODO LISTA DOMANDE
-// quando invio stop stop ad un manager tutti i lavori in todo vanno eliminati?
-// se invio due volte di fila lo stesso file viene aggiunto due volte
-// chiedetemi la questione delle doppie tabelle nel summary che e' piu facile da
-// spieagaer a voce piuttosto che scriverla
-
 // TODO see const arguments to function
 
 void stopThisShitPrint(void *data) {
@@ -418,27 +412,15 @@ void *workLoop(void *ptr) {
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
     if (directives == STOP_MANAGER) {
-      fprintf(stderr, "sto per stoppare i worker\n");
-      /* printList(sharedRes->todo, stopThisShitPrint); */
       clearWorkersWork(sharedRes->workers, sharedRes->todo, sharedRes->tables);
-      /* printList(sharedRes->todo, stopThisShitPrint); */
-      /* printf("ho stoppato i worker\n"); */
       destroyList(sharedRes->tables, destroyTable);
-      /* printf("ho distrutto le tabelle\n"); */
-      //! TODO simo/samu/emanuele se leggi questo commento ricordami che devo
-      //! chiederti una cos riguardo questo
       destroyList(sharedRes->todo, destroyWork);
-      destroyList(sharedRes->directive->paths, free);
-      /* printf("ho distrutto i lavori da fare\n"); */
 
       sharedRes->tables = newList();
       sharedRes->todo = newList();
-      sharedRes->directive->paths = newList();
       if (sharedRes->tables == NULL || sharedRes->todo == NULL)
         rc_work = MALLOC_FAILURE;
       sharedRes->directive->directiveStatus = SUMMARY;
-      /* printList(sharedRes->workers, printWorker); */
-      /* printf("arrivo qui senza problemi\n"); */
     } else if (directives == NEW_DIRECTIVES ||
                sharedRes->directive->paths->size > 0) {
 
@@ -769,10 +751,10 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
       int rc_rd = read(readFromWorker, charSent, 5);
       if (rc_rd <= 0) {
         rc_t = READ_FAILURE;
-        /* endWork(w, tables, BAD_ENDING, todo, NULL); */
+        // endWork(w, tables, BAD_ENDING, todo, NULL);
       } else {
         charSent[rc_rd] = '\0';
-        /* printf("la parola di controllo: %s\n", charSent); */
+        // printf("la parola di controllo: %s\n", charSent);
         if (strncmp(charSent, "done", 4) == 0) {
           endWork(w, tables, GOOD_ENDING, todo, summaryFlag);
         } else {
@@ -1084,24 +1066,21 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
-    if (access(path, F_OK) != -1) {
-      int rc_pu = push(tables, t);
-      if (rc_pu == 0) {
-        unsigned long long fileDimension;
-        int fd = -1;
-        fd = openFile(path, O_RDONLY);
-        fileDimension = moveCursorFile(fd, 0, SEEK_END);
-        /* printf("file dimension %lli\n", fileDimension); */
-        if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
-          Work w = newWork(t, 0, fileDimension - 1);
-          // TODO... check error code
-          push(todoTmp, w);
-          // TODO... check if this causes any bug!!!
-          t->workAssociated = 1;
-        } else if (fileDimension > 0 && nWorker > 0) {
-          unsigned long long step = (unsigned long long)fileDimension / nWorker;
-          unsigned long long remainder = fileDimension % nWorker;
-          int rc_pu2 = SUCCESS;
+    int rc_pu = push(tables, t);
+    if (rc_pu == 0) {
+      int fd = openFile(path, O_RDONLY);
+      unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+      //printf("file dimension %lli\n", fileDimension);
+      if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
+        Work w = newWork(t, 0, fileDimension - 1);
+        // TODO... check error code
+        push(todoTmp, w);
+        // TODO... check if this causes any bug!!!
+        t->workAssociated = 1;
+      } else if (fileDimension > 0 && nWorker > 0) {
+        unsigned long long step = (unsigned long long)fileDimension / nWorker;
+        unsigned long long remainder = fileDimension % nWorker;
+        int rc_pu2 = SUCCESS;
 
           int i = 0;
           for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
