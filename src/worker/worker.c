@@ -10,14 +10,11 @@
 #include <limits.h>
 
 /**
- * Inits worker realated operations
+ * Inits worker
  *
  * args:
- *    char *path: path of the file
- *    char *bufferStart: contains buffer start in chars type
- *    char *bufferEnd: contains buffer end in chars type
- *    int *start: contains buffer start in int type
- *    int *end: contains buffer end in int type
+ *    ungisned long long *start: contains buffer start
+ *    unisgned long long *end: contains buffer end
  *    int *stopFlag: flags that indicates if the worker must stop
  *
  * returns:
@@ -26,7 +23,7 @@
 int initWork(unsigned long long *start, unsigned long long *end, int *stopFlag);
 
 /**
- * Read all infos from pipe
+ * Read directives from pipe
  *
  * args:
  *    char *path: path of the file
@@ -45,8 +42,8 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
  *
  * args:
  *    const int fd: file descriptor
- *    const int start: start position
- *    const int end: end position
+ *    const unsigned long long start: start position
+ *    const unsigned long long end: end position
  *
  * returns:
  *    0 in case of success, otherwise negative
@@ -63,13 +60,13 @@ int executeWork(const int fd, const unsigned long long start,
 int sendAcknowledgment();
 
 /**
- * Communicates to manager that happen something wrong.
+ * Communicates to manager that something went wrong.
  * If this function fails worker terminates its execution
  * returning -1
  *
  * arga:
  *    const int fd: file descriptor
- *    const int end: file buffer end
+ *    const unsigned long long end: file buffer end
  *
  * returns:
  *    0 in case of success, otherwise -1
@@ -77,10 +74,6 @@ int sendAcknowledgment();
 int errorHandler(const int fd, const unsigned long long end);
 
 int main(int argc, char *argv[]) {
-  /*int non_lo_so = openFile("err.txt", O_WRONLY);
-  dup2(non_lo_so, 2);
-  printError("Quello che vuoi");*/
-
   unsigned long long start;
   unsigned long long end;
   int rc_work = SUCCESS;
@@ -138,7 +131,6 @@ int initWork(unsigned long long *start, unsigned long long *end,
   char bufferStart[PATH_MAX];
   char bufferEnd[PATH_MAX];
 
-  // TODO fix \0 not read
   readDirectives(path, bufferStart, bufferEnd, stopFlag);
 
   if (*stopFlag == 0) {
@@ -163,8 +155,6 @@ int initWork(unsigned long long *start, unsigned long long *end,
 
 void readDirectives(char *path, char *bufferStart, char *bufferEnd,
                     int *stopFlag) {
-  // TODO choose max length for path
-  // TODO ATTENZIONE mettere i byte terminatori nel manager
   char readBuffer[2] = "a";
   *stopFlag = 0;
 
@@ -208,7 +198,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     if (rc_ca < 0) {
       printError("I can't allocate memory");
     } else {
-      sprintf(msgErr, "inisde worker with pid: %d", getpid());
+      sprintf(msgErr, "inside worker with pid: %d", getpid());
       printError(msgErr);
       free(msgErr);
     }
@@ -218,10 +208,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
 int executeWork(const int fd, const unsigned long long start,
                 const unsigned long long end) {
   int rc_t = 0;
-  // TODO... edited here
-  // int rc_se = moveCursorFile(fd, start, SEEK_SET);
-  // printf("start: %d, end: %d\n", start, end);
-  int rc_se = lseek(fd, start, SEEK_SET);
+  int rc_se = moveCursorFile(fd, start, SEEK_SET);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
@@ -249,7 +236,6 @@ int executeWork(const int fd, const unsigned long long start,
       if (lectures == 1)
         charsRead[bytesRead] = '\0';
       if (bytesRead > 0) {
-        // fprintf(stderr,"Charsread: %s\n", charsRead);
         int rc_wr = write(WRITE_CHANNEL, charsRead, bytesRead);
         if (rc_wr == -1)
           rc_t = WRITE_FAILURE;
@@ -259,15 +245,14 @@ int executeWork(const int fd, const unsigned long long start,
       lectures--;
     }
 
-    // TODO fix this check
-    if (rc_t != -1) {
+    if (rc_t < SUCCESS) {
       int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
-      if (rc_wr == -1)
+      if (rc_wr == FAILURE)
         rc_t = WRITE_FAILURE;
     }
     free(charsRead);
   } else {
-    rc_t = -1; // TODO fix
+    rc_t = FAILURE;
   }
   closeDescriptor(fd);
   return rc_t;
@@ -275,7 +260,7 @@ int executeWork(const int fd, const unsigned long long start,
 
 int sendAcknowledgment() {
   int rc_t = SUCCESS;
-  fprintf(stderr, "sto per stamapre l'ack\n");
+  // TODO think to remove this istruction
   /* rc_t = writeDescriptor(WRITE_CHANNEL, "ackn"); */
   return rc_t;
 }
@@ -284,9 +269,7 @@ int errorHandler(const int fd, const unsigned long long end) {
   int rc_t = 0;
   if (fd == -1)
     rc_t = READ_DIRECTIVES_FAILURE;
-  // TODO... edited here
-  // int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
-  int rc_se = lseek(fd, 0, SEEK_CUR);
+  int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 

@@ -3,11 +3,12 @@
 // TODO remove this
 #include <stdio.h>
 
+#include "../config/config.h"
 #include "../wrapping/wrapping.h"
 #include "work.h"
-#include "../config/config.h"
 
-Work newWork(Table table, const int bufferStart, const int bufferEnd) {
+Work newWork(Table table, const unsigned long long bufferStart,
+             const unsigned long long bufferEnd) {
   Work work = malloc(sizeof(struct WorkStr));
   int rc_al = checkAllocationError(work);
   if (rc_al != -1) {

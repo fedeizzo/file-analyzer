@@ -103,11 +103,8 @@ build: $(BIN_FOLDER)main.o \
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)reporter \
 	  $(BIN_FOLDER)list.o \
 	  $(BIN_FOLDER)reporter.o \
-	  $(BIN_FOLDER)wrapping.o
-	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)tui \
-	  $(BIN_FOLDER)list.o \
-	  $(BIN_FOLDER)tui.o \
-	  $(BIN_FOLDER)wrapping.o
+	  $(BIN_FOLDER)wrapping.o \
+		$(BIN_FOLDER)tui.o
 
 clean:
 	rm $(BIN_FOLDER)analyzer \

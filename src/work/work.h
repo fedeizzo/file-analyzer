@@ -13,13 +13,13 @@
  * fields:
  *    Talbe tablePointer: pointer to the table inside the list of tables in manger
  *    const char *path: the path of the file
- *    int bufferStart: the start position
- *    int bufferEnd: the end position
+ *    unsigned long long bufferStart: the start position
+ *    unsigned long long bufferEnd: the end position
  */
 typedef struct WorkStr {
   Table tablePointer;
-  int bufferStart;
-  int bufferEnd;
+  unsigned long long bufferStart;
+  unsigned long long bufferEnd;
 } * Work;
 
 /**
@@ -28,13 +28,13 @@ typedef struct WorkStr {
  * args:
  *    Table table: table pointer
  *    const char* path: file path
- *    const int bufferStart: buffer start point
- *    const int bufferEnd: buffer end point
+ *    const unsigned long long bufferStart: buffer start point
+ *    const unsigned long long bufferEnd: buffer end point
  *
  * returns:
  *    returs a heap allocated Work
  */
-Work newWork(Table table, const int bufferStart, const int bufferEnd);
+Work newWork(Table table,  const unsigned long long bufferStart, const unsigned long long bufferEnd);
 
 /**
  * Compare function for search operation inside List

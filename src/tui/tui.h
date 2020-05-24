@@ -211,7 +211,7 @@ void drawInputLine(Screen screen);
  * args:
  *    Screen screen: the screen for the write operation
  */
-void updateTable(Screen screen);
+void updateTable(Screen screen, unsigned long long *table);
 
 /**
  * Thread loop that holds user's input opoerations
