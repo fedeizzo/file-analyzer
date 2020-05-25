@@ -159,6 +159,9 @@ int isStringEqual(void *data, void *data2) {
   char *s1 = (char *)data;
   char *s2 = (char *)data2;
 
+  fprintf(stderr, "stringa 1 %s\n", s1);
+  fprintf(stderr, "stringa 2 %s\n", s2);
+
   int rc_t = -1;
   if (strcmp(s1, s2) == 0) {
     rc_t = 0;
@@ -293,39 +296,59 @@ void draw(Screen screen) {
   fflush(stdout);
 }
 
+void lastDir(char *tmpCwd, char *cwd) {
+  int lastSlash = 0;
+  int index = 0;
+  while (cwd[index] != '\0') {
+    if (cwd[index++] == '/')
+      lastSlash = index;
+  }
+  index = 0;
+  while (index < 17) {
+    tmpCwd[index++] = cwd[lastSlash++];
+  }
+  tmpCwd[16] = '\0';
+}
+
 void drawTree(Screen screen, List directories, List files, List toggled,
               char *cwd) {
+  char *tmpCwd = malloc(17 * sizeof(char));
+  lastDir(tmpCwd, cwd);
+  writeScreen(screen, tmpCwd, 2, 7);
+
+  //! If the code breaks, move this in another position
+  char *totalPath = malloc(PATH_MAX * sizeof(char));
   char *line = malloc(17 * sizeof(char));
   int lineCounter = 10;
   Node element = directories->head;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
-    line[16] = '\0';
+    lastDir(tmpCwd, line);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
-      writeScreen(screen, line, 2, lineCounter);
+      writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
   }
-
-  char *totalPath = malloc(PATH_MAX * sizeof(char));
   element = files->head;
   while (element != NULL) {
-    strcpy(totalPath, cwd);
+    /*strcpy(totalPath, cwd);
     strcat(totalPath, "/");
-    strcat(totalPath, element->data);
-    int isToggled = isIn(toggled, totalPath, isStringEqual);
+    strcat(totalPath, element->data);*/
+    int isToggled = isIn(toggled, element->data, isStringEqual);
+    fprintf(stderr, "controllo il percorso %s %s %d\n", totalPath, element->data, isToggled);
     if (isToggled == SUCCESS) {
+	    fprintf(stderr, "ENTRO QUI\n");
       moveCursor(2, lineCounter + 1);
       printf("\033[41m \033[m");
     }
 
     strcpy(line, (char *)element->data);
-    line[16] = '\0';
+    lastDir(tmpCwd, line);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
-      writeScreen(screen, line, 2, lineCounter);
+      writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
@@ -333,6 +356,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   moveCursor(screen->cols, screen->rows);
   free(totalPath);
   free(line);
+  free(tmpCwd);
 }
 
 // TODO write command in tui.h if we use it
@@ -403,7 +427,6 @@ int initScreen(Screen screen) {
                 "cifre, tutto",
                 1, 3);
     /* writeScreen(p->screen, command, 7, 7); */
-    writeScreen(screen, " /home/current ", 1, 7);
     writeScreen(screen, " .. ", 1, 8);
     writeScreen(screen, " . ", 1, 9);
     draw(screen);
@@ -670,40 +693,66 @@ void *inputLoop(void *ptr) {
               Node element = p->userInput->files->head;
               while (element != NULL) {
                 char *totalPath = malloc(PATH_MAX * sizeof(char));
-                char *f = malloc(PATH_MAX * sizeof(char));
-                strcpy(f, element->data);
-                strcpy(totalPath, p->cwd);
+                /*char *f = malloc(PATH_MAX * sizeof(char));
+                strcpy(f, element->data);*/
+                strcpy(totalPath, element->data);
+                /*strcpy(totalPath, p->cwd);
                 strcat(totalPath, "/");
-                strcat(totalPath, f);
+                strcat(totalPath, f);*/
+		fprintf(stderr, "Quanto vale element di data %s, totalpath %s\n", element->data, totalPath);
                 int isToggled = deleteNode(p->userInput->results, totalPath,
                                            isStringEqual, free);
                 if (isToggled != SUCCESS) {
+                  //fprintf(stderr, "faccio il toggle %s\n", totalPath);
                   push(p->userInput->results, totalPath);
                 } else {
                   free(totalPath);
                 }
-                free(f);
+                //free(f);
                 element = element->next;
               }
               // TODO ask to other if also directories must have the same
               // behavior
             } else {
+                char *cwd = malloc(PATH_MAX * sizeof(char));
+                strcpy(cwd, p->cwd);
+                strcat(cwd, "/");
+                strcat(cwd, tree);
+		fprintf(stderr, "AOOOOOOOOOO SONO QUIIIIIII CWD: %s\n", cwd);
               int isDirectory =
-                  isIn(p->userInput->directories, tree, isStringEqual);
+                  isIn(p->userInput->directories, cwd, isStringEqual);
               if (isDirectory == SUCCESS) {
-                p->userInput->tree = tree;
+                /*char *cwd = malloc(PATH_MAX * sizeof(char));
+                strcpy(cwd, p->cwd);
+                strcat(cwd, "/");
+                strcat(cwd, tree);*/
+                int index = 0;
+                // TODO control overflow
+		/*
+                while (cwd[index] != '\0') {
+                  int old = index;
+                  index++;
+                  cwd[old] = cwd[index];
+                }*/
+                p->userInput->tree = cwd;
+		fprintf(stderr, "VA IN USERINPUT SONO QUIIIIIII CWD: %s\n", cwd);
               } else {
-                int isFile = isIn(p->userInput->files, tree, isStringEqual);
+                char *cwd = malloc(PATH_MAX * sizeof(char));
+		fprintf(stderr, "AOOOOOOOOOO\n");
+                strcpy(cwd, p->cwd);
+                strcat(cwd, "/");
+                strcat(cwd, tree);
+		fprintf(stderr, "cwd vale %s\n", cwd);
+                int isFile = isIn(p->userInput->files, cwd, isStringEqual);
 
                 if (isFile == SUCCESS) {
-                  char *cwd = malloc(PATH_MAX * sizeof(char));
-                  strcpy(cwd, p->cwd);
-                  strcat(cwd, "/");
-                  strcat(cwd, tree);
                   int rc_re =
-                      removeNode(p->userInput->results, cwd, isStringEqual);
-                  if (rc_re != SUCCESS)
+                      deleteNode(p->userInput->results, cwd, isStringEqual, free);
+	          fprintf(stderr, "provo se va bene a fare il toggle di %s\n", cwd);
+                  if (rc_re != SUCCESS){
+	            fprintf(stderr, "faccio il toggle di %s\n", cwd);
                     push(p->userInput->results, cwd);
+		  }
                 }
                 free(tree);
               }
