@@ -1807,6 +1807,7 @@ void *sendFileLoop(void *ptr) {
                         // printf("path: %s, size: %d\n", path, counterFiles);
                         rc_dn = detachNodeFromList(manager->filesInExecution, node);
                         if(info->isRequested == SUCCESS){
+                          printf("Done e updato il risultato di %s\n", info->path);
                           sharedResources->sendChanges = SUCCESS;
                         }
                         if(rc_dn != SUCCESS){
@@ -1820,6 +1821,7 @@ void *sendFileLoop(void *ptr) {
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       if(found == 1){
                         if(info->isRequested == SUCCESS){
+                          printf("Undo e updato il risultato di %s\n", info->path);
                           sharedResources->sendChanges = SUCCESS;
                         }
                       }
@@ -2079,7 +2081,7 @@ void *fileManageLoop(void *ptr) {
         pthread_mutex_lock(&(sharedResources->mutex));
         toSchedule = performInsert(relativePath, candidate->path,
                                    candidate->startingNode, IS_FILE, &rc_pi);
-        if (rc_pi == SUCCESS) {
+        if (rc_pi == SUCCESS || rc_pi == ALREADY_INSERTED) {
           rc_en = SUCCESS;
           rc_en = enqueue(sharedResources->fileToAssign, (void *)toSchedule);
           if (rc_en != SUCCESS) {
@@ -2335,25 +2337,26 @@ int sendTableToReporter(int fd, long long unsigned *requestedFilesTable){
   int rc_t = SUCCESS;
   int j = 0;
   char *number = malloc(PATH_MAX * sizeof(char));
-  fprintf(stderr,"Entro e poi mi spacco\n");
+  printf("Entro e poi mi spacco\n");
   if(requestedFilesTable != NULL){
     for (j = 0; j < NCHAR_TABLE; j++) {
       int rc_sp;
+      printf("NUMERO: %llu\n", requestedFilesTable[j]);
       rc_sp = sprintf(number, "%llu", requestedFilesTable[j]);
-      if (rc_sp == -1)
+      if (rc_sp <= 0)
         rc_t = CAST_FAILURE;
       else {
-        fprintf(stderr, "Ho scritto cose brutte indice %d schifo da scrivere %s\n", j, number);
+        printf("Ho scritto cose brutte indice %d schifo da scrivere %s\n", j, number);
         int rc_wr = writeDescriptor(fd, number);
-        if (rc_wr == -1)
-          rc_t = SUMMARY_FAILURE;
+        /*if (rc_wr == -1)
+          rc_t = SUMMARY_FAILURE;*/
       }
       //sleep(1);
     }
   } else {
     rc_t = NULL_POINTER;
   }
-  fprintf(stderr, "Ho un codice di errore strambo che vale %d\n", rc_t);
+  printf("Ho un codice di errore strambo che vale %d\n", rc_t);
   free(number);
   return rc_t;
 }
@@ -2369,6 +2372,7 @@ void *writeOnFIFOLoop(void *ptr){
   int rc_fi = mkfifo(writeFifo, 0666);
   // TODO... check for all the erorrs
   while(rc_t == SUCCESS){
+    //printf("Sono in write on fifo looop\n");
     pthread_mutex_lock(&(sharedResources->mutex));
     if(sharedResources->toRetrive != NULL){
       pthread_mutex_unlock(&(sharedResources->mutex));
@@ -2387,9 +2391,9 @@ void *writeOnFIFOLoop(void *ptr){
         }
       }
       sharedResources->toRetrive = NULL;
-      close(fd);
       fprintf(stderr, "chiudo la fifo\n");
       pthread_mutex_unlock(&(sharedResources->mutex));
+      close(fd);
     } else {
       pthread_mutex_unlock(&(sharedResources->mutex));
     }
@@ -2397,24 +2401,25 @@ void *writeOnFIFOLoop(void *ptr){
     pthread_mutex_lock(&(sharedResources->mutex));
     if(sharedResources->sendChanges == SUCCESS){
       pthread_mutex_unlock(&(sharedResources->mutex));
-      fprintf(stderr, "STO PROVANDO A MANDARE DEGLI AGGIORNAMENTI\n");
+      printf("STO PROVANDO A MANDARE DEGLI AGGIORNAMENTI\n");
       int fd = open(writeFifo, O_WRONLY);
-      fprintf(stderr, "Ho 43passato la creazione/apertura della fifo\n");
+      printf("Ho 43passato la creazione/apertura della fifo\n");
       pthread_mutex_lock(&(sharedResources->mutex));
       if(fd > 0){
         rc_wd = writeDescriptor(fd, "tabl");
         if(rc_wd > 0){
-          fprintf(stderr, "Sto per inviare le tabelle al reporter\n");
+          printf("Sto per inviare le tabelle al reporter\n");
           int rc_st = sendTableToReporter(fd, sharedResources->requestedFilesTable);
-          fprintf(stderr, "Ho scritto la tabella per il sig reporter\n");
+          printf("Ho scritto la tabella per il sig reporter, con rc_st: %d\n", rc_st);
           if(rc_st != SUCCESS){
             rc_t = errorHandler(rc_st);
+            printf("Dopo l'error handler %d\n", rc_t); 
           }
         }
       }
       sharedResources->sendChanges = -1;
-      close(fd);
       pthread_mutex_unlock(&(sharedResources->mutex));
+      close(fd);
     } else {
       pthread_mutex_unlock(&(sharedResources->mutex));
     }
@@ -2579,10 +2584,11 @@ void *readFromFIFOLoop(void *ptr){
     int fd = open(readFifo, O_RDONLY);
     // printf("fd: %d\n", fd);
     while (1) {
+      //printf("Sono epico in read from fifo\n");
       char *dst = malloc(PATH_MAX * sizeof(char));
       dst[0] = '\0';
       readString(fd, dst);
-      /* printf("parola di controllo: %s\n", dst); */
+      printf("parola di controllo: %s\n", dst);
       if (strcmp(dst, "dire") == 0) {
         char *newPath = front(dire);
         /* printf("size %d\n", dire->size); */
@@ -2677,11 +2683,13 @@ void *readFromFIFOLoop(void *ptr){
           }
         }
         break;
-      } else if (strcmp(dst, "requ") == 0) {
+      } else if (strcmp(dst, "//") == 0) {
+        printf("entro in requ\n");
         pthread_mutex_lock(&(sharedResources->mutex));
         rc_t = resetRequestedFile(sharedResources->requestedFiles, sharedResources->requestedFilesTable);
         while (dire->size != 0) {
           char *requestedPath = front(dire);
+          printf("HO RICEVUTO %s\n", requestedPath);
           if(requestedPath != NULL){
             requested = performInsert(requestedPath, NULL, getRoot(sharedResources->fs), DIRECTORY, &rc_t);
             // TODO... handle with error handler
@@ -2689,7 +2697,14 @@ void *readFromFIFOLoop(void *ptr){
               requestedFile = (FileInfo) requested->data;
               if(requestedFile != NULL){
                 requestedFile->isRequested = SUCCESS;
+                int i = 0;
+                for(i = 0; i < NCHAR_TABLE; i++){
+                  printf("TABELLA PRIMA DI FARE LA SOMMA %d: %llu\n", i, sharedResources->requestedFilesTable[i]);
+                }
                 rc_st = sumTables(sharedResources->requestedFilesTable, requestedFile->fileTable, NCHAR_TABLE);
+                for(i = 0; i < NCHAR_TABLE; i++){
+                  printf("TABELLA DOPO DI FARE LA SOMMA %d: %llu\n", i, sharedResources->requestedFilesTable[i]);
+                }
                 if(rc_st != SUCCESS){
                   rc_t = errorHandler(rc_st);
                 }
@@ -2707,6 +2722,7 @@ void *readFromFIFOLoop(void *ptr){
           printf("file: %s\n", requestedPath);
           pop(dire);
         }
+        sharedResources->sendChanges = SUCCESS;
         pthread_mutex_unlock(&(sharedResources->mutex));
         break;
       } else if (strcmp(dst, "tree") == 0) {

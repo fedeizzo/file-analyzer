@@ -159,8 +159,8 @@ int isStringEqual(void *data, void *data2) {
   char *s1 = (char *)data;
   char *s2 = (char *)data2;
 
-  fprintf(stderr, "stringa 1 %s\n", s1);
-  fprintf(stderr, "stringa 2 %s\n", s2);
+  //fprintf(stderr, "stringa 1 %s\n", s1);
+  //fprintf(stderr, "stringa 2 %s\n", s2);
 
   int rc_t = -1;
   if (strcmp(s1, s2) == 0) {
@@ -338,7 +338,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     strcat(totalPath, "/");
     strcat(totalPath, element->data);*/
     int isToggled = isIn(toggled, element->data, isStringEqual);
-    //fprintf(stderr, "controllo il percorso %s %s %d\n", totalPath, (char *) element->data, isToggled);
+    fprintf(stderr, "controllo il percorso %s %d\n", (char *) element->data, isToggled);
     if (isToggled == SUCCESS) {
 	    fprintf(stderr, "ENTRO QUI\n");
       moveCursor(2, lineCounter + 1);
@@ -772,7 +772,7 @@ void *inputLoop(void *ptr) {
                   if (rc_re != SUCCESS){
 	                  fprintf(stderr, "faccio il toggle di %s\n", cwd);
                     push(p->userInput->results, cwd);
-		  }
+		              }
                 }
                 free(tree);
               }
@@ -782,7 +782,18 @@ void *inputLoop(void *ptr) {
           } else if (strcmp(cmd, "") != 0) {
             writeScreen(p->screen, "input: ", 2, 1);
             /* printf("sto incodando come un caimano %lu\n", strlen(cmd)); */
-            enqueue(p->userInput->paths, cmd);
+            //! PERCHE' TI ROMPI... PERCHEEEEEEEE'???
+            char *path = malloc(PATH_MAX * sizeof(char));
+            char *realPath = malloc(PATH_MAX * sizeof(char));
+            strcpy(path, p->cwd);
+            strcat(path, "/");
+            strcat(path, cmd);
+            fprintf(stderr, "path completo: %s\n", path);
+            realpath(path, realPath);
+            fprintf(stderr, "realPath: %s\n", realPath);
+            //! Probably will break everything (just to point out a possible breaking point)
+            free(path);
+            enqueue(p->userInput->paths, realPath);
             row = 1;
             column = 9;
           }

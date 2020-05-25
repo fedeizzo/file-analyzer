@@ -53,13 +53,13 @@ UserInput newUserInput() {
     ui = NULL;
 
   // TODO test
-  char *dir1 = malloc(PATH_MAX * sizeof(char));
+  /*char *dir1 = malloc(PATH_MAX * sizeof(char));
   char *dir2 = malloc(PATH_MAX * sizeof(char));
   char *fil1 = malloc(PATH_MAX * sizeof(char));
   char *fil2 = malloc(PATH_MAX * sizeof(char));
   char *fil3 = malloc(PATH_MAX * sizeof(char));
   char *fil4 = malloc(PATH_MAX * sizeof(char));
-  strcpy(dir1,
+  *strcpy(dir1,
          "/tmp/progetto/bin/directory del mio paese1");
   strcpy(dir2,
          "/tmp/progetto/bin/directory 2");
@@ -72,14 +72,14 @@ UserInput newUserInput() {
   strcpy(fil3,
          "/tmp/progetto/bin/file 3");
   strcpy(fil4,
-         "/tmp/progetto/bin/file 4");
+         "/tmp/progetto/bin/file 4"); 
 
   push(ui->directories, dir1);
   push(ui->directories, dir2);
   push(ui->files, fil1);
   push(ui->files, fil2);
   push(ui->files, fil3);
-  push(ui->files, fil4);
+  push(ui->files, fil4); */
   // TODO test ended
   return ui;
 }
@@ -310,7 +310,7 @@ void *writeFifoLoop(void *ptr) {
   pthread_mutex_lock(&(input->mutex));
   strcpy(fifoPath, input->writeFifo);
   pthread_mutex_unlock(&(input->mutex));
-
+  //TODO shamefull fifo open and close
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
     if (input->userInput->paths->size > 0) {
@@ -367,9 +367,9 @@ void *writeFifoLoop(void *ptr) {
       fd = open(fifoPath, O_WRONLY);
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        printf("sto per entrar nel invio classico\n");
+        //printf("sto per entrar nel invio classico\n");
         rc_t = sendResult(fd, input->userInput->results);
-        printf("entrato\n");
+        //printf("entrato\n");
       }
       close(fd);
     }
@@ -422,6 +422,7 @@ void *readFifoLoop(void *ptr) {
   pthread_mutex_unlock(&(input->mutex));
 
   while (rc_t == SUCCESS) {
+    printf("Sono epico in read file loop\n");
     int fd = open(fifoPath, O_RDONLY);
     int readOperationFlag = 0;
     char *dst = malloc(PATH_MAX * sizeof(char));
@@ -462,6 +463,7 @@ void *readFifoLoop(void *ptr) {
       unsigned long long *tmpTable =
           calloc(NCHAR_TABLE, sizeof(unsigned long long));
       readTable(fd, tmpTable);
+      fprintf(stderr, "SE NON ESCO SONO FOTTUTO!!!\n");
       pthread_mutex_lock(&(input->mutex));
       int i = 0;
       for (i = 0; i < NCHAR_TABLE; i++) {
@@ -613,19 +615,39 @@ int readResult(List pathResults) {
 }
 
 int sendResult(int fd, List pathResults) {
+  fprintf(stderr, "Sono entrato nella malfamatissima SEND RESULT\n");
   int rc_t = SUCCESS;
-
-  while (pathResults->size > 0 && rc_t == SUCCESS) {
+  int old;
+  int index = 0;
+  int rc_al = SUCCESS;
+  char *tmpPath = (char *) malloc(PATH_MAX * sizeof(char));
+  rc_al = checkAllocationError(tmpPath);
+  if(rc_al != SUCCESS){
+    rc_t = MALLOC_FAILURE;
+  }
+  int resultSize = pathResults->size;
+  while (resultSize > 0 && rc_t == SUCCESS) {
     char *path = front(pathResults);
     if (path != NULL) {
       rc_t = pop(pathResults);
       if (rc_t == SUCCESS) {
-        int rc_wr = writeDescriptor(fd, path);
+        //TODO OVERFLOW da gestire
+        while (path[index] != '\0') {
+          old = index;
+          index++;
+          tmpPath[old] = path[index];
+        }
+        fprintf(stderr, "Mando un path %s\n", tmpPath);
+        int rc_wr = writeDescriptor(fd, tmpPath);
         if (rc_wr < SUCCESS)
           rc_t = -1;
       }
     }
+    enqueue(pathResults, path);
+    resultSize--;
   }
+
+  free(tmpPath);
 
   writeDescriptor(fd, "//");
 
@@ -649,6 +671,7 @@ int updateTree(char *path) {
 }
 
 int sendTree(int fd, char *treePath) {
+  fprintf(stderr, "Devo mandare lo stramaledetto TREEEEEE\n");
   char *tmpPath = malloc(sizeof(char) * PATH_MAX);
   int rc_t = SUCCESS;
   int old ;
@@ -659,6 +682,7 @@ int sendTree(int fd, char *treePath) {
   }
 
   if(rc_t == SUCCESS && treePath[0] == '/'){
+    //TODO overflow da gestire
     while (treePath[index] != '\0') {
       old = index;
       index++;
@@ -715,11 +739,14 @@ int readTree(int readOpeartion, int fd, List directories, List files, char* cwd)
 }
 
 int readTable(int fd, unsigned long long *table) {
+  fprintf(stderr, "Entro in read table\n");
   int rc_t = SUCCESS;
   int numbersToRead = NCHAR_TABLE;
   int index = 0;
   while (numbersToRead > 0) {
     char *dst = malloc(PATH_MAX * sizeof(char));
+    readString(fd, dst);
+    //printf("STAMPO %s\n", dst);
     unsigned long long count = 0;
     int rc_cast = sscanf(dst, "%llu", &count);
     if (rc_cast != EOF)
