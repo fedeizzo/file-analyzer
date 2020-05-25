@@ -1101,7 +1101,7 @@ int sendSummary(List tables) {
       for (j = 0; j < NCHAR_TABLE; j++) {
         char msg[PATH_MAX];
         int rc_sp;
-        rc_sp = sprintf(msg, "%lld", t->table[j]);
+        rc_sp = sprintf(msg, "%llu", t->table[j]);
         if (rc_sp == -1)
           rc_t = CAST_FAILURE;
         else {

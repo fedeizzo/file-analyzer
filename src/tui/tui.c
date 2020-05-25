@@ -316,21 +316,21 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   lastDir(tmpCwd, cwd);
   writeScreen(screen, tmpCwd, 2, 7);
 
+  //! If the code breks, move this in another position
+  char *totalPath = malloc(PATH_MAX * sizeof(char));
   char *line = malloc(17 * sizeof(char));
   int lineCounter = 10;
   Node element = directories->head;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
-    line[16] = '\0';
+    lastDir(tmpCwd, line);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
-      writeScreen(screen, line, 2, lineCounter);
+      writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
   }
-
-  char *totalPath = malloc(PATH_MAX * sizeof(char));
   element = files->head;
   while (element != NULL) {
     strcpy(totalPath, cwd);
@@ -344,10 +344,10 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     }
 
     strcpy(line, (char *)element->data);
-    line[16] = '\0';
+    lastDir(tmpCwd, line);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
-      writeScreen(screen, line, 2, lineCounter);
+      writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;

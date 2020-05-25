@@ -77,9 +77,12 @@ UserInput newUserInput() {
   strcpy(fil3,
          "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
          "progettoSO/bin/file 3");
-  strcpy(fil4,
+  /*strcpy(fil4,
          "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file 4");
+         "progettoSO/bin/file 4"); */
+  strcpy(fil4,
+         "/mnt/c/Users/emabe/Desktop/Università/2 anno - 2 semestre/Sistemi operativi 1/Progetto SO/progettoSO/bin//home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/progettoSO/bin/file 4");
+
   push(ui->directories, dir1);
   push(ui->directories, dir2);
   push(ui->files, fil1);
