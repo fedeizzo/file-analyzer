@@ -14,6 +14,7 @@ typedef struct FileInfo{
     unsigned long long int *fileTable;
     char *path;
     int isDirectory;
+    int isRequested;
 } *FileInfo;
 
 typedef struct sharedResourcesAnalyzer {
@@ -23,11 +24,13 @@ typedef struct sharedResourcesAnalyzer {
   List candidateNode;
   List requestedFiles;
   TreeNode currentDirectory;
+  long long unsigned *requestedFilesTable;
   char *cwd;
   char *path;
   char *toRetrive;
   int *nManager;
   int *nWorker;
+  int sendChanges;
   pthread_mutex_t mutex;
 } sharedResourcesAnalyzer_t;
 

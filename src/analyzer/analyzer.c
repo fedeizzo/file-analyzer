@@ -96,9 +96,7 @@ Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *));
  *    TreeNode startingPoint: the TreeNode (aka the directory) from where it will be started a search for
  *      the least common ancestor
  *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file
- *    int *msg: message used to check error in the performInsert function 
- *    List requestedFiles: a list of requested files from the users in order to keep him informed when the managers
- *      will send a partial or complete evaluation of a file
+ *    int *msg: message used to check error in the performInsert function
  *   
  *
  * returns
@@ -106,7 +104,7 @@ Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *));
  *    NULL otherwise 
  */
 TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
-                       int isDirectory, int *msg, List requestedFiles);
+                       int isDirectory, int *msg);
 
 /**
  * Function that obtains the least common ancestor from the Tree based on the compacted path passed in input
@@ -187,16 +185,14 @@ Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
  *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file
  *    char *completePath: a string (which will be copied and so the original must be freed afterwords) which contains
  *      the full path (relative from the analyzer starting directory or absolute) to the file 
- *    int *msg: message used to check error in the createNewTwig function 
- *    List requestedFiles: a list of requested files from the users in order to keep him informed when the managers
- *      will send a partial or complete evaluation of a file
+ *    int *msg: message used to check error in the createNewTwig function
  *
  * returns
  *    A TreeNode to the file which must be examined or NULl 
  */
 TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
                        char *pathName, int isDirectory, char *completePath,
-                       int *msg, List requestedFiles);
+                       int *msg);
 
 /**
  * Function that creates one or more TreeNodes in a way that the first is the parent of the second, the second is the 
@@ -596,6 +592,7 @@ FileInfo newFileInfo(char *name, int isDirectory, char *path, int *msg) {
     toRtn->isDirectory = isDirectory;
     toRtn->fileTable =
         (unsigned long long *)calloc(NCHAR_TABLE, sizeof(unsigned long long));
+    toRtn->isRequested = -1;
     *msg = checkAllocationError(toRtn->fileTable);
     if (*msg == SUCCESS) {
       *msg = allocatePath(toRtn, path);
@@ -658,7 +655,7 @@ Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *)) {
 }
 
 TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
-                       int isDirectory, int *msg, List requestedFiles) {
+                       int isDirectory, int *msg) {
   Node actualNode = NULL;
   Node tmp = NULL;
   TreeNode toRtn = NULL;
@@ -703,7 +700,7 @@ TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
       rc_ca = checkAllocationError(pathName);
       if (rc_ca == SUCCESS) {
         toRtn = createNewTwig(whereToInsert, &counter, path, pathName,
-                              isDirectory, completePath, &rc_ca, requestedFiles);
+                              isDirectory, completePath, &rc_ca);
       }
       *msg = rc_ca;
     } else {
@@ -784,7 +781,7 @@ Node handleMatch(TreeNode toExamine, FileInfo dataToExamine, char *path,
 
 TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
                        char *pathName, int isDirectory, char *completePath,
-                       int *msg, List requestedFiles) {
+                       int *msg) {
   TreeNode toRtn = NULL;
   TreeNode toInsert = NULL;
   FileInfo dataToInsert = NULL;
@@ -796,13 +793,6 @@ TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
         whereToInsert =
             createNewTreeElement(dataToInsert, toInsert, whereToInsert,
                                  &tmpCounter, pathName, DIRECTORY, NULL, msg);
-        //Requested file inserted
-        if(whereToInsert != NULL){
-          rc_en = enqueue(requestedFiles, whereToInsert);
-          if(rc_en != SUCCESS){
-            *msg = MALLOC_FAILURE;
-          }
-        }
         tmpCounter = 0;
         if (*msg == SUCCESS) {
           pathName = (char *)malloc(sizeof(char) * PATH_MAX);
@@ -819,12 +809,6 @@ TreeNode createNewTwig(TreeNode whereToInsert, int *counter, char *path,
     toRtn =
         createNewTreeElement(dataToInsert, toInsert, whereToInsert, &tmpCounter,
                              pathName, isDirectory, completePath, msg);
-    if(toRtn != NULL){
-      rc_en = enqueue(requestedFiles, toRtn);
-      if(rc_en != SUCCESS){
-        *msg = MALLOC_FAILURE;
-      }
-    }
   }
   return toRtn;
 }
@@ -1588,7 +1572,7 @@ int insertAndSchedule(TreeNode startingNode, List filesToAssign,
   // LOCK
   // pasta((void *)currentDirectory);
   toSchedule =
-      performInsert(relativePath, completePath, startingNode, IS_FILE, &rc_t, requestedFiles);
+      performInsert(relativePath, completePath, startingNode, IS_FILE, &rc_t);
   // printf("qui mi rompo\n");
   // MAYBE RELEASE THE LOCK???
   // TODO... Handle with the errorHandler (maybe write a message just to inform the user that the file was already passed) 
@@ -1797,6 +1781,10 @@ void *sendFileLoop(void *ptr) {
                 rc_ss = sscanf(number, "%llu", &charCounter);
                 if (rc_ss > 0) {
                   if(found == 1){
+                    if(info->isRequested == SUCCESS){
+                      sharedResources->requestedFilesTable[insertCounter] -= info->fileTable[insertCounter];
+                      sharedResources->requestedFilesTable[insertCounter] += charCounter;
+                    }
                     info->fileTable[insertCounter++] = charCounter;
                   }
                 } else {
@@ -1818,6 +1806,7 @@ void *sendFileLoop(void *ptr) {
                         counterFiles++;
                         // printf("path: %s, size: %d\n", path, counterFiles);
                         rc_dn = detachNodeFromList(manager->filesInExecution, node);
+                        sharedResources->sendChanges = SUCCESS;
                         if(rc_dn != SUCCESS){
                           rc_t = errorHandler(rc_dn);
                         }
@@ -1826,8 +1815,11 @@ void *sendFileLoop(void *ptr) {
                       if(rc_pu != SUCCESS){
                         rc_t = errorHandler(MALLOC_FAILURE);
                       }
-                    } else if (strcmp(controlWord, CONTROL_UNDONE) != 0) {
-                      //!Per il momento a success
+                    } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
+                      if(found == 1){
+                        sharedResources->sendChanges = SUCCESS;
+                      }
+                    } else {
                       rc_t = errorHandler(ANALYZER_MANAGER_MISUNDERSTANDING);
                     }
                     stopRead = 1;
@@ -2082,7 +2074,7 @@ void *fileManageLoop(void *ptr) {
         skipPath(candidate->path, relativePath, candidate->toSkip);
         pthread_mutex_lock(&(sharedResources->mutex));
         toSchedule = performInsert(relativePath, candidate->path,
-                                   candidate->startingNode, IS_FILE, &rc_pi, sharedResources->requestedFiles);
+                                   candidate->startingNode, IS_FILE, &rc_pi);
         if (rc_pi == SUCCESS) {
           rc_en = SUCCESS;
           rc_en = enqueue(sharedResources->fileToAssign, (void *)toSchedule);
@@ -2331,12 +2323,36 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend){
   return rc_t;
 }
 
+// TODO... use this to send the complete table and so change the parameters
+int sendTableToReporter(int fd, long long unsigned *requestedFilesTable){
+  int rc_t = SUCCESS;
+  int j = 0;
+  char number[PATH_MAX];
+  if(requestedFilesTable != NULL){
+    for (j = 0; j < NCHAR_TABLE; j++) {
+      int rc_sp;
+      rc_sp = sprintf(number, "%llu", requestedFilesTable[j]);
+      if (rc_sp == -1)
+        rc_t = CAST_FAILURE;
+      else {
+        int rc_wr = writeDescriptor(fd, number);
+        if (rc_wr == -1)
+          rc_t = SUMMARY_FAILURE;
+      }
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+  return rc_t;
+}
+
 void *writeOnFIFOLoop(void *ptr){
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
   TreeNode requested = NULL;
   char *toSend = (char *) malloc(sizeof(char) * PATH_MAX);
   int rc_t = checkAllocationError(toSend);
   int msg = SUCCESS;
+  int rc_wd = SUCCESS;
   char *writeFifo = "/tmp/analyzerToReporter";
   int rc_fi = mkfifo(writeFifo, 0666);
   // TODO... check for all the erorrs
@@ -2347,7 +2363,7 @@ void *writeOnFIFOLoop(void *ptr){
       int fd = open(writeFifo, O_WRONLY);
       pthread_mutex_lock(&(sharedResources->mutex));
       if(fd > 0){
-        requested = performInsert(sharedResources->toRetrive, NULL, getRoot(sharedResources->fs), DIRECTORY, &msg, sharedResources->requestedFiles);
+        requested = performInsert(sharedResources->toRetrive, NULL, getRoot(sharedResources->fs), DIRECTORY, &msg);
         // TODO... handle with error handler
         if(msg == SUCCESS || msg == ALREADY_INSERTED && requested != NULL){
           sharedResources->currentDirectory = requested;
@@ -2355,10 +2371,8 @@ void *writeOnFIFOLoop(void *ptr){
           strcpy(sharedResources->cwd, sharedResources->toRetrive);
           rc_t = sendChildToReporter(requested, fd, toSend);
         } else {
-          writeDescriptor(fd, "0");
+          rc_wd = writeDescriptor(fd, "0");
         }
-        // TODO... function to send all the child of a TreeNode
-        // TODO... to send numero di figli (cartelle + file), cwd
       }
       sharedResources->toRetrive = NULL;
       pthread_mutex_unlock(&(sharedResources->mutex));
@@ -2367,7 +2381,26 @@ void *writeOnFIFOLoop(void *ptr){
       pthread_mutex_unlock(&(sharedResources->mutex));
     }
 
-    // TODO... sends information to analyzer
+    pthread_mutex_lock(&(sharedResources->mutex));
+    if(sharedResources->sendChanges > -1){
+      pthread_mutex_unlock(&(sharedResources->mutex));
+      int fd = open(writeFifo, O_WRONLY);
+      pthread_mutex_lock(&(sharedResources->mutex));
+      if(fd > 0){
+        rc_wd = writeDescriptor(fd, "tabl");
+        if(rc_wd > 0){
+          int rc_st = sendTableToReporter(fd, sharedResources->requestedFilesTable);
+          if(rc_st != SUCCESS){
+            rc_t = errorHandler(rc_st);
+          }
+        }
+      }
+      sharedResources->sendChanges = -1;
+      pthread_mutex_unlock(&(sharedResources->mutex));
+      close(fd);
+    } else {
+      pthread_mutex_unlock(&(sharedResources->mutex));
+    }
 
   }
 }
@@ -2431,15 +2464,73 @@ int changeWorkerAmount(PriorityQueue managers, const int amount){
   return rc_t;
 }
 
+int resetRequestedFile(List requestedFiles, long long unsigned *requestedFilesTable){
+  int rc_t = SUCCESS;
+  int rc_po = SUCCESS;
+  int i = 0;
+  TreeNode requested = NULL;
+  FileInfo file = NULL;
+  int requestedSize = 0;
+  if(requestedFiles != NULL){
+    requestedSize = requestedFiles->size;
+    while(requestedSize > 0){
+      requested = (TreeNode) front(requestedFiles);
+      rc_po = pop(requestedFiles);
+      if(requested != NULL && rc_po == SUCCESS){
+        file = (FileInfo) requested->data;
+        if(file != NULL){
+          file->isRequested = -1;
+        } else {
+          rc_t = NULL_POINTER;
+        }
+      } else {
+        rc_t = UNEXPECTED_LIST_ERROR;
+      }
+      requestedSize--;
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+
+  if(requestedFilesTable != NULL){
+    for(i = 0; i < NCHAR_TABLE; i++){
+      requestedFilesTable[i] = 0;
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+  
+  return rc_t;
+}
+
+int sumTables(long long unsigned *dst, long long unsigned *src, const int dim){
+  int rc_t = SUCCESS;
+  int i = 0;
+  if(dst != NULL && src != NULL){
+    for(i = 0; i < dim; i++){
+      if(ULLONG_MAX - dst[i] >= src[i]){
+        dst[i] += src[i];
+      }
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+  return rc_t;
+}
+
 void *readFromFIFOLoop(void *ptr){
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
   char *readFifo = "/tmp/reporterToAnalyzer";
   int rc_fi = mkfifo(readFifo, 0666);
   // TODO... check allocation of the list
   List dire = newList();
-  TreeNode startingNode;
-  TreeNodeCandidate toAnalyze;
+  TreeNode startingNode = NULL;
+  TreeNodeCandidate toAnalyze = NULL;
+  TreeNode requested = NULL;
+  FileInfo requestedFile = NULL;
   int rc_t = SUCCESS;
+  int rc_en = SUCCESS;
+  int rc_st = SUCCESS;
   int rc_rd = SUCCESS;
   int rc_cma = SUCCESS;
   int rc_ct = SUCCESS;
@@ -2451,7 +2542,6 @@ void *readFromFIFOLoop(void *ptr){
   int rc_al5 = SUCCESS;
   char *tmpCwd = malloc(sizeof(char) * PATH_MAX);
   rc_al4 = checkAllocationError(tmpCwd);
-
   int newNManager = 0;
   int newNWorker = 0;
   int type;
@@ -2569,11 +2659,36 @@ void *readFromFIFOLoop(void *ptr){
         }
         break;
       } else if (strcmp(dst, "requ") == 0) {
+        pthread_mutex_lock(&(sharedResources->mutex));
+        rc_t = resetRequestedFile(sharedResources->requestedFiles, sharedResources->requestedFilesTable);
         while (dire->size != 0) {
-          char *requested = front(dire);
-          printf("file: %s\n", requested);
+          char *requestedPath = front(dire);
+          if(requestedPath != NULL){
+            requested = performInsert(requestedPath, NULL, getRoot(sharedResources->fs), DIRECTORY, &rc_t);
+            // TODO... handle with error handler
+            if(rc_t == SUCCESS || rc_t == ALREADY_INSERTED && requested != NULL){
+              requestedFile = (FileInfo) requested->data;
+              if(requestedFile != NULL){
+                requestedFile->isRequested = SUCCESS;
+                rc_st = sumTables(sharedResources->requestedFilesTable, requestedFile->fileTable, NCHAR_TABLE);
+                if(rc_st != SUCCESS){
+                  rc_t = errorHandler(rc_st);
+                }
+              } else {
+                rc_t = NULL_POINTER;
+              }
+              rc_en = enqueue(sharedResources->requestedFiles, (void *) requested);
+              if(rc_en != SUCCESS){
+                rc_t = rc_en;
+              }
+            }
+          } else {
+            rc_t = NULL_POINTER;
+          }
+          printf("file: %s\n", requestedPath);
           pop(dire);
         }
+        pthread_mutex_unlock(&(sharedResources->mutex));
         break;
       } else if (strcmp(dst, "tree") == 0) {
         char *toRetrive = front(dire);
@@ -2616,6 +2731,8 @@ int main() {
   int rc_al = checkAllocationError(cwd);
   char *path = (char *)malloc(sizeof(char) * PATH_MAX);
   int rc_al2 = checkAllocationError(path);
+  long long unsigned *requestedFilesTable = (long long unsigned *) calloc(NCHAR_TABLE, sizeof(long long unsigned));
+  int rc_al3 = checkAllocationError(requestedFilesTable);
   int defaultManagers = 3;
   int defaultWorkers = 4;
   int rc_cwd = SUCCESS;
@@ -2639,6 +2756,9 @@ int main() {
   if(rc_t == SUCCESS && rc_al2 != SUCCESS){
     rc_t = errorHandler(rc_al2);
   }
+  if(rc_t == SUCCESS && rc_al3 != SUCCESS){
+    rc_t = errorHandler(rc_al3);
+  }
   if(rc_t == SUCCESS && (managers == NULL || candidateNode == NULL || fileToAssign == NULL || requestedFiles == NULL)){
     rc_t = MALLOC_FAILURE;
   }
@@ -2651,7 +2771,7 @@ int main() {
         rc_en = enqueue(requestedFiles, getRoot(fs));
         if(rc_en == SUCCESS){
           currentDirectory =
-            performInsert(cwd, NULL, getRoot(fs), DIRECTORY, &rc_pi, requestedFiles);
+            performInsert(cwd, NULL, getRoot(fs), DIRECTORY, &rc_pi);
           if (rc_pi != SUCCESS) {
             rc_t = errorHandler(rc_pi);
           }
@@ -2675,6 +2795,8 @@ int main() {
     sharedResources.path = path;
     sharedResources.candidateNode = candidateNode;
     sharedResources.toRetrive = NULL;
+    sharedResources.requestedFilesTable = requestedFilesTable;
+    sharedResources.sendChanges = -1;
     pthread_t reads;
     pthread_mutex_init(&sharedResources.mutex, NULL);
     pthread_create(&reads, NULL, readDirectivesLoop, (void *)&sharedResources);
