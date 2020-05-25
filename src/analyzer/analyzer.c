@@ -2272,8 +2272,6 @@ void *readString(int fd, char *dst) {
 
   while (byteRead != 0 && charRead != '\0') {
     byteRead = readChar(fd, &charRead);
-    /* if (charRead != 'a') */
-    /* printf("%d %c %d\n", charRead, charRead, byteRead); */
     if (byteRead != 0) {
       dst[index++] = charRead;
     }
@@ -2339,7 +2337,6 @@ void *writeOnFIFOLoop(void *ptr){
   char *toSend = (char *) malloc(sizeof(char) * PATH_MAX);
   int rc_t = checkAllocationError(toSend);
   int msg = SUCCESS;
-  printf("muoio qui\n");
   char *writeFifo = "/tmp/analyzerToReporter";
   int rc_fi = mkfifo(writeFifo, 0666);
   // TODO... check for all the erorrs
@@ -2347,7 +2344,6 @@ void *writeOnFIFOLoop(void *ptr){
     pthread_mutex_lock(&(sharedResources->mutex));
     if(sharedResources->toRetrive != NULL){
       pthread_mutex_unlock(&(sharedResources->mutex));
-      printf("entro qui\n");
       int fd = open(writeFifo, O_WRONLY);
       pthread_mutex_lock(&(sharedResources->mutex));
       if(fd > 0){
@@ -2367,7 +2363,12 @@ void *writeOnFIFOLoop(void *ptr){
       sharedResources->toRetrive = NULL;
       pthread_mutex_unlock(&(sharedResources->mutex));
       close(fd);
+    } else {
+      pthread_mutex_unlock(&(sharedResources->mutex));
     }
+
+    // TODO... sends information to analyzer
+
   }
 }
 
@@ -2569,10 +2570,9 @@ void *readFromFIFOLoop(void *ptr){
         break;
       } else if (strcmp(dst, "requ") == 0) {
         while (dire->size != 0) {
-          char *msg = front(dire);
-          printf("file: %s\n", msg);
+          char *requested = front(dire);
+          printf("file: %s\n", requested);
           pop(dire);
-          free(msg);
         }
         break;
       } else if (strcmp(dst, "tree") == 0) {
