@@ -59,13 +59,27 @@ UserInput newUserInput() {
   char *fil2 = malloc(PATH_MAX * sizeof(char));
   char *fil3 = malloc(PATH_MAX * sizeof(char));
   char *fil4 = malloc(PATH_MAX * sizeof(char));
-  strcpy(dir1, "directory del mio paese1");
-  strcpy(dir2, "directory 2");
-  strcpy(fil1, "file del tuo paese 1");
-  strcpy(fil2, "file 2");
-  strcpy(fil2, "file 2");
-  strcpy(fil3, "file 3");
-  strcpy(fil4, "file 4");
+  strcpy(dir1,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/directory del mio paese1");
+  strcpy(dir2,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/directory 2");
+  strcpy(fil1,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/file del tuo paese 1");
+  strcpy(fil2,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/file 2");
+  strcpy(fil2,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/file 2");
+  strcpy(fil3,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/file 3");
+  strcpy(fil4,
+         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
+         "progettoSO/bin/file 4");
   push(ui->directories, dir1);
   push(ui->directories, dir2);
   push(ui->files, fil1);
@@ -106,7 +120,7 @@ int main(int argc, char **argv) {
   char *readFifo = "/tmp/analyzerToReporter";
   char *cwd = malloc(PATH_MAX * sizeof(char));
   // TODO test only
-  strcpy(cwd, "/home/current");
+  getcwd(cwd, PATH_MAX);
   /* remove(writeFifo); */
   int rc_fi = mkfifo(writeFifo, 0666);
   int rc_fi2 = mkfifo(readFifo, 0666);
@@ -370,10 +384,11 @@ void *writeFifoLoop(void *ptr) {
       fd = open(fifoPath, O_WRONLY);
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        printf("sto per entrare nel tree di merda: |%s|\n",
-               input->userInput->tree);
         rc_t = sendTree(fd, input->userInput->tree);
-        printf("entrato\n");
+        if (rc_t == SUCCESS) {
+          input->cwd = input->userInput->tree;
+          chdir(input->cwd);
+        }
       }
       close(fd);
     }
@@ -418,25 +433,18 @@ void *readFifoLoop(void *ptr) {
       int castedNumber;
       int rc_cast = sscanf(dst, "%d", &castedNumber);
       if (rc_cast != EOF) {
-        dst[0] = '\0';
-        readString(fd, dst);
-        if (strcmp(dst, "") != 0) {
+        List tmpDirs = newList();
+        List tmpFiles = newList();
+        if (tmpFiles == NULL || tmpDirs == NULL)
+          rc_t = MALLOC_FAILURE;
+        else {
+          rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles);
           pthread_mutex_lock(&(input->mutex));
-          input->cwd = dst;
+          destroyList(input->userInput->directories, free);
+          destroyList(input->userInput->files, free);
+          input->userInput->directories = tmpDirs;
+          input->userInput->files = tmpFiles;
           pthread_mutex_unlock(&(input->mutex));
-          List tmpDirs = newList();
-          List tmpFiles = newList();
-          if (tmpFiles == NULL || tmpDirs == NULL)
-            rc_t = MALLOC_FAILURE;
-          else {
-            rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles);
-            pthread_mutex_lock(&(input->mutex));
-            destroyList(input->userInput->directories, free);
-            destroyList(input->userInput->files, free);
-            input->userInput->directories = tmpDirs;
-            input->userInput->files = tmpFiles;
-            pthread_mutex_unlock(&(input->mutex));
-          }
         }
       }
     } else if (strcmp(dst, "tabl") == 0) {
@@ -595,12 +603,10 @@ int readResult(List pathResults) {
 
 int sendResult(int fd, List pathResults) {
   int rc_t = SUCCESS;
-  printf("enotr qui\n");
 
   while (pathResults->size > 0 && rc_t == SUCCESS) {
     char *path = front(pathResults);
     if (path != NULL) {
-      printf("invio %s\n", path);
       rc_t = pop(pathResults);
       if (rc_t == SUCCESS) {
         int rc_wr = writeDescriptor(fd, path);
@@ -610,7 +616,7 @@ int sendResult(int fd, List pathResults) {
     }
   }
 
-  writeDescriptor(fd, "requ");
+  writeDescriptor(fd, "//");
 
   return rc_t;
 }
