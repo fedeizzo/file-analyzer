@@ -104,7 +104,7 @@ int readResult(List pathResults);
 int sendResult(int fd, List pathResults);
 int updateTree(char *path);
 int sendTree(int fd, char *treePath);
-int readTree(int readOperation, int fd, List directories, List files);
+int readTree(int readOperation, int fd, List directories, List files, char* cwd);
 int readTable(int fd, unsigned long long *table);
 
 int main(int argc, char **argv) {
@@ -281,7 +281,7 @@ void *userInputLoop(void *ptr) {
     }
     usleep(50000);
   }
-  printf("osno morto\n");
+  printf("sono morto\n");
 }
 
 int isAnalyzerAlive() {
@@ -373,15 +373,21 @@ void *writeFifoLoop(void *ptr) {
       }
       close(fd);
     }
+    //fprintf(stderr,"Il tree di merda vale %s\n",input->userInput->tree );
     if (input->userInput->tree[0] != '\0') {
       pthread_mutex_unlock(&(input->mutex));
       fd = open(fifoPath, O_WRONLY);
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
+        fprintf(stderr,"Richiesta del tree %s\n",input->userInput->tree );
         rc_t = sendTree(fd, input->userInput->tree);
+        fprintf(stderr, "Send tree dice %d\n", rc_t);
         if (rc_t == SUCCESS) {
-          input->cwd = input->userInput->tree;
+          //strcpy(input->userInput->tree, input->cwd);
+          //fprintf(stderr, "Cambio working directory\n");
+          input->userInput->tree[0] = '\0';
           chdir(input->cwd);
+          fprintf(stderr, "INPUT CWD: %s\n", input->cwd);
         }
       }
       close(fd);
@@ -421,27 +427,38 @@ void *readFifoLoop(void *ptr) {
     char *dst = malloc(PATH_MAX * sizeof(char));
     dst[0] = '\0';
     readString(fd, dst);
+    fprintf(stderr, "Ho letto dalla fifo %s\n", dst);
     if (strcmp(dst, "tree") == 0) {
+      fprintf(stderr, "E' TREE\n");
       dst[0] = '\0';
       readString(fd, dst);
       int castedNumber;
       int rc_cast = sscanf(dst, "%d", &castedNumber);
+      fprintf(stderr, "Casted number = %d\n", castedNumber);
       if (rc_cast != EOF) {
         List tmpDirs = newList();
         List tmpFiles = newList();
+        // TODO check allocation
+        char *tmpCwd = malloc(PATH_MAX * sizeof(char));
         if (tmpFiles == NULL || tmpDirs == NULL)
           rc_t = MALLOC_FAILURE;
         else {
-          rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles);
+          pthread_mutex_lock(&(input->mutex));
+          strcpy(tmpCwd, input->cwd);
+          pthread_mutex_unlock(&(input->mutex));
+          rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles, tmpCwd);
+          fprintf(stderr, "Muoio dopo read tree\n");
           pthread_mutex_lock(&(input->mutex));
           destroyList(input->userInput->directories, free);
           destroyList(input->userInput->files, free);
+          fprintf(stderr, "Muoio dopo la distruzione delle liste, epico finito male\n");
           input->userInput->directories = tmpDirs;
           input->userInput->files = tmpFiles;
           pthread_mutex_unlock(&(input->mutex));
         }
       }
     } else if (strcmp(dst, "tabl") == 0) {
+      fprintf(stderr, "E' TABL");
       unsigned long long *tmpTable =
           calloc(NCHAR_TABLE, sizeof(unsigned long long));
       readTable(fd, tmpTable);
@@ -632,20 +649,37 @@ int updateTree(char *path) {
 }
 
 int sendTree(int fd, char *treePath) {
+  char *tmpPath = malloc(sizeof(char) * PATH_MAX);
   int rc_t = SUCCESS;
+  int old ;
+  int index = 0;
+  int rc_al = checkAllocationError(tmpPath);
+  if(rc_al != SUCCESS){
+    rc_t = MALLOC_FAILURE;
+  }
 
-  int rc_wr = writeDescriptor(fd, treePath);
-  if (rc_wr < SUCCESS)
+  if(rc_t == SUCCESS && treePath[0] == '/'){
+    while (treePath[index] != '\0') {
+      old = index;
+      index++;
+      tmpPath[old] = treePath[index];
+    }
+  }
+
+  fprintf(stderr, "Tree path vale: %s\n", tmpPath);
+  int rc_wr = writeDescriptor(fd, tmpPath);
+  if (rc_t == SUCCESS && rc_wr < SUCCESS)
     rc_t = -1;
 
   writeDescriptor(fd, "tree");
 
-  treePath[0] = '\0';
+  //treePath[0] = '\0';
 
+  free(tmpPath);
   return rc_t;
 }
 
-int readTree(int readOpeartion, int fd, List directories, List files) {
+int readTree(int readOpeartion, int fd, List directories, List files, char* cwd) {
   int rc_t = SUCCESS;
 
   int bytesRead = -1;
@@ -659,15 +693,21 @@ int readTree(int readOpeartion, int fd, List directories, List files) {
     dst2[0] = '\0';
     readString(fd, dst2);
     if (strcmp(dst, "") != 0 && strcmp(dst2, "") != 0) {
-      if (strcmp(dst, "d") == 0) {
-        rc_t = push(directories, dst);
+      fprintf(stderr, "Ho letto come figlio il sig: %s di tipo %s\n", dst, dst2);
+      char *elem = malloc(PATH_MAX * sizeof(char));
+      strcpy(elem, cwd);
+      strcat(elem, "/");
+      strcat(elem, dst);
+      if (strcmp(dst2, "d") == 0) {
+        rc_t = push(directories, elem);
+        fprintf(stderr, "Ho pushato una cartella %s \n", elem);
       } else {
-        rc_t = push(files, dst);
+        rc_t = push(files, elem);
+        fprintf(stderr, "Ho pushato un file %s\n", elem);
       }
       readOpeartion--;
     } else
       free(dst);
-
     free(dst2);
   }
 

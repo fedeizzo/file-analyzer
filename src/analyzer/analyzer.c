@@ -1806,7 +1806,9 @@ void *sendFileLoop(void *ptr) {
                         counterFiles++;
                         // printf("path: %s, size: %d\n", path, counterFiles);
                         rc_dn = detachNodeFromList(manager->filesInExecution, node);
-                        sharedResources->sendChanges = SUCCESS;
+                        if(info->isRequested == SUCCESS){
+                          sharedResources->sendChanges = SUCCESS;
+                        }
                         if(rc_dn != SUCCESS){
                           rc_t = errorHandler(rc_dn);
                         }
@@ -1817,7 +1819,9 @@ void *sendFileLoop(void *ptr) {
                       }
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       if(found == 1){
-                        sharedResources->sendChanges = SUCCESS;
+                        if(info->isRequested == SUCCESS){
+                          sharedResources->sendChanges = SUCCESS;
+                        }
                       }
                     } else {
                       rc_t = errorHandler(ANALYZER_MANAGER_MISUNDERSTANDING);
@@ -2277,7 +2281,9 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend){
   FileInfo file = NULL;
   int rc_t = SUCCESS;
   int rc_wd = writeDescriptor(fd, "tree");
+  fprintf(stderr, "Hai richiesto che ti sia inviato il signor: %s\n", ((FileInfo)requested->data)->name);
   if(requested->children != NULL && rc_wd >= 0){
+    fprintf(stderr, "La cosa che hai chiesto ha size: %d\n", requested->children->size);
     int rc_ss = sprintf(toSend, "%d", requested->children->size);
     if(rc_ss < 0){
       // TODO... handle sprintf error
@@ -2290,6 +2296,7 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend){
           if(child != NULL){
             file = (FileInfo) child->data;
             if(file != NULL){
+              fprintf(stderr, "Invio il figlio di nome %s che ha tipo %d\n", file->name, file->isDirectory);
               rc_wd = writeDescriptor(fd, file->name);
               if(rc_wd > 0){
                 if(file->isDirectory == DIRECTORY){
@@ -2327,7 +2334,8 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend){
 int sendTableToReporter(int fd, long long unsigned *requestedFilesTable){
   int rc_t = SUCCESS;
   int j = 0;
-  char number[PATH_MAX];
+  char *number = malloc(PATH_MAX * sizeof(char));
+  fprintf(stderr,"Entro e poi mi spacco\n");
   if(requestedFilesTable != NULL){
     for (j = 0; j < NCHAR_TABLE; j++) {
       int rc_sp;
@@ -2335,14 +2343,18 @@ int sendTableToReporter(int fd, long long unsigned *requestedFilesTable){
       if (rc_sp == -1)
         rc_t = CAST_FAILURE;
       else {
+        fprintf(stderr, "Ho scritto cose brutte indice %d schifo da scrivere %s\n", j, number);
         int rc_wr = writeDescriptor(fd, number);
         if (rc_wr == -1)
           rc_t = SUMMARY_FAILURE;
       }
+      //sleep(1);
     }
   } else {
     rc_t = NULL_POINTER;
   }
+  fprintf(stderr, "Ho un codice di errore strambo che vale %d\n", rc_t);
+  free(number);
   return rc_t;
 }
 
@@ -2375,34 +2387,41 @@ void *writeOnFIFOLoop(void *ptr){
         }
       }
       sharedResources->toRetrive = NULL;
-      pthread_mutex_unlock(&(sharedResources->mutex));
       close(fd);
+      fprintf(stderr, "chiudo la fifo\n");
+      pthread_mutex_unlock(&(sharedResources->mutex));
     } else {
       pthread_mutex_unlock(&(sharedResources->mutex));
     }
 
     pthread_mutex_lock(&(sharedResources->mutex));
-    if(sharedResources->sendChanges > -1){
+    if(sharedResources->sendChanges == SUCCESS){
       pthread_mutex_unlock(&(sharedResources->mutex));
+      fprintf(stderr, "STO PROVANDO A MANDARE DEGLI AGGIORNAMENTI\n");
       int fd = open(writeFifo, O_WRONLY);
+      fprintf(stderr, "Ho 43passato la creazione/apertura della fifo\n");
       pthread_mutex_lock(&(sharedResources->mutex));
       if(fd > 0){
         rc_wd = writeDescriptor(fd, "tabl");
         if(rc_wd > 0){
+          fprintf(stderr, "Sto per inviare le tabelle al reporter\n");
           int rc_st = sendTableToReporter(fd, sharedResources->requestedFilesTable);
+          fprintf(stderr, "Ho scritto la tabella per il sig reporter\n");
           if(rc_st != SUCCESS){
             rc_t = errorHandler(rc_st);
           }
         }
       }
       sharedResources->sendChanges = -1;
-      pthread_mutex_unlock(&(sharedResources->mutex));
       close(fd);
+      pthread_mutex_unlock(&(sharedResources->mutex));
     } else {
       pthread_mutex_unlock(&(sharedResources->mutex));
     }
 
   }
+  fprintf(stderr, "SONO MORTO PERCHE' HO RC_T = %d\n", rc_t);
+  kill(getpid(), SIGKILL);
 }
 
 int changeWorkerAmount(PriorityQueue managers, const int amount){
