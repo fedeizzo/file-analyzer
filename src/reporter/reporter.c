@@ -60,28 +60,19 @@ UserInput newUserInput() {
   char *fil3 = malloc(PATH_MAX * sizeof(char));
   char *fil4 = malloc(PATH_MAX * sizeof(char));
   strcpy(dir1,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/directory del mio paese1");
+         "/tmp/progetto/bin/directory del mio paese1");
   strcpy(dir2,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/directory 2");
+         "/tmp/progetto/bin/directory 2");
   strcpy(fil1,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file del tuo paese 1");
+         "/tmp/progetto/bin/file del tuo paese 1");
   strcpy(fil2,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file 2");
+         "/tmp/progetto/bin/file 2");
   strcpy(fil2,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file 2");
+         "/tmp/progetto/bin/file 2");
   strcpy(fil3,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file 3");
-  /*strcpy(fil4,
-         "/home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/"
-         "progettoSO/bin/file 4"); */
+         "/tmp/progetto/bin/file 3");
   strcpy(fil4,
-         "/mnt/c/Users/emabe/Desktop/Università/2 anno - 2 semestre/Sistemi operativi 1/Progetto SO/progettoSO/bin//home/progetto/LabSO1-AA_2019_2020--201931_202077_201637_201647/progettoSO/bin/file 4");
+         "/tmp/progetto/bin/file 4");
 
   push(ui->directories, dir1);
   push(ui->directories, dir2);
