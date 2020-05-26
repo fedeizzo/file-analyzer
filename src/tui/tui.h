@@ -19,6 +19,10 @@ typedef struct ScreenStr {
   int cols;
   int rows;
   int cmd;
+  int treeStartCol;
+  int treeEndCol;
+  int treeStartRow;
+  int treeEndRow;
 } * Screen;
 
 /**

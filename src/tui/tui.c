@@ -61,6 +61,8 @@ Screen newScreen(int width, int heigth) {
   screen->cols = width;
   screen->grid = malloc(screen->cols * sizeof(char *));
   screen->cmd = 5;
+  screen->treeStartCol = 0;
+  screen->treeEndCol = 17;
   int i = 0;
   for (i = 0; i < screen->cols; i++) {
     screen->grid[i] = malloc(heigth * sizeof(char));
@@ -296,24 +298,32 @@ void draw(Screen screen) {
   fflush(stdout);
 }
 
-void lastDir(char *tmpCwd, char *cwd) {
+void lastDir(char *tmpCwd, char *cwd, int *start, int *end) {
   int lastSlash = 0;
   int index = 0;
   while (cwd[index] != '\0') {
     if (cwd[index++] == '/')
       lastSlash = index;
   }
+  int until = 17;
+  if (strlen(cwd) - lastSlash > 17) {
+    lastSlash += *start % strlen(cwd) - lastSlash;
+    until = *end % strlen(cwd) - lastSlash;
+  }
   index = 0;
-  while (index < 17) {
+  while (index < until && cwd[lastSlash] != '\0') {
     tmpCwd[index++] = cwd[lastSlash++];
   }
-  tmpCwd[16] = '\0';
+  tmpCwd[index] = '\0';
+  fprintf(stderr, "start: %d, end: %d\n", *start, *end);
+  fprintf(stderr, "yeee: %s\n", tmpCwd);
 }
 
 void drawTree(Screen screen, List directories, List files, List toggled,
-              char *cwd) {
+              char *cwd, int *startCol, int *endCol, const int startRow,
+              const int endRow) {
   char *tmpCwd = malloc(17 * sizeof(char));
-  lastDir(tmpCwd, cwd);
+  lastDir(tmpCwd, cwd, startCol, endCol);
   writeScreen(screen, "                ", 2, 7);
   writeScreen(screen, tmpCwd, 2, 7);
 
@@ -324,7 +334,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   Node element = directories->head;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
-    lastDir(tmpCwd, line);
+    lastDir(tmpCwd, line, startCol, endCol);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
@@ -344,7 +354,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     }
 
     strcpy(line, (char *)element->data);
-    lastDir(tmpCwd, line);
+    lastDir(tmpCwd, line, startCol, endCol);
     if (lineCounter < screen->rows - 1) {
       writeScreen(screen, "                ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
@@ -462,16 +472,21 @@ void *graphicsLoop(void *ptr) {
   moveCursor(3, 2);
 
   int counter = 0;
+  int scrollCounte = 0;
   if (rc_pi < SUCCESS || rc_du < SUCCESS || rc_in < SUCCESS)
     rc_t = GRAPHIC_LOOP_FAILURE;
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(p->mutex));
     draw(p->screen);
     drawTree(p->screen, p->userInput->directories, p->userInput->files,
-             p->userInput->results, p->cwd);
+             p->userInput->results, p->cwd, &p->screen->treeStartCol,
+             &p->screen->treeEndCol, 0, 0);
     pthread_mutex_unlock(&(p->mutex));
     usleep(1000000);
-    /* usleep(5000000); */
+    if (scrollCounte % 2 == 0) {
+      p->screen->treeEndCol++;
+      p->screen->treeStartCol++;
+    }
   }
   kill(getpid(), SIGKILL);
 }
@@ -577,6 +592,7 @@ void *inputLoop(void *ptr) {
 
   char key;
   char lastKey;
+  int isTreeLastMode = 0;
   int treeMode = 0;
   int numberManagerMode = 0;
   int numberWorkerMode = 0;
@@ -590,6 +606,7 @@ void *inputLoop(void *ptr) {
     key = getkey();
     if ((key > 31 && key <= 127) || key == 10 || key == 27) {
       if (key == 10) {
+        isTreeLastMode = 0;
         int i;
         int cmdCounter = 0;
         char *cmd = malloc(PATH_MAX * sizeof(char));
@@ -803,6 +820,7 @@ void *inputLoop(void *ptr) {
 
         p->screen->grid[column][row] = '|';
       } else if (key == 27) {
+        isTreeLastMode = 0;
         if (treeMode) {
           int i;
           for (i = 2; i < 18; i++) {
@@ -815,16 +833,27 @@ void *inputLoop(void *ptr) {
           for (i = 9; i < p->screen->cols - 1; i++) {
             p->screen->grid[i][row] = ' ';
           }
+          isTreeLastMode = 1;
         }
       } else if (key == 127) {
+        isTreeLastMode = 0;
         if ((column > 9 && !treeMode) || (treeMode && column > 2)) {
           p->screen->grid[column--][row] = ' ';
           p->screen->grid[column][row] = '|';
         }
       } else if (key == '[' || key == ']') {
+        if (key == '[' && lastKey == 27 && isTreeLastMode == 1) {
+          writeScreen(p->screen, "tree:  press esc to return in input mode", 2,
+                      1);
+          row = 5;
+          column = 2;
+          treeMode = 1;
+          isTreeLastMode = 0;
+        }
         lastKey = key;
       } else if (!((key == 65 || key == 66 || key == 67 || key == 68) &&
                    lastKey == '[')) {
+        isTreeLastMode = 0;
         if (numberManagerMode == 0 && numberWorkerMode == 0) {
           if ((column < p->screen->cols - 2 && !treeMode) ||
               (treeMode && column < 18)) {
@@ -832,12 +861,21 @@ void *inputLoop(void *ptr) {
             p->screen->grid[column][row] = '|';
           }
         } else {
+          isTreeLastMode = 0;
           if ((column < p->screen->cols - 2 && !treeMode) ||
               (treeMode && column < 18)) {
             if (key >= 48 && key <= 57) {
               p->screen->grid[column++][row] = key;
               p->screen->grid[column][row] = '|';
             }
+          }
+        }
+      } else if (lastKey == '[' &&
+                 (key == 65 || key == 66 || key == 67 || key == 68)) {
+        if (treeMode == 1) {
+          if (key == 67) {
+            p->screen->treeEndCol++;
+            p->screen->treeStartCol++;
           }
         }
       }
