@@ -894,8 +894,8 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
   toInsert = newTreeNode(whereToInsert, (void *)dataToInsert, &rc_tc);
   if (rc_nc == SUCCESS && rc_tc == SUCCESS) {
     linkChild(whereToInsert, toInsert);
-    printf("inserisco %s tra i figli di %s\n", ((FileInfo)toInsert->data)->name,
-           ((FileInfo)whereToInsert->data)->name);
+    /*printf("inserisco %s tra i figli di %s\n", ((FileInfo)toInsert->data)->name,
+           ((FileInfo)whereToInsert->data)->name);*/
   } else {
     free(dataToInsert);
     free(toInsert);
@@ -981,7 +981,8 @@ void *readDirectivesLoop(void *ptr) {
     }
 
     if (rc_ct == SUCCESS) {
-      if (strcmp(newPath, "//") == 0) {
+      if (strcmp(newPath, "///") == 0) {
+        fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI WORKER\n");
         pthread_mutex_lock(&(sharedResources->mutex));
         changeWorkerAmount(sharedResources->managers,
                            *(sharedResources->nWorker));
@@ -1090,7 +1091,10 @@ int changeManagersAmount(PriorityQueue managers, const int currentManagers,
     delta = newManagers;
 
   if (delta > 0) {
-    rc_t = addManagers(managers, delta);
+    rc_t = removeManagers(managers, 0, fileToAssign);
+    if(rc_t == SUCCESS){
+      rc_t = addManagers(managers, delta);
+    }
   } else {
     rc_t = removeManagers(managers, -delta, fileToAssign);
   }
@@ -1205,7 +1209,7 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
   while (rc_t == SUCCESS && managerSize != 0) {
     Manager m = popPriorityQueue(managers);
     if (m != NULL) {
-      if (amount != 0) {
+      if (amount > 0) {
         if (m != NULL) {
           rc_em = endManager(m, fileToAssign);
           if (rc_em != SUCCESS) {
@@ -1243,6 +1247,7 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
   if (rc_sw != SUCCESS) {
     rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
   }
+  printf("Dopo aver rimodulato i manager la lista di file da riassegnare e' di %d\n", fileToAssign->size);
   return rc_t;
 }
 
@@ -1884,7 +1889,7 @@ void *sendFileLoop(void *ptr) {
                     if (strcmp(controlWord, CONTROL_DONE) == 0) {
                       if (found == 1) {
                         counterFiles++;
-                        // printf("path: %s, size: %d\n", path, counterFiles);
+                        printf("path: %s, size: %d\n", path, counterFiles);
                         rc_dn =
                             detachNodeFromList(manager->filesInExecution, node);
                         if (info->isRequested == SUCCESS) {
@@ -1942,12 +1947,14 @@ void *sendFileLoop(void *ptr) {
           alreadyPushed = FAILURE;
         }
       } else {
+        printf("muoio per un manager nullo\n");
         rc_t = errorHandler(NULL_POINTER);
       }
       nManager--;
     }
     rc_sw = swapPriorityQueue(sharedResources->managers, tmpManagers);
     if (rc_sw != SUCCESS) {
+      printf("muoio dopo la swap file to send %d\n", rc_sw);
       rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
     }
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
@@ -1955,6 +1962,7 @@ void *sendFileLoop(void *ptr) {
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
       if (rc_mfs != SUCCESS) {
+        printf("muoio dopo manage file to send %d\n", rc_mfs);
         errorHandler(rc_mfs);
       }
     }
@@ -2227,6 +2235,8 @@ void *fileManageLoop(void *ptr) {
 int errorHandler(int errorCode) {
   int rc_t = SUCCESS;
   switch (errorCode) {
+  case SUCCESS:
+    break;
   case READ_FAILURE:
     /* printInfo("reading from worker"); */
     rc_t = SUCCESS;
@@ -2431,13 +2441,13 @@ int sendTableToReporter(int fd, long long unsigned *requestedFilesTable) {
   if (requestedFilesTable != NULL) {
     for (j = 0; j < NCHAR_TABLE; j++) {
       int rc_sp;
-      printf("NUMERO: %llu\n", requestedFilesTable[j]);
+      //printf("NUMERO: %llu\n", requestedFilesTable[j]);
       rc_sp = sprintf(number, "%llu", requestedFilesTable[j]);
       if (rc_sp <= 0)
         rc_t = CAST_FAILURE;
       else {
-        printf("Ho scritto cose brutte indice %d schifo da scrivere %s\n", j,
-               number);
+        /*printf("Ho scritto cose brutte indice %d schifo da scrivere %s\n", j,
+               number);*/
         int rc_wr = writeDescriptor(fd, number);
         /*if (rc_wr == -1)
           rc_t = SUMMARY_FAILURE;*/
@@ -2557,6 +2567,7 @@ int changeWorkerAmount(PriorityQueue managers, const int amount) {
     if (m != NULL) {
       fd = m->pipe;
       if (fd != NULL && fd > 0) {
+        // TODO... change this to /// as default path
         int rc_wr = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
         int rc_wr2 = writeDescriptor(fd[WRITE_CHANNEL], nWorker);
         if (rc_wr < SUCCESS || rc_wr2 < SUCCESS) {
@@ -2721,6 +2732,7 @@ void *readFromFIFOLoop(void *ptr) {
           // TODO... same as above
           strcpy(sharedResources->path, newPath);
           if (*(sharedResources->nManager) != newNManager) {
+            fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI MANAGER\n");
             rc_cma = changeManagersAmount(
                 sharedResources->managers, *(sharedResources->nManager),
                 newNManager, sharedResources->fileToAssign);
@@ -2736,7 +2748,8 @@ void *readFromFIFOLoop(void *ptr) {
 
         if (rc_ct == SUCCESS) {
           // TODO... copy the if else in the other thread
-          if (strcmp(newPath, "//") == 0) {
+          if (strcmp(newPath, "///") == 0) {
+            fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI WORKER\n");
             pthread_mutex_lock(&(sharedResources->mutex));
             changeWorkerAmount(sharedResources->managers,
                                *(sharedResources->nWorker));
@@ -2806,16 +2819,16 @@ void *readFromFIFOLoop(void *ptr) {
               if (requestedFile != NULL) {
                 requestedFile->isRequested = SUCCESS;
                 int i = 0;
-                for (i = 0; i < NCHAR_TABLE; i++) {
+                /*for (i = 0; i < NCHAR_TABLE; i++) {
                   printf("TABELLA PRIMA DI FARE LA SOMMA %d: %llu\n", i,
                          sharedResources->requestedFilesTable[i]);
-                }
+                }*/
                 rc_st = sumTables(sharedResources->requestedFilesTable,
                                   requestedFile->fileTable, NCHAR_TABLE);
-                for (i = 0; i < NCHAR_TABLE; i++) {
+                /*for (i = 0; i < NCHAR_TABLE; i++) {
                   printf("TABELLA DOPO DI FARE LA SOMMA %d: %llu\n", i,
                          sharedResources->requestedFilesTable[i]);
-                }
+                }*/
                 if (rc_st != SUCCESS) {
                   rc_t = errorHandler(rc_st);
                 }

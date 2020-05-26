@@ -364,7 +364,7 @@ void *writeFifoLoop(void *ptr) {
       fprintf(stderr, "open numero 2 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
+        rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
@@ -385,7 +385,7 @@ void *writeFifoLoop(void *ptr) {
       fprintf(stderr, "open numero 3 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
+        rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
