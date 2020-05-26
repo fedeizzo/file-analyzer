@@ -318,6 +318,11 @@ void *writeFifoLoop(void *ptr) {
   int resultsSizePlaceholder = 0;
   int lastResultCount = 0;
   char firstCharTree = '\0';
+
+  fd = open(fifoPath, O_WRONLY);
+  pthread_mutex_lock(&(input->mutex));
+  /* rc_t = sendTree(fd, input->cwd); */
+  pthread_mutex_unlock(&(input->mutex));
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
     pathsSizePlaceholder = input->userInput->paths->size;
@@ -326,7 +331,7 @@ void *writeFifoLoop(void *ptr) {
       /* printf("va che non e vuota come pensavi\n"); */
       /* printf("sto per aprire la fifo avendo letto %s\n", path); */
       fprintf(stderr, "open numero 1\n");
-      fd = open(fifoPath, O_WRONLY);
+      /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 1 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       char *path = front(input->userInput->paths);
@@ -341,6 +346,8 @@ void *writeFifoLoop(void *ptr) {
           }
           rc_t = sendDirectives(fd, path, &(input->userInput->managers),
                                 &(input->userInput->workers));
+          rc_t = sendTree(fd, input->cwd);
+          fprintf(stderr, "ho inviato la seconda volta\n");
           // TODO debug only
           /* if (strcmp(path, input->cwd) == 0) { */
           /*   sendTree(fd, input->cwd); */
@@ -350,7 +357,7 @@ void *writeFifoLoop(void *ptr) {
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 1\n");
-      close(fd);
+      /* close(fd); */
       fprintf(stderr, "close numero 1 chiusa\n");
     }
 
@@ -360,16 +367,16 @@ void *writeFifoLoop(void *ptr) {
     if (managerCountPlaceholder != lastManager) {
       lastManager = managerCountPlaceholder;
       fprintf(stderr, "open numero 2\n");
-      fd = open(fifoPath, O_WRONLY);
+      /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 2 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
-                              &(input->userInput->workers));
+        /* rc_t = sendDirectives(fd, "///", &(input->userInput->managers), */
+        /*                       &(input->userInput->workers)); */
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 2\n");
-      close(fd);
+      /* close(fd); */
       fprintf(stderr, "close numero 2 chiusa\n");
     }
 
@@ -381,16 +388,16 @@ void *writeFifoLoop(void *ptr) {
        */
       lastWorker = workerCountPlaceholder;
       fprintf(stderr, "open numero 3\n");
-      fd = open(fifoPath, O_WRONLY);
+      /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 3 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
-                              &(input->userInput->workers));
+        /* rc_t = sendDirectives(fd, "///", &(input->userInput->managers), */
+        /*                       &(input->userInput->workers)); */
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 3\n");
-      close(fd);
+      /* close(fd); */
       fprintf(stderr, "close numero 3 chiusa\n");
     }
 
@@ -401,7 +408,7 @@ void *writeFifoLoop(void *ptr) {
         resultsSizePlaceholder != 0) {
       lastResultCount = resultsSizePlaceholder;
       fprintf(stderr, "open numero 4\n");
-      fd = open(fifoPath, O_WRONLY);
+      /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 4 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
@@ -411,7 +418,7 @@ void *writeFifoLoop(void *ptr) {
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 4\n");
-      close(fd);
+      /* close(fd); */
       fprintf(stderr, "close numero 4 chiusa\n");
     }
 
@@ -420,7 +427,7 @@ void *writeFifoLoop(void *ptr) {
     pthread_mutex_unlock(&(input->mutex));
     if (firstCharTree != '\0') {
       fprintf(stderr, "open numero 5\n");
-      fd = open(fifoPath, O_WRONLY);
+      /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 5 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
@@ -437,11 +444,12 @@ void *writeFifoLoop(void *ptr) {
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 5\n");
-      close(fd);
+      /* close(fd); */
       fprintf(stderr, "close numero 5 chiusa\n");
     }
     usleep(500);
   }
+  close(fd);
   free(fifoPath);
   fprintf(stderr, "MORTO READ LOOP\n");
 }
@@ -596,6 +604,7 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
   return rc_t;
 }
 
+int counter = 0;
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
   int rc_t = SUCCESS;
 
@@ -609,6 +618,10 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
 
   if (rc_sp >= SUCCESS && rc_al2 >= SUCCESS && fd > SUCCESS) {
     int rc_wr = SUCCESS;
+    // TODO debug only
+    int mioDio;
+    char belloDicasa[300];
+    sprintf(belloDicasa, "a magico %d", counter++);
     int rc_wr1 = writeDescriptor(fd, path);
     int rc_wr2 = writeDescriptor(fd, nManager);
     int rc_wr3 = writeDescriptor(fd, nWorker);

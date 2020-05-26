@@ -306,16 +306,20 @@ void lastDir(char *tmpCwd, char *cwd, int *start, int *end) {
       lastSlash = index;
   }
   int until = 17;
+  int str = *start;
   if (strlen(cwd) - lastSlash > 17) {
-    lastSlash += *start % strlen(cwd) - lastSlash;
-    until = *end % strlen(cwd) - lastSlash;
+    int nextStart = (lastSlash + str) % (strlen(cwd) - lastSlash);
+    lastSlash += nextStart;
+    // TODO implemnt little stop
   }
+  fprintf(stderr, "%s\n", cwd);
+  fprintf(stderr, "start: %d, lastSlash %d,  until: %d\n", *start, lastSlash,
+          until);
   index = 0;
   while (index < until && cwd[lastSlash] != '\0') {
     tmpCwd[index++] = cwd[lastSlash++];
   }
   tmpCwd[index] = '\0';
-  fprintf(stderr, "start: %d, end: %d\n", *start, *end);
   fprintf(stderr, "yeee: %s\n", tmpCwd);
 }
 
@@ -324,7 +328,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
               const int endRow) {
   char *tmpCwd = malloc(17 * sizeof(char));
   lastDir(tmpCwd, cwd, startCol, endCol);
-  writeScreen(screen, "                ", 2, 7);
+  writeScreen(screen, "                 ", 2, 7);
   writeScreen(screen, tmpCwd, 2, 7);
 
   //! If the code breaks, move this in another position
@@ -336,7 +340,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
     if (lineCounter < screen->rows - 1) {
-      writeScreen(screen, "                ", 2, lineCounter);
+      writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
@@ -356,7 +360,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
     if (lineCounter < screen->rows - 1) {
-      writeScreen(screen, "                ", 2, lineCounter);
+      writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
@@ -364,7 +368,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   }
 
   while (lineCounter < screen->rows - 1) {
-    writeScreen(screen, "                ", 2, lineCounter);
+    writeScreen(screen, "                 ", 2, lineCounter);
     lineCounter++;
   }
 
@@ -482,10 +486,15 @@ void *graphicsLoop(void *ptr) {
              p->userInput->results, p->cwd, &p->screen->treeStartCol,
              &p->screen->treeEndCol, 0, 0);
     pthread_mutex_unlock(&(p->mutex));
-    usleep(1000000);
+    usleep(650000);
     if (scrollCounte % 2 == 0) {
-      p->screen->treeEndCol++;
-      p->screen->treeStartCol++;
+      if (p->screen->treeStartCol == PATH_MAX) {
+        p->screen->treeEndCol = 0;
+        p->screen->treeStartCol = 0;
+      } else {
+        p->screen->treeEndCol++;
+        p->screen->treeStartCol++;
+      }
     }
   }
   kill(getpid(), SIGKILL);
