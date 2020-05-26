@@ -209,7 +209,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
 int executeWork(const int fd, const unsigned long long start,
                 const unsigned long long end) {
   int rc_t = 0;
-  int rc_se = moveCursorFile(fd, start, SEEK_SET);
+  long long rc_se = moveCursorFile(fd, start, SEEK_SET);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 
@@ -270,7 +270,7 @@ int errorHandler(const int fd, const unsigned long long end) {
   int rc_t = 0;
   if (fd == -1)
     rc_t = READ_DIRECTIVES_FAILURE;
-  int rc_se = moveCursorFile(fd, 0, SEEK_CUR);
+  long long rc_se = moveCursorFile(fd, 0, SEEK_CUR);
   if (rc_se == -1)
     rc_t = CURSOR_FAILURE;
 

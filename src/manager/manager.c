@@ -983,7 +983,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
       int rc_pu = push(tables, t);
       if (rc_pu == 0) {
         int fd = openFile(path, O_RDONLY);
-        unsigned long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
 
         if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
           Work w = newWork(t, 0, fileDimension - 1);

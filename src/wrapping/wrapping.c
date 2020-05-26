@@ -1,11 +1,11 @@
 #include "wrapping.h"
+#include "../config/config.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "../config/config.h"
 
 void printError(const char *msg) {
   fprintf(stderr, "ERROR: %s, pid: %d, parentPid: %d\n", msg, getpid(),
@@ -38,9 +38,10 @@ int openFile(const char *path, const int mode) {
   return code;
 }
 
-int moveCursorFile(const int fd, const int position, const int absPosition) {
-  int rc_t = 0;
-  int rc_se = lseek(fd, position, absPosition);
+long long moveCursorFile(const int fd, const unsigned long long position,
+                         const int absPosition) {
+  long long rc_t = 0;
+  long long rc_se = lseek(fd, position, absPosition);
   if (rc_se == -1) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during move cursor in descriptor: %d", fd);
