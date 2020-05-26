@@ -34,72 +34,73 @@ int main() {
   char *readFifo = "/tmp/reporterToAnalyzer";
   char *writeFifo = "/tmp/analyzerToReporter";
   /* remove(writeFifo); */
-  int rc_fi = mkfifo(readFifo, 0666);
+  /* int rc_fi = mkfifo(readFifo, 0666); */
   int rc_fi2 = mkfifo(writeFifo, 0666);
   int fifoDescriptor;
   List dire = newList();
 
   while (1) {
     printf("sto peer fare la open\n");
-    int fd = open(readFifo, O_RDONLY);
-    if (fd == -1)
-      mkfifo(readFifo, 0666);
-    while (1) {
-      char *dst = malloc(PATH_MAX * sizeof(char));
-      dst[0] = '\0';
-      int hoLettoBoiaDio = readString(fd, dst);
-      /* int hoLettoBoiaDio = read(fd, dst, 4096); */
-      if (hoLettoBoiaDio > 0) {
-        int i = 0;
-        for (i = 0; i < hoLettoBoiaDio; i++) {
-          printf("%c", dst[i]);
+    if (access(readFifo, F_OK) != -1) {
+      int fd = open(readFifo, O_RDONLY);
+      remove(readFifo);
+      while (1) {
+        char *dst = malloc(PATH_MAX * sizeof(char));
+        dst[0] = '\0';
+        int hoLettoBoiaDio = readString(fd, dst);
+        /* int hoLettoBoiaDio = read(fd, dst, 4096); */
+        if (hoLettoBoiaDio > 0) {
+          int i = 0;
+          for (i = 0; i < hoLettoBoiaDio; i++) {
+            printf("%c", dst[i]);
+          }
+          fflush(stdout);
         }
-        fflush(stdout);
-      }
-      if (strcmp(dst, "dire") == 0) {
-        char *msg = front(dire);
-        /* printf("size %d\n", dire->size); */
-        /* printf("path: %s\n", msg); */
-        pop(dire);
-        free(msg);
-        msg = front(dire);
-        /* printf("size %d\n", dire->size); */
-        /* printf("manager: %s\n", msg); */
-        pop(dire);
-        free(msg);
-        msg = front(dire);
-        /* printf("size %d\n", dire->size); */
-        /* printf("worker: %s\n", msg); */
-        pop(dire);
-        free(msg);
-        /* break; */
-      } else if (strcmp(dst, "requ") == 0) {
-        while (dire->size != 0) {
+        if (strcmp(dst, "dire") == 0) {
           char *msg = front(dire);
-          /* printf("file: %s\n", msg); */
+          /* printf("size %d\n", dire->size); */
+          /* printf("path: %s\n", msg); */
           pop(dire);
           free(msg);
+          msg = front(dire);
+          /* printf("size %d\n", dire->size); */
+          /* printf("manager: %s\n", msg); */
+          pop(dire);
+          free(msg);
+          msg = front(dire);
+          /* printf("size %d\n", dire->size); */
+          /* printf("worker: %s\n", msg); */
+          pop(dire);
+          free(msg);
+          /* break; */
+        } else if (strcmp(dst, "requ") == 0) {
+          while (dire->size != 0) {
+            char *msg = front(dire);
+            /* printf("file: %s\n", msg); */
+            pop(dire);
+            free(msg);
+          }
+          /* break; */
+        } else if (strcmp(dst, "tree") == 0) {
+          char *msg = front(dire);
+          printf("voglio i figli di : %s\n", msg);
+          pop(dire);
+          free(msg);
+          /* break; */
+        } else if (strcmp(dst, "") != 0) {
+          enqueue(dire, dst);
+          printf("ho encodato %s, newSize %d\n", dst, dire->size);
+        } else {
+          printf("ho fatto la free\n");
+          free(dst);
+          break;
         }
-        /* break; */
-      } else if (strcmp(dst, "tree") == 0) {
-        char *msg = front(dire);
-        printf("voglio i figli di : %s\n", msg);
-        pop(dire);
-        free(msg);
-        /* break; */
-      } else if (strcmp(dst, "") != 0) {
-        enqueue(dire, dst);
-        printf("ho encodato %s, newSize %d\n", dst, dire->size);
-      } else {
-        printf("ho fatto la free\n");
-        free(dst);
-        break;
+        usleep(1);
       }
-      usleep(1);
+      printf("dicane sono uscito col porco cio\n");
+      close(fd);
+      printf("chiudo\n");
     }
-    printf("dicane sono uscito col porco cio\n");
-    close(fd);
-    printf("chiudo\n");
   }
 
   /* fd = open(fifo, O_WRONLY); */

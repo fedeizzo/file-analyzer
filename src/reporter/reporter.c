@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
   getcwd(cwd, PATH_MAX);
   /* remove(writeFifo); */
   int rc_fi = mkfifo(writeFifo, 0666);
-  int rc_fi2 = mkfifo(readFifo, 0666);
+  /* int rc_fi2 = mkfifo(readFifo, 0666); */
   UserInput userInput;
   userInput = newUserInput();
   int iter1;
