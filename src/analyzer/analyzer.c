@@ -981,7 +981,8 @@ void *readDirectivesLoop(void *ptr) {
     }
 
     if (rc_ct == SUCCESS) {
-      if (strcmp(newPath, "//") == 0) {
+      if (strcmp(newPath, "///") == 0) {
+        fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI WORKER\n");
         pthread_mutex_lock(&(sharedResources->mutex));
         changeWorkerAmount(sharedResources->managers,
                            *(sharedResources->nWorker));
@@ -1942,12 +1943,14 @@ void *sendFileLoop(void *ptr) {
           alreadyPushed = FAILURE;
         }
       } else {
+        printf("muoio per un manager nullo\n");
         rc_t = errorHandler(NULL_POINTER);
       }
       nManager--;
     }
     rc_sw = swapPriorityQueue(sharedResources->managers, tmpManagers);
     if (rc_sw != SUCCESS) {
+      printf("muoio dopo la swap file to send %d\n", rc_sw);
       rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
     }
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
@@ -1955,6 +1958,7 @@ void *sendFileLoop(void *ptr) {
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
       if (rc_mfs != SUCCESS) {
+        printf("muoio dopo manage file to send %d\n", rc_mfs);
         errorHandler(rc_mfs);
       }
     }
@@ -2227,6 +2231,8 @@ void *fileManageLoop(void *ptr) {
 int errorHandler(int errorCode) {
   int rc_t = SUCCESS;
   switch (errorCode) {
+  case SUCCESS:
+    break;
   case READ_FAILURE:
     /* printInfo("reading from worker"); */
     rc_t = SUCCESS;
@@ -2557,6 +2563,7 @@ int changeWorkerAmount(PriorityQueue managers, const int amount) {
     if (m != NULL) {
       fd = m->pipe;
       if (fd != NULL && fd > 0) {
+        // TODO... change this to /// as default path
         int rc_wr = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
         int rc_wr2 = writeDescriptor(fd[WRITE_CHANNEL], nWorker);
         if (rc_wr < SUCCESS || rc_wr2 < SUCCESS) {
@@ -2737,7 +2744,7 @@ void *readFromFIFOLoop(void *ptr) {
 
         if (rc_ct == SUCCESS) {
           // TODO... copy the if else in the other thread
-          if (strcmp(newPath, "//") == 0) {
+          if (strcmp(newPath, "///") == 0) {
             fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI WORKER\n");
             pthread_mutex_lock(&(sharedResources->mutex));
             changeWorkerAmount(sharedResources->managers,
