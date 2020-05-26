@@ -52,7 +52,7 @@ int openFile(const char *path, const int mode);
  * returns:
  *    new position of the cursor in case of success, otherwise -1
  */
-int moveCursorFile(const int fd, const int position, const int absPosition);
+long long moveCursorFile(const int fd, const unsigned long long position, const int absPosition);
 
 /**
  * Wrap function to read a char from a descriptor
