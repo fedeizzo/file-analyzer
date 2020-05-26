@@ -72,7 +72,7 @@ UserInput newUserInput() {
   strcpy(fil3,
          "/tmp/progetto/bin/file 3");
   strcpy(fil4,
-         "/tmp/progetto/bin/file 4"); 
+         "/tmp/progetto/bin/file 4");
 
   push(ui->directories, dir1);
   push(ui->directories, dir2);
@@ -104,7 +104,8 @@ int readResult(List pathResults);
 int sendResult(int fd, List pathResults);
 int updateTree(char *path);
 int sendTree(int fd, char *treePath);
-int readTree(int readOperation, int fd, List directories, List files, char* cwd);
+int readTree(int readOperation, int fd, List directories, List files,
+             char *cwd);
 int readTable(int fd, unsigned long long *table);
 
 int main(int argc, char **argv) {
@@ -310,17 +311,27 @@ void *writeFifoLoop(void *ptr) {
   pthread_mutex_lock(&(input->mutex));
   strcpy(fifoPath, input->writeFifo);
   pthread_mutex_unlock(&(input->mutex));
-  //TODO shamefull fifo open and close
+  // TODO shamefull fifo open and close
+  int pathsSizePlaceholder = 0;
+  int managerCountPlaceholder = 3;
+  int workerCountPlaceholder = 4;
+  int resultsSizePlaceholder = 0;
+  int lastResultCount = 0;
+  char firstCharTree = '\0';
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
-    if (input->userInput->paths->size > 0) {
-      pthread_mutex_unlock(&(input->mutex));
+    pathsSizePlaceholder = input->userInput->paths->size;
+    pthread_mutex_unlock(&(input->mutex));
+    if (pathsSizePlaceholder > 0) {
       /* printf("va che non e vuota come pensavi\n"); */
       /* printf("sto per aprire la fifo avendo letto %s\n", path); */
+      fprintf(stderr, "open numero 1\n");
       fd = open(fifoPath, O_WRONLY);
+      fprintf(stderr, "open numero 1 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       char *path = front(input->userInput->paths);
       if (path != NULL) {
+        fprintf(stderr, "ciclo\n");
         if (fd > 0) {
           int rc_po = pop(input->userInput->paths);
           if (rc_po == -1) {
@@ -330,72 +341,109 @@ void *writeFifoLoop(void *ptr) {
           }
           rc_t = sendDirectives(fd, path, &(input->userInput->managers),
                                 &(input->userInput->workers));
+          // TODO debug only
+          /* if (strcmp(path, input->cwd) == 0) { */
+          /*   sendTree(fd, input->cwd); */
+          /* } */
         }
-        close(fd);
         free(path);
       }
+      pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "close numero 1\n");
+      close(fd);
+      fprintf(stderr, "close numero 1 chiusa\n");
     }
 
-    if (input->userInput->managers != lastManager) {
-      lastManager = input->userInput->managers;
-      pthread_mutex_unlock(&(input->mutex));
+    pthread_mutex_lock(&(input->mutex));
+    managerCountPlaceholder = input->userInput->managers;
+    pthread_mutex_unlock(&(input->mutex));
+    if (managerCountPlaceholder != lastManager) {
+      lastManager = managerCountPlaceholder;
+      fprintf(stderr, "open numero 2\n");
       fd = open(fifoPath, O_WRONLY);
+      fprintf(stderr, "open numero 2 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
         rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
+      pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "close numero 2\n");
       close(fd);
+      fprintf(stderr, "close numero 2 chiusa\n");
     }
 
-    if (input->userInput->workers != lastWorker) {
+    pthread_mutex_lock(&(input->mutex));
+    workerCountPlaceholder = input->userInput->workers;
+    pthread_mutex_unlock(&(input->mutex));
+    if (workerCountPlaceholder != lastWorker) {
       /* printf("last: %d, new: %d\n", lastWorker, input->userInput->workers);
        */
-      lastWorker = input->userInput->workers;
-      pthread_mutex_unlock(&(input->mutex));
+      lastWorker = workerCountPlaceholder;
+      fprintf(stderr, "open numero 3\n");
       fd = open(fifoPath, O_WRONLY);
+      fprintf(stderr, "open numero 3 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
         rc_t = sendDirectives(fd, "//", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
+      pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "close numero 3\n");
       close(fd);
+      fprintf(stderr, "close numero 3 chiusa\n");
     }
 
-    if (input->userInput->results->size > 0) {
-      pthread_mutex_unlock(&(input->mutex));
+    pthread_mutex_lock(&(input->mutex));
+    resultsSizePlaceholder = input->userInput->results->size;
+    pthread_mutex_unlock(&(input->mutex));
+    if (resultsSizePlaceholder != lastResultCount &&
+        resultsSizePlaceholder != 0) {
+      lastResultCount = resultsSizePlaceholder;
+      fprintf(stderr, "open numero 4\n");
       fd = open(fifoPath, O_WRONLY);
+      fprintf(stderr, "open numero 4 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        //printf("sto per entrar nel invio classico\n");
+        // printf("sto per entrar nel invio classico\n");
         rc_t = sendResult(fd, input->userInput->results);
-        //printf("entrato\n");
+        // printf("entrato\n");
       }
-      close(fd);
-    }
-    //fprintf(stderr,"Il tree di merda vale %s\n",input->userInput->tree );
-    if (input->userInput->tree[0] != '\0') {
       pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "close numero 4\n");
+      close(fd);
+      fprintf(stderr, "close numero 4 chiusa\n");
+    }
+
+    pthread_mutex_lock(&(input->mutex));
+    firstCharTree = input->userInput->tree[0];
+    pthread_mutex_unlock(&(input->mutex));
+    if (firstCharTree != '\0') {
+      fprintf(stderr, "open numero 5\n");
       fd = open(fifoPath, O_WRONLY);
+      fprintf(stderr, "open numero 5 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        fprintf(stderr,"Richiesta del tree %s\n",input->userInput->tree );
+        fprintf(stderr, "Richiesta del tree %s\n", input->userInput->tree);
         rc_t = sendTree(fd, input->userInput->tree);
         fprintf(stderr, "Send tree dice %d\n", rc_t);
         if (rc_t == SUCCESS) {
-          //strcpy(input->userInput->tree, input->cwd);
-          //fprintf(stderr, "Cambio working directory\n");
+          // strcpy(input->userInput->tree, input->cwd);
+          // fprintf(stderr, "Cambio working directory\n");
           input->userInput->tree[0] = '\0';
           chdir(input->cwd);
           fprintf(stderr, "INPUT CWD: %s\n", input->cwd);
         }
       }
+      pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "close numero 5\n");
       close(fd);
+      fprintf(stderr, "close numero 5 chiusa\n");
     }
-    pthread_mutex_unlock(&(input->mutex));
     usleep(500);
   }
   free(fifoPath);
+  fprintf(stderr, "MORTO READ LOOP\n");
 }
 
 void readString(int fd, char *dst) {
@@ -452,7 +500,8 @@ void *readFifoLoop(void *ptr) {
           pthread_mutex_lock(&(input->mutex));
           destroyList(input->userInput->directories, free);
           destroyList(input->userInput->files, free);
-          fprintf(stderr, "Muoio dopo la distruzione delle liste, epico finito male\n");
+          fprintf(stderr,
+                  "Muoio dopo la distruzione delle liste, epico finito male\n");
           input->userInput->directories = tmpDirs;
           input->userInput->files = tmpFiles;
           pthread_mutex_unlock(&(input->mutex));
@@ -470,6 +519,7 @@ void *readFifoLoop(void *ptr) {
         input->userInput->table[i] = tmpTable[i];
       }
       pthread_mutex_unlock(&(input->mutex));
+      fprintf(stderr, "DIOCANE SONO ANCORA QUA!!!\n");
       free(tmpTable);
     }
 
@@ -477,6 +527,7 @@ void *readFifoLoop(void *ptr) {
     usleep(500);
   }
   free(fifoPath);
+  fprintf(stderr, "MORTO READ LOOP\n");
 }
 
 int readDirectives(List paths, int *numManager, int *numWorker) {
@@ -620,31 +671,29 @@ int sendResult(int fd, List pathResults) {
   int old;
   int index = 0;
   int rc_al = SUCCESS;
-  char *tmpPath = (char *) malloc(PATH_MAX * sizeof(char));
+  char *tmpPath = (char *)malloc(PATH_MAX * sizeof(char));
   rc_al = checkAllocationError(tmpPath);
-  if(rc_al != SUCCESS){
+  if (rc_al != SUCCESS) {
     rc_t = MALLOC_FAILURE;
   }
-  int resultSize = pathResults->size;
-  while (resultSize > 0 && rc_t == SUCCESS) {
-    char *path = front(pathResults);
+  Node element = pathResults->head;
+  while (element != NULL && rc_t == SUCCESS) {
+    index = 0;
+    char *path = element->data;
     if (path != NULL) {
-      rc_t = pop(pathResults);
-      if (rc_t == SUCCESS) {
-        //TODO OVERFLOW da gestire
-        while (path[index] != '\0') {
-          old = index;
-          index++;
-          tmpPath[old] = path[index];
-        }
-        fprintf(stderr, "Mando un path %s\n", tmpPath);
-        int rc_wr = writeDescriptor(fd, tmpPath);
-        if (rc_wr < SUCCESS)
-          rc_t = -1;
+      // TODO OVERFLOW da gestire
+      while (path[index] != '\0') {
+        old = index;
+        index++;
+        tmpPath[old] = path[index];
       }
+      fprintf(stderr, "Mando un path %s\n", path);
+      fprintf(stderr, "senza slash %s\n", tmpPath);
+      int rc_wr = writeDescriptor(fd, tmpPath);
+      if (rc_wr < SUCCESS)
+        rc_t = -1;
     }
-    enqueue(pathResults, path);
-    resultSize--;
+    element = element->next;
   }
 
   free(tmpPath);
@@ -674,15 +723,15 @@ int sendTree(int fd, char *treePath) {
   fprintf(stderr, "Devo mandare lo stramaledetto TREEEEEE\n");
   char *tmpPath = malloc(sizeof(char) * PATH_MAX);
   int rc_t = SUCCESS;
-  int old ;
+  int old;
   int index = 0;
   int rc_al = checkAllocationError(tmpPath);
-  if(rc_al != SUCCESS){
+  if (rc_al != SUCCESS) {
     rc_t = MALLOC_FAILURE;
   }
 
-  if(rc_t == SUCCESS && treePath[0] == '/'){
-    //TODO overflow da gestire
+  if (rc_t == SUCCESS && treePath[0] == '/') {
+    // TODO overflow da gestire
     while (treePath[index] != '\0') {
       old = index;
       index++;
@@ -697,13 +746,14 @@ int sendTree(int fd, char *treePath) {
 
   writeDescriptor(fd, "tree");
 
-  //treePath[0] = '\0';
+  // treePath[0] = '\0';
 
   free(tmpPath);
   return rc_t;
 }
 
-int readTree(int readOpeartion, int fd, List directories, List files, char* cwd) {
+int readTree(int readOpeartion, int fd, List directories, List files,
+             char *cwd) {
   int rc_t = SUCCESS;
 
   int bytesRead = -1;
@@ -717,7 +767,8 @@ int readTree(int readOpeartion, int fd, List directories, List files, char* cwd)
     dst2[0] = '\0';
     readString(fd, dst2);
     if (strcmp(dst, "") != 0 && strcmp(dst2, "") != 0) {
-      fprintf(stderr, "Ho letto come figlio il sig: %s di tipo %s\n", dst, dst2);
+      fprintf(stderr, "Ho letto come figlio il sig: %s di tipo %s\n", dst,
+              dst2);
       char *elem = malloc(PATH_MAX * sizeof(char));
       strcpy(elem, cwd);
       strcat(elem, "/");
@@ -746,7 +797,7 @@ int readTable(int fd, unsigned long long *table) {
   while (numbersToRead > 0) {
     char *dst = malloc(PATH_MAX * sizeof(char));
     readString(fd, dst);
-    //printf("STAMPO %s\n", dst);
+    // printf("STAMPO %s\n", dst);
     unsigned long long count = 0;
     int rc_cast = sscanf(dst, "%llu", &count);
     if (rc_cast != EOF)
