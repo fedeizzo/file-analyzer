@@ -321,7 +321,7 @@ void *writeFifoLoop(void *ptr) {
 
   fd = open(fifoPath, O_WRONLY);
   pthread_mutex_lock(&(input->mutex));
-  /* rc_t = sendTree(fd, input->cwd); */
+  rc_t = sendTree(fd, input->cwd);
   pthread_mutex_unlock(&(input->mutex));
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
@@ -404,8 +404,7 @@ void *writeFifoLoop(void *ptr) {
     pthread_mutex_lock(&(input->mutex));
     resultsSizePlaceholder = input->userInput->results->size;
     pthread_mutex_unlock(&(input->mutex));
-    if (resultsSizePlaceholder != lastResultCount &&
-        resultsSizePlaceholder != 0) {
+    if (resultsSizePlaceholder != lastResultCount) {
       lastResultCount = resultsSizePlaceholder;
       fprintf(stderr, "open numero 4\n");
       /* fd = open(fifoPath, O_WRONLY); */
@@ -477,61 +476,71 @@ void *readFifoLoop(void *ptr) {
   strcpy(fifoPath, input->readFifo);
   pthread_mutex_unlock(&(input->mutex));
 
-  while (rc_t == SUCCESS) {
-    printf("Sono epico in read file loop\n");
-    int fd = open(fifoPath, O_RDONLY);
-    int readOperationFlag = 0;
-    char *dst = malloc(PATH_MAX * sizeof(char));
-    dst[0] = '\0';
-    readString(fd, dst);
-    fprintf(stderr, "Ho letto dalla fifo %s\n", dst);
-    if (strcmp(dst, "tree") == 0) {
-      fprintf(stderr, "E' TREE\n");
-      dst[0] = '\0';
-      readString(fd, dst);
-      int castedNumber;
-      int rc_cast = sscanf(dst, "%d", &castedNumber);
-      fprintf(stderr, "Casted number = %d\n", castedNumber);
-      if (rc_cast != EOF) {
-        List tmpDirs = newList();
-        List tmpFiles = newList();
-        // TODO check allocation
-        char *tmpCwd = malloc(PATH_MAX * sizeof(char));
-        if (tmpFiles == NULL || tmpDirs == NULL)
-          rc_t = MALLOC_FAILURE;
-        else {
-          pthread_mutex_lock(&(input->mutex));
-          strcpy(tmpCwd, input->cwd);
-          pthread_mutex_unlock(&(input->mutex));
-          rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles, tmpCwd);
-          fprintf(stderr, "Muoio dopo read tree\n");
-          pthread_mutex_lock(&(input->mutex));
-          destroyList(input->userInput->directories, free);
-          destroyList(input->userInput->files, free);
-          fprintf(stderr,
+  while (1) {
+    if (access(fifoPath, F_OK) == 0) {
+      int fd = open(fifoPath, O_RDONLY);
+      /* remove("/tmp/analyzerToReporter"); */
+      rc_t = SUCCESS;
+      while (rc_t == SUCCESS) {
+        printf("Sono epico in read file loop\n");
+        int readOperationFlag = 0;
+        char *dst = malloc(PATH_MAX * sizeof(char));
+        dst[0] = '\0';
+        readString(fd, dst);
+        fprintf(stderr, "Ho letto dalla fifo %s\n", dst);
+        if (strcmp(dst, "tree") == 0) {
+          fprintf(stderr, "E' TREE\n");
+          dst[0] = '\0';
+          readString(fd, dst);
+          int castedNumber;
+          int rc_cast = sscanf(dst, "%d", &castedNumber);
+          fprintf(stderr, "Casted number = %d\n", castedNumber);
+          if (rc_cast != EOF) {
+            List tmpDirs = newList();
+            List tmpFiles = newList();
+            // TODO check allocation
+            char *tmpCwd = malloc(PATH_MAX * sizeof(char));
+            if (tmpFiles == NULL || tmpDirs == NULL)
+              rc_t = MALLOC_FAILURE;
+            else {
+              pthread_mutex_lock(&(input->mutex));
+              strcpy(tmpCwd, input->cwd);
+              pthread_mutex_unlock(&(input->mutex));
+              rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles, tmpCwd);
+              fprintf(stderr, "Muoio dopo read tree\n");
+              pthread_mutex_lock(&(input->mutex));
+              destroyList(input->userInput->directories, free);
+              destroyList(input->userInput->files, free);
+              fprintf(
+                  stderr,
                   "Muoio dopo la distruzione delle liste, epico finito male\n");
-          input->userInput->directories = tmpDirs;
-          input->userInput->files = tmpFiles;
+              input->userInput->directories = tmpDirs;
+              input->userInput->files = tmpFiles;
+              pthread_mutex_unlock(&(input->mutex));
+            }
+          }
+        } else if (strcmp(dst, "tabl") == 0) {
+          fprintf(stderr, "E' TABL");
+          unsigned long long *tmpTable =
+              calloc(NCHAR_TABLE, sizeof(unsigned long long));
+          readTable(fd, tmpTable);
+          fprintf(stderr, "SE NON ESCO SONO FOTTUTO!!!\n");
+          pthread_mutex_lock(&(input->mutex));
+          int i = 0;
+          for (i = 0; i < NCHAR_TABLE; i++) {
+            input->userInput->table[i] = tmpTable[i];
+          }
           pthread_mutex_unlock(&(input->mutex));
+          fprintf(stderr, "DIOCANE SONO ANCORA QUA!!!\n");
+          free(tmpTable);
+        } else {
+          rc_t = FAILURE;
         }
-      }
-    } else if (strcmp(dst, "tabl") == 0) {
-      fprintf(stderr, "E' TABL");
-      unsigned long long *tmpTable =
-          calloc(NCHAR_TABLE, sizeof(unsigned long long));
-      readTable(fd, tmpTable);
-      fprintf(stderr, "SE NON ESCO SONO FOTTUTO!!!\n");
-      pthread_mutex_lock(&(input->mutex));
-      int i = 0;
-      for (i = 0; i < NCHAR_TABLE; i++) {
-        input->userInput->table[i] = tmpTable[i];
-      }
-      pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "DIOCANE SONO ANCORA QUA!!!\n");
-      free(tmpTable);
-    }
 
-    close(fd);
+        usleep(500);
+      }
+      close(fd);
+    }
     usleep(500);
   }
   free(fifoPath);
@@ -604,7 +613,6 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
   return rc_t;
 }
 
-int counter = 0;
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
   int rc_t = SUCCESS;
 
@@ -618,10 +626,6 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
 
   if (rc_sp >= SUCCESS && rc_al2 >= SUCCESS && fd > SUCCESS) {
     int rc_wr = SUCCESS;
-    // TODO debug only
-    int mioDio;
-    char belloDicasa[300];
-    sprintf(belloDicasa, "a magico %d", counter++);
     int rc_wr1 = writeDescriptor(fd, path);
     int rc_wr2 = writeDescriptor(fd, nManager);
     int rc_wr3 = writeDescriptor(fd, nWorker);

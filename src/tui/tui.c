@@ -239,8 +239,8 @@ void writeScreenError(char *str) {
 }
 
 void writeScreenLog(int heigth, char *str) {
-  moveCursor(21, heigth - 3);
-  printf("\033[33m %s\033[m", str);
+  moveCursor(21, heigth - 2);
+  printf("\033[36m %s\033[m", str);
 }
 
 int printLog(Screen screen, int fd) {
@@ -449,7 +449,7 @@ int initScreen(Screen screen) {
     writeScreen(screen, " .. ", 1, 8);
     writeScreen(screen, " . ", 1, 9);
     draw(screen);
-    writeScreen(screen, "LOG/ERROR", 21, screen->rows - 4);
+    writeScreen(screen, "STATISTICS", 21, screen->rows - 4);
   }
 
   return rc_t;
@@ -486,6 +486,15 @@ void *graphicsLoop(void *ptr) {
              p->userInput->results, p->cwd, &p->screen->treeStartCol,
              &p->screen->treeEndCol, 0, 0);
     pthread_mutex_unlock(&(p->mutex));
+    // TODO debug only
+    unsigned long long stats = 0;
+    int i = 0;
+    for (i = 0; i < NCHAR_TABLE; i++) {
+      stats += p->userInput->table[i];
+    }
+    char yabbado[50];
+    sprintf(yabbado, "statistica suprema: %llu", stats);
+    writeScreenLog(p->screen->rows, yabbado);
     usleep(650000);
     if (scrollCounte % 2 == 0) {
       if (p->screen->treeStartCol == PATH_MAX) {
@@ -531,6 +540,8 @@ void updateTable(Screen screen, unsigned long long *table) {
   int col = 22;
   int row = 7;
   for (i = 33; i < 127; i++) {
+    sprintf(msg, "         ");
+    writeScreen(screen, msg, col + 2, row);
     if (commandFilter(screen->cmd, i) != 0) {
       sprintf(msg, " ");
       writeScreen(screen, msg, col, row);
@@ -755,6 +766,10 @@ void *inputLoop(void *ptr) {
                 // free(f);
                 element = element->next;
               }
+              int i = 0;
+              for (i = 0; i < NCHAR_TABLE; i++) {
+                p->userInput->table[i] = 0;
+              }
               // TODO ask to other if also directories must have the same
               // behavior
             } else {
@@ -799,6 +814,10 @@ void *inputLoop(void *ptr) {
                   if (rc_re != SUCCESS) {
                     fprintf(stderr, "faccio il toggle di %s\n", cwd);
                     push(p->userInput->results, cwd);
+                  } else {
+                    for (i = 0; i < NCHAR_TABLE; i++) {
+                      p->userInput->table[i] = 0;
+                    }
                   }
                 }
                 free(tree);
