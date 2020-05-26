@@ -2721,6 +2721,7 @@ void *readFromFIFOLoop(void *ptr) {
           // TODO... same as above
           strcpy(sharedResources->path, newPath);
           if (*(sharedResources->nManager) != newNManager) {
+            fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI MANAGER\n");
             rc_cma = changeManagersAmount(
                 sharedResources->managers, *(sharedResources->nManager),
                 newNManager, sharedResources->fileToAssign);
@@ -2737,6 +2738,7 @@ void *readFromFIFOLoop(void *ptr) {
         if (rc_ct == SUCCESS) {
           // TODO... copy the if else in the other thread
           if (strcmp(newPath, "//") == 0) {
+            fprintf(stderr, "ENTRO NELLA RIMODULAZIONE DEI WORKER\n");
             pthread_mutex_lock(&(sharedResources->mutex));
             changeWorkerAmount(sharedResources->managers,
                                *(sharedResources->nWorker));
