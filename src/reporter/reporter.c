@@ -95,12 +95,12 @@ void destroyUserInput(UserInput userInput) {
 }
 
 void *userInputLoop(void *ptr);
-int readDirectives(List paths, int *numManager, int *numWorker);
+int readDirectives(List paths, int *numManager, int *numWorker, char *cwd);
 
 void *writeFifoLoop(void *ptr);
 void *readFifoLoop(void *ptr);
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker);
-int readResult(List pathResults);
+int readResult(List pathResults, char *cwd);
 int sendResult(int fd, List pathResults);
 int updateTree(char *path);
 int sendTree(int fd, char *treePath);
@@ -260,7 +260,7 @@ void *userInputLoop(void *ptr) {
         pthread_mutex_lock(&(input->mutex));
         rc_t = readDirectives(input->userInput->paths,
                               &(input->userInput->managers),
-                              &(input->userInput->workers));
+                              &(input->userInput->workers), input->cwd);
         pthread_mutex_unlock(&(input->mutex));
         clear();
         moveCursor(0, 0);
@@ -273,7 +273,7 @@ void *userInputLoop(void *ptr) {
       } else if (strncmp(dst, "requ", 4) == 0) {
         printf("%s\n", requMsg);
         pthread_mutex_lock(&(input->mutex));
-        readResult(input->userInput->results);
+        readResult(input->userInput->results, input->cwd);
         pthread_mutex_unlock(&(input->mutex));
         clear();
         moveCursor(0, 0);
@@ -622,7 +622,7 @@ void *readFifoLoop(void *ptr) {
   fprintf(stderr, "MORTO READ LOOP\n");
 }
 
-int readDirectives(List paths, int *numManager, int *numWorker) {
+int readDirectives(List paths, int *numManager, int *numWorker, char* cwd) {
   int rc_t = SUCCESS;
   char readBuffer[2] = "a";
   char *newPath = malloc(PATH_MAX * sizeof(char));
@@ -680,7 +680,23 @@ int readDirectives(List paths, int *numManager, int *numWorker) {
       free(msgErr);
     }
   } else if (rc_t == SUCCESS) {
-    enqueue(paths, newPath);
+    char *newAbsolutePath = malloc(PATH_MAX * sizeof(char));
+    int rc_al = checkAllocationError(newAbsolutePath);
+    if(rc_al == SUCCESS) {
+      if(newPath[0] != '/') {
+        strcat(newAbsolutePath, cwd);
+        strcat(newAbsolutePath, "/");
+        strcat(newAbsolutePath, newPath);
+        //printf("Path tot: %s\n", newAbsolutePath); 
+      } else {
+        strcpy(newAbsolutePath, newPath);
+      }
+      free(newPath);
+      enqueue(paths, newAbsolutePath); 
+    }
+    else {
+      rc_t = MALLOC_FAILURE;
+    }
     *numManager = numberManager;
     *numWorker = numberWorker;
   }
@@ -731,7 +747,7 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
   return rc_t;
 }
 
-int readResult(List pathResults) {
+int readResult(List pathResults, char *cwd) {
   int rc_t = SUCCESS;
   int endFlag = 1;
 
@@ -750,8 +766,24 @@ int readResult(List pathResults) {
 
     if (strncmp(path, "requ", 4) == 0) {
       endFlag = 0;
-    } else if (path[0] != '\0' && rc_t == SUCCESS)
-      rc_t = enqueue(pathResults, path);
+    } else if (path[0] != '\0' && rc_t == SUCCESS) {
+      char *newResult = malloc(PATH_MAX * sizeof(char));
+      int rc_al = checkAllocationError(newResult);
+      if(rc_al == SUCCESS) {
+        if(path[0] != '/') {
+          strcat(newResult, cwd);
+          strcat(newResult, "/");
+          strcat(newResult, path); 
+        } else {
+          strcpy(newResult, path);
+        }
+        free(path);
+        rc_t = enqueue(pathResults, newResult);
+      }
+      else {
+        rc_t = MALLOC_FAILURE;
+      }
+    }
   }
 
   return rc_t;
@@ -889,7 +921,7 @@ int readTable(int fd, unsigned long long *table) {
   while (numbersToRead > 0) {
     char *dst = malloc(PATH_MAX * sizeof(char));
     readString(fd, dst);
-    printf("STAMPO %s\n", dst);
+    //printf("STAMPO %s\n", dst);
     unsigned long long count = 0;
     int rc_cast = sscanf(dst, "%llu", &count);
     if (rc_cast != EOF)
