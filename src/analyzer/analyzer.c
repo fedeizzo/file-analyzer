@@ -957,6 +957,7 @@ void *readDirectivesLoop(void *ptr) {
   }
 
   while (rc_t == SUCCESS) {
+    printf("Sono epico in read directives loop\n");
     rc_ct = SUCCESS;
     readDirectives(newPath, nManager, nWorker);
     int rc_sc = sscanf(nManager, "%d", &newNManager);
@@ -1801,6 +1802,7 @@ void *sendFileLoop(void *ptr) {
   }
   unsigned long long accumulator = 0;
   while (rc_t == SUCCESS) {
+    printf("Sono epico in send file loop\n");
     pthread_mutex_lock(&(sharedResources->mutex));
     nManager = *(sharedResources->nManager);
     while (nManager > 0 && rc_t == SUCCESS) {
@@ -2130,6 +2132,7 @@ void *fileManageLoop(void *ptr) {
   }
 
   while (rc_t == SUCCESS) {
+    printf("Sono epico in file manage loop\n");
     if (readFlag != SUCCESS) {
       pthread_mutex_lock(&(sharedResources->mutex));
       if (isEmptyList(sharedResources->candidateNode) == NOT_EMPTY) {
@@ -2138,8 +2141,7 @@ void *fileManageLoop(void *ptr) {
         if (candidate == NULL || rt_po < SUCCESS) {
           rc_t = errorHandler(UNEXPECTED_LIST_ERROR);
         } else {
-          // printf("Setto insertFlag a true dovuto a %s, type %d, skip %d\n",
-          //       candidate->path, candidate->type, candidate->toSkip);
+          printf("Setto insertFlag a true dovuto a %s, type %d, skip %d\n", candidate->path, candidate->type, candidate->toSkip);
           insertFlag = SUCCESS;
         }
       }
@@ -2149,7 +2151,7 @@ void *fileManageLoop(void *ptr) {
     }
     // Parte di inserimento
     if (insertFlag == SUCCESS) {
-      // printf("Precompute ok!!\n");
+       printf("Precompute ok!!\n");
       childPid = 0;
       if (candidate->type == DIRECTORY) {
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
@@ -2510,7 +2512,7 @@ void *writeOnFIFOLoop(void *ptr) {
   printf("dopo della open\n");
   /* while (rc_t == SUCCESS) { */
   while (1) {
-    // printf("Sono in write on fifo looop\n");
+    printf("Sono in write on fifo looop\n");
     pthread_mutex_lock(&(sharedResources->mutex));
     if (sharedResources->toRetrive != NULL) {
       if (fd > 0) {
@@ -2736,7 +2738,7 @@ void *readFromFIFOLoop(void *ptr) {
       int fd = open(readFifo, O_RDONLY);
       /* remove(readFifo); */
       while (1) {
-        // printf("Sono epico in read from fifo\n");
+        printf("Sono epico in read from fifo\n");
         char *dst = malloc(PATH_MAX * sizeof(char));
         rc_al3 = checkAllocationError(dst);
         if (rc_al3 != SUCCESS) {
