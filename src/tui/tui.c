@@ -200,6 +200,7 @@ int insertBorder(Screen screen) {
           (c == screen->cols - 1 && r == 4) || (c == 0 && r == 4))
         screen->grid[c][r] = '+';
       else if (r == 0 || r == 2 || r == 4 || (r == 6 && 0 < c && c < 19) ||
+               (r == 8 && 0 < c && c < 19) ||
                (r == screen->rows - 5 && 19 < c && c < screen->cols - 1) ||
                r == screen->rows - 1)
         screen->grid[c][r] = HOR_TABLE;
@@ -272,7 +273,7 @@ int commandFilter(const int cmd, const int counter) {
     if (counter >= 48 && counter <= 57)
       rc_t = 0;
   } else if (cmd == 5) {
-    if (counter >= 33 && counter <= 126)
+    if (counter >= 0 && counter <= 128)
       rc_t = 0;
   }
 
@@ -295,6 +296,7 @@ void draw(Screen screen) {
       }
     }
   }
+
   fflush(stdout);
 }
 
@@ -334,7 +336,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   //! If the code breaks, move this in another position
   // char *totalPath = malloc(PATH_MAX * sizeof(char));
   char *line = malloc(17 * sizeof(char));
-  int lineCounter = 10;
+  int lineCounter = 11;
   Node element = directories->head;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
@@ -446,13 +448,39 @@ int initScreen(Screen screen) {
                 "cifre, tutto",
                 1, 3);
     /* writeScreen(p->screen, command, 7, 7); */
-    writeScreen(screen, " .. ", 1, 8);
-    writeScreen(screen, " . ", 1, 9);
+    writeScreen(screen, " .. ", 1, 9);
+    writeScreen(screen, " . ", 1, 10);
     draw(screen);
     writeScreen(screen, "STATISTICS", 21, screen->rows - 4);
   }
 
   return rc_t;
+}
+
+void computeStatistics(Screen screen, unsigned long long *table) {
+  char clearString[screen->cols - 22];
+  int i = 0;
+  for (i = 0; i < screen->cols - 22; i++) {
+    clearString[i] = ' ';
+  }
+  clearString[screen->cols - 23] = '\0';
+  writeScreen(screen, clearString, 21, screen->rows - 3);
+
+  unsigned long long tot = 0;
+  unsigned long long selected = 0;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    tot += table[i];
+    if (commandFilter(screen->cmd, i) == 0) {
+      selected += table[i];
+    }
+  }
+  char tmpString[100];
+  int percentage = 0;
+  if (tot != 0 && selected != 0) {
+    percentage = (int)((long double)selected / (long double)tot * 100);
+  }
+  sprintf(tmpString, "Percentage over total: %d%%", percentage);
+  writeScreen(screen, tmpString, 21, screen->rows - 3);
 }
 
 void *graphicsLoop(void *ptr) {
@@ -481,20 +509,12 @@ void *graphicsLoop(void *ptr) {
     rc_t = GRAPHIC_LOOP_FAILURE;
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(p->mutex));
+    computeStatistics(p->screen, p->userInput->table);
     draw(p->screen);
     drawTree(p->screen, p->userInput->directories, p->userInput->files,
              p->userInput->results, p->cwd, &p->screen->treeStartCol,
              &p->screen->treeEndCol, 0, 0);
     pthread_mutex_unlock(&(p->mutex));
-    // TODO debug only
-    unsigned long long stats = 0;
-    int i = 0;
-    for (i = 0; i < NCHAR_TABLE; i++) {
-      stats += p->userInput->table[i];
-    }
-    char yabbado[50];
-    sprintf(yabbado, "statistica suprema: %llu", stats);
-    writeScreenLog(p->screen->rows, yabbado);
     usleep(650000);
     if (scrollCounte % 2 == 0) {
       if (p->screen->treeStartCol == PATH_MAX) {
@@ -568,6 +588,33 @@ void updateTable(Screen screen, unsigned long long *table) {
       col += 11;
     }
   }
+  sprintf(msg, "other");
+  /* row++; */
+  if (row >= screen->rows - 5) {
+    row = 7;
+    col += 11;
+  }
+  writeScreen(screen, msg, col, row++);
+  if (row >= screen->rows - 5) {
+    row = 7;
+    col += 11;
+  }
+  sprintf(msg, "         ");
+  writeScreen(screen, msg, col, row);
+
+  unsigned long long count = 0;
+  for (i = 0; i < 33; i++) {
+    count += table[i];
+  }
+  count += table[NCHAR_TABLE - 1];
+  sprintf(msg, "%llu", count);
+  if (commandFilter(screen->cmd, 128) == 0) {
+    if (count >= 1000000)
+      writeScreen(screen, msg, col, row++);
+    else
+      writeScreen(screen, msg, col + 1, row++);
+  }
+
   free(msg);
 }
 
@@ -918,7 +965,7 @@ void *inputLoop(void *ptr) {
       rc_t = GET_SIZE_FAILURE;
     if ((*oldHeigth != *heigth || *oldWidth != *width) && rc_t == SUCCESS) {
       pthread_mutex_lock(&(p->mutex));
-      while ((*heigth < 28 || *width < 87) && rc_t == SUCCESS) {
+      while ((*heigth < 28 || *width < 88) && rc_t == SUCCESS) {
         clear();
         printf(
             "window dimension is to small, please increase window size or "
