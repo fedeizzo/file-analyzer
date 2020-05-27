@@ -107,6 +107,7 @@ int sendTree(int fd, char *treePath);
 int readTree(int readOperation, int fd, List directories, List files,
              char *cwd);
 int readTable(int fd, unsigned long long *table);
+void writeStats(unsigned long long *table);
 
 int main(int argc, char **argv) {
   int managers;
@@ -123,6 +124,7 @@ int main(int argc, char **argv) {
   userInput = newUserInput();
   int iter1;
   int iter2;
+  int iter3;
 
   pthread_t userInputThraed;
   pthread_t writeFifoThraed;
@@ -217,8 +219,11 @@ int main(int argc, char **argv) {
           pthread_create(&userInputThraed, NULL, userInputLoop, (void *)&input);
       iter2 =
           pthread_create(&writeFifoThraed, NULL, writeFifoLoop, (void *)&input);
+      iter3 =
+          pthread_create(&readFifoThread, NULL, readFifoLoop, (void *)&input);
       pthread_join(userInputThraed, NULL);
       pthread_join(writeFifoThraed, NULL);
+      pthread_join(readFifoThread, NULL);
     }
   } else {
     printError("Bad usage or malformed option");
@@ -236,7 +241,7 @@ void *userInputLoop(void *ptr) {
   int rc_t = SUCCESS;
   char *cmdMsg =
       "write:\n\t dire->to send directive to analyzer\n\t requ->to request "
-      "the analisy on one or more files\n\t tree->i can't explain";
+      "the analisy on one or more files\n\t tree->i can't explain\n\t resu ->display result of requested files";
   char *direMsg = "directive mode, write:\n\t filePath or folderPath then line "
                   "feed\n\t number of "
                   "manager then line feed\n\t nubmer fo worker then line feed";
@@ -278,11 +283,81 @@ void *userInputLoop(void *ptr) {
         pthread_mutex_lock(&(input->mutex));
         updateTree(input->userInput->tree);
         pthread_mutex_unlock(&(input->mutex));
+      } else if(strncmp(dst, "resu", 4) == 0) {
+        pthread_mutex_lock(&(input->mutex));
+        writeStats(input->userInput->table);
+        pthread_mutex_unlock(&(input->mutex));
       }
     }
     usleep(50000);
   }
   printf("sono morto\n");
+}
+
+void writeStats(unsigned long long *table){
+  char* outString = malloc(PATH_MAX * sizeof(char));
+  char* tmpString = malloc(PATH_MAX * sizeof(char));
+  unsigned long long maiuscole = 0;
+  unsigned long long minuscole = 0;
+  unsigned long long punteg = 0;
+  unsigned long long cifre = 0;
+  unsigned long long tutto = 0;
+  unsigned long long other = 0;
+
+  int i;
+  for(i=0; i< NCHAR_TABLE; i++){
+    if (i >= 97 && i <= 122)
+      maiuscole += table[i];
+    else if (((i >= 32 && i <= 47)) ||
+      ((i >= 58 && i <= 64)) ||
+      ((i >= 91 && i <= 96)) ||
+      ((i >= 123 && i <= 126))) 
+      punteg += table[i];
+    else if (i >= 48 && i <= 57)
+      cifre += table[i];
+    else if (i >= 65 && i <= 90)
+      minuscole += table[i];
+    else 
+      other += table[i];
+    tutto += table[i];
+  }
+
+  int percentageMaiuscole = 0;
+  int percentageMinuscole = 0;
+  int percentagePunteg = 0;
+  int percentageCifre = 0;
+  int percentageOther = 0;
+  strcat(outString, "Statistics:\n");
+  sprintf(tmpString, "\tTutto: %llu\n", tutto);
+  strcat(outString, tmpString);
+  if (tutto != 0 && maiuscole != 0) {
+    percentageMaiuscole = (int)((long double)maiuscole / (long double)tutto * 100);
+  }
+  sprintf(tmpString, "\tMaiuscole: %llu  -- percentage over total: %d%%\n", maiuscole, percentageMaiuscole);
+  strcat(outString, tmpString);
+  if (tutto != 0 && minuscole != 0) {
+    percentageMinuscole = (int)((long double)minuscole / (long double)tutto * 100);
+  }
+  sprintf(tmpString, "\tMinuscole: %llu  -- percentage over total: %d%%\n", minuscole, percentageMinuscole);
+  strcat(outString, tmpString);
+  if (tutto != 0 && punteg != 0) {
+    percentagePunteg = (int)((long double)punteg / (long double)tutto * 100);
+  }
+  sprintf(tmpString, "\tPunteg: %llu  -- percentage over total: %d%%\n", punteg, percentagePunteg);
+  strcat(outString, tmpString);
+  if (tutto != 0 && cifre != 0) {
+    percentageCifre = (int)((long double)cifre / (long double)tutto * 100);
+  }
+  sprintf(tmpString, "\tCifre: %llu  -- percentage over total: %d%%\n", cifre, percentageCifre);
+  strcat(outString, tmpString);
+  if (tutto != 0 && other != 0) {
+      percentageOther = (int)((long double)other / (long double)tutto * 100);
+    }
+  sprintf(tmpString, "\tOther: %llu  -- percentage over total: %d%%\n", other, percentageOther);
+  strcat(outString, tmpString);
+
+  printf("%s\n", outString);
+  free(outString);
 }
 
 int isAnalyzerAlive() {
@@ -371,8 +446,8 @@ void *writeFifoLoop(void *ptr) {
       fprintf(stderr, "open numero 2 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        /* rc_t = sendDirectives(fd, "///", &(input->userInput->managers), */
-        /*                       &(input->userInput->workers)); */
+        rc_t = sendDirectives(fd, "///", &(input->userInput->managers), 
+                              &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 2\n");
@@ -814,7 +889,7 @@ int readTable(int fd, unsigned long long *table) {
   while (numbersToRead > 0) {
     char *dst = malloc(PATH_MAX * sizeof(char));
     readString(fd, dst);
-    // printf("STAMPO %s\n", dst);
+    printf("STAMPO %s\n", dst);
     unsigned long long count = 0;
     int rc_cast = sscanf(dst, "%llu", &count);
     if (rc_cast != EOF)
