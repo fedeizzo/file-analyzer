@@ -338,15 +338,17 @@ void drawTree(Screen screen, List directories, List files, List toggled,
   char *line = malloc(17 * sizeof(char));
   int lineCounter = 11;
   Node element = directories->head;
+  int elementPrinted = 0;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
-    if (lineCounter < screen->rows - 1) {
+    if (lineCounter < screen->rows - 1 && elementPrinted >= startRow) {
       writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
+    elementPrinted++;
   }
   element = files->head;
   while (element != NULL) {
@@ -354,19 +356,21 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     strcat(totalPath, "/");
     strcat(totalPath, element->data);*/
     int isToggled = isIn(toggled, element->data, isStringEqual);
-    if (isToggled == SUCCESS) {
+    if (isToggled == SUCCESS && lineCounter < screen->rows - 1 &&
+        elementPrinted >= startRow) {
       moveCursor(2, lineCounter + 1);
       printf("\033[41m \033[m");
     }
 
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
-    if (lineCounter < screen->rows - 1) {
+    if (lineCounter < screen->rows - 1 && elementPrinted >= startRow) {
       writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
+    elementPrinted++;
   }
 
   while (lineCounter < screen->rows - 1) {
@@ -513,7 +517,8 @@ void *graphicsLoop(void *ptr) {
     draw(p->screen);
     drawTree(p->screen, p->userInput->directories, p->userInput->files,
              p->userInput->results, p->cwd, &p->screen->treeStartCol,
-             &p->screen->treeEndCol, 0, 0);
+             &p->screen->treeEndCol, p->screen->treeStartRow, 0);
+    /* printf("%d", p->screen->treeStartRow); */
     pthread_mutex_unlock(&(p->mutex));
     usleep(650000);
     if (scrollCounte % 2 == 0) {
@@ -945,12 +950,20 @@ void *inputLoop(void *ptr) {
             }
           }
         }
-      } else if (lastKey == '[' &&
-                 (key == 65 || key == 66 || key == 67 || key == 68)) {
+      } else if (lastKey == '[' && (key == 65 || key == 66)) {
         if (treeMode == 1) {
-          if (key == 67) {
-            p->screen->treeEndCol++;
-            p->screen->treeStartCol++;
+          if (key == 65) { // UP
+            p->screen->treeStartRow--;
+            if (p->screen->treeStartRow < 0) {
+              p->screen->treeStartRow = 0;
+            }
+          } else if (key == 66) { // DOWN
+            p->screen->treeStartRow++;
+            int max =
+                p->userInput->directories->size + p->userInput->files->size - 1;
+            if (p->screen->treeStartRow > max) {
+              p->screen->treeStartRow--;
+            }
           }
         }
       }
