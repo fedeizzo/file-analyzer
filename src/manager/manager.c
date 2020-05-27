@@ -308,7 +308,6 @@ int errorHandler(int errorCode);
  */
 void *workLoop(void *ptr);
 
-// TODO write docs
 /**
  * Clears all worker's works. This methods is usefull for remodule opeations or
  * other similar things. Is not very godd in term of efficiency beacuse thw
@@ -407,6 +406,7 @@ void *workLoop(void *ptr) {
       sharedRes->todo = newList();
       if (sharedRes->tables == NULL || sharedRes->todo == NULL)
         rc_work = MALLOC_FAILURE;
+
       sharedRes->directive->directiveStatus = SUMMARY;
     } else if (directives == NEW_DIRECTIVES ||
                sharedRes->directive->paths->size > 0) {
@@ -447,12 +447,10 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
     if (rc_work == SUCCESS) {
-      /* printf("potrei rompermi qui\n"); */
       pthread_mutex_lock(&(sharedRes->mutex));
       rc_work = executeWork(sharedRes->workers, sharedRes->tables,
                             sharedRes->todo, &sharedRes->summaryFlag);
       pthread_mutex_unlock(&(sharedRes->mutex));
-      /* printf("e invece no\n"); */
       if (rc_work < SUCCESS)
         rc_work = errorHandler(rc_work);
     }
@@ -643,7 +641,6 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
 int assignWork(Worker worker, Work work, List todo) {
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
-  /* printf("return code di pop: %d\n", rc_po); */
   if (rc_po != -1) {
     worker->doing = work;
     worker->workAmount = work->bufferEnd - work->bufferStart + 1;
@@ -778,22 +775,6 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
   return rc_t;
 }
 
-// TODO think to remove this method
-int sendStopMessage(Worker worker) {
-  int rc_t = SUCCESS;
-
-  int *pipe = worker->pipe;
-  int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], "stop");
-  int rc_wr2 = writeDescriptor(pipe[WRITE_CHANNEL], "stop");
-  int rc_wr3 = writeDescriptor(pipe[WRITE_CHANNEL], "stop");
-
-  if (rc_wr < SUCCESS || rc_wr2 < SUCCESS || rc_wr3 < SUCCESS)
-    rc_t = SEND_FAILURE;
-
-  return rc_t;
-}
-
-// TODO this is different inside analyzer branch (shit!)
 int clearWorkersWork(List workers, List todo, List tables) {
   int rc_t = SUCCESS;
   int rc_sd = SUCCESS;
@@ -802,37 +783,31 @@ int clearWorkersWork(List workers, List todo, List tables) {
   Node list = workers->head;
   while (list != NULL && rc_t != MALLOC_FAILURE) {
     Worker worker = list->data;
-    if (worker->doing != NULL) {
-      int rc_sd = sendStopMessage(worker);
-
-      if (rc_sd == SUCCESS) {
-        char *charSent = malloc(worker->workAmount * sizeof(char));
-        int rc_al = checkAllocationError(charSent);
-        if (rc_al == SUCCESS) {
-          while (worker->bytesSent < worker->workAmount &&
-                 isAlive(worker) == 0) {
-            int rc_rd = read(worker->pipe[READ_CHANNEL], charSent,
-                             worker->workAmount - worker->bytesSent);
-            if (rc_rd > 0)
-              worker->bytesSent += rc_rd;
-          }
-          int rc_rd = -1;
-          while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
-            rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
-            /* printf("ho letto %s\n", charSent); */
-            if (rc_rd == 5) {
-              if (strncmp(charSent, "done", 4) == 0) {
-                /* printf("sto per entrare nel while strano\n"); */
-                endWork(worker, tables, BAD_ENDING, todo, NULL);
-              }
+    if (worker != NULL && worker->doing != NULL) {
+      char *charSent = malloc(worker->workAmount * sizeof(char));
+      int rc_al = checkAllocationError(charSent);
+      if (rc_al == SUCCESS) {
+        while (worker->bytesSent < worker->workAmount && isAlive(worker) == 0) {
+          int rc_rd = read(worker->pipe[READ_CHANNEL], charSent,
+                           worker->workAmount - worker->bytesSent);
+          if (rc_rd > 0)
+            worker->bytesSent += rc_rd;
+        }
+        int rc_rd = -1;
+        while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
+          rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
+          if (rc_rd == 5) {
+            if (strncmp(charSent, "done", 4) == 0) {
+              endWork(worker, tables, BAD_ENDING, todo, NULL);
+            } else if (strncmp(charSent, "erro", 4) == 0) {
+              endWork(worker, tables, BAD_ENDING, todo, NULL);
             }
           }
-          free(charSent);
-        } else {
-          rc_t = MALLOC_FAILURE;
         }
-      } else
-        rc_t = SEND_FAILURE;
+        free(charSent);
+      } else {
+        rc_t = MALLOC_FAILURE;
+      }
     }
 
     list = list->next;
@@ -867,7 +842,6 @@ int remoduleWorks(List todo, List workers, List tables) {
           unsigned long long remainder = workDimension % nWorkers;
           int rc_pu2 = SUCCESS;
           for (j = 0; j < nWorkers - 1 && rc_pu2 == SUCCESS; j++) {
-
             Work w = newWork(work->tablePointer, step * j + work->bufferStart,
                              step * (j + 1) + work->bufferStart - 1);
             rc_pu2 = enqueue(todo, w);
@@ -942,7 +916,7 @@ void *readDirectives(void *ptr) {
       } else
         sharedRes->directive->newNWorker = castPlaceHolder;
 
-      if (stopFlag != 1)
+      if (stopFlag != 1 && strcmp(newPath, "///") != 0)
         enqueue(sharedRes->directive->paths, newPath);
 
       if (newPath[0] == '\0' || nWorker[0] == '\0') {
@@ -951,7 +925,7 @@ void *readDirectives(void *ptr) {
         if (rc_ca < 0) {
           printError("I can't allocate memory");
         } else {
-          sprintf(msgErr, "inside worker with pid: %d", getpid());
+          sprintf(msgErr, "inside manager with pid: %d", getpid());
           printError(msgErr);
           free(msgErr);
         }
@@ -1006,7 +980,6 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
           }
 
           if (rc_pu2 == SUCCESS) {
-            // TODO per considerare anche EOF mettere solo -1
             Work w = newWork(t, step * (nWorker - 1),
                              step * nWorker + remainder - 1);
             rc_pu2 = push(todoTmp, w);
@@ -1200,8 +1173,11 @@ int errorHandler(int errorCode) {
               "reliable");
     rc_t = SUCCESS;
     break;
+  case MALLOC_FAILURE:
+    printError("no memory");
+    rc_t = HARAKIRI;
+    break;
   default:
-    // fprintf(stderr, "rc magico %d\n", errorCode);
     printError("unknown error");
     rc_t = HARAKIRI;
     break;
