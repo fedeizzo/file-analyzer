@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
 
     getHeigth(heigth);
     getWidth(width);
-    if (*heigth < 28 || *width < 88) {
+    if (*heigth < 28 || *width < 89) {
       printf("For a better user experience we suggest you to increase the size "
              "of "
              "the terminal window. We develped a fancy graphics with a better "
