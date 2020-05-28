@@ -273,7 +273,6 @@ int workerInitPipe(const int readPipe[], const int writePipe[]);
  *    const int writePipe[]: write pipe
  *
  * returns
-      printf("nWorker: %d\n", rc_t);
  *    0 in case of success, negative number otherwise
  */
 int parentInitExecPipe(const int readPipe[], const int writePipe[]);

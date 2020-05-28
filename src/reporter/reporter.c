@@ -863,12 +863,16 @@ int sendTree(int fd, char *treePath) {
     rc_t = MALLOC_FAILURE;
   }
 
-  if (rc_t == SUCCESS && treePath[0] == '/') {
-    // TODO overflow da gestire
-    while (treePath[index] != '\0') {
-      old = index;
-      index++;
-      tmpPath[old] = treePath[index];
+  if(strcmp(treePath, "/") == 0){
+    strcpy(tmpPath, treePath);
+  } else {
+    if (rc_t == SUCCESS && treePath[0] == '/') {
+      // TODO overflow da gestire
+      while (treePath[index] != '\0') {
+        old = index;
+        index++;
+        tmpPath[old] = treePath[index];
+      }
     }
   }
 

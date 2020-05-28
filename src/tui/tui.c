@@ -324,7 +324,11 @@ void drawTree(Screen screen, List directories, List files, List toggled,
               char *cwd, int *startCol, int *endCol, const int startRow,
               const int endRow) {
   char *tmpCwd = malloc(17 * sizeof(char));
-  lastDir(tmpCwd, cwd, startCol, endCol);
+  if(strcmp(cwd, "/") == 0){
+    strcpy(tmpCwd, cwd);
+  } else {
+    lastDir(tmpCwd, cwd, startCol, endCol);
+  }
   writeScreen(screen, "                 ", 2, 7);
   writeScreen(screen, tmpCwd, 2, 7);
 
@@ -833,10 +837,13 @@ void *inputLoop(void *ptr) {
             if (strcmp(tree, "..") == 0) {
               // free(p->userInput->tree);
               p->userInput->tree[0] = '\0';
-              char *tmpPath = malloc(sizeof(char) * PATH_MAX);
-              chdir("..");
-              getcwd(p->cwd, PATH_MAX);
-              strcpy(p->userInput->tree, p->cwd);
+              if(strcmp(p->cwd,  "/") != 0) {
+                char *tmpPath = malloc(sizeof(char) * PATH_MAX);
+                chdir("..");
+                getcwd(p->cwd, PATH_MAX);
+                strcpy(p->userInput->tree, p->cwd);
+                free(tmpPath);
+              }
               // OLD ONE
               /* strcat(tmpPath, p->cwd); */
               /* strcat(tmpPath, "/.."); */
@@ -846,7 +853,6 @@ void *inputLoop(void *ptr) {
               p->screen->treeStartCol = 0;
               p->screen->treeEndCol = 0;
               p->screen->treeStartRow = 0;
-              free(tmpPath);
             } else if (strcmp(tree, ".") == 0 &&
                        p->userInput->files->size > 0) {
               p->userInput->toggledChanged = 1;
