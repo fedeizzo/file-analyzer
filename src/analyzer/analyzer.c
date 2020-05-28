@@ -2727,9 +2727,13 @@ void *writeOnFIFOLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     if (sharedResources->toRetrive != NULL) {
       if (fd > 0) {
-        requested =
+        if(strcmp(sharedResources->toRetrive, "/") == 0){
+          requested = getRoot(sharedResources->fs);
+        } else {
+          requested =
             performInsert(sharedResources->toRetrive, NULL,
                           getRoot(sharedResources->fs), DIRECTORY, &msg);
+        }
         if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
           sharedResources->currentDirectory = requested;
           // TODO... handle strcpy with wrapper function
