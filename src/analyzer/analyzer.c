@@ -18,11 +18,13 @@
  * Wrapper function that handle the possibile errors of the getcwd() c function
  *
  * args:
- *    char *dst: a pointer to a memory location of PATH_MAX where the cwd will be saved 
+ *    char *dst: a pointer to a memory location of PATH_MAX where the cwd will
+ * be saved
  *
  *
  * returns
- *    SUCCESS in case the returned value of getcwd() is different from NULL otherwise CWD_FAILURE
+ *    SUCCESS in case the returned value of getcwd() is different from NULL
+ * otherwise CWD_FAILURE
  */
 int getCwd(char *dst);
 
@@ -606,9 +608,10 @@ TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
 void destroyTreeNodeCandidate(void *data);
 
 /**
- * loop to manage the different valid requests from the user or from the reporter (if it's a directory then
- * find the different sub-directories or sub-files then add them to the tree and analyze them otherwise simply
- * attach them to the tree)
+ * loop to manage the different valid requests from the user or from the
+ * reporter (if it's a directory then find the different sub-directories or
+ * sub-files then add them to the tree and analyze them otherwise simply attach
+ * them to the tree)
  *
  * args:
  *    void *ptr: args for thread
@@ -617,7 +620,7 @@ void *fileManageLoop(void *ptr);
 
 /**
  * Function that skips a certain amount (toSkip) of characters in the path
- * and save this "relative path" in a string  
+ * and save this "relative path" in a string
  *
  * args:
  *    char *path: the original path where is needed to skip some characters
@@ -628,16 +631,16 @@ void *fileManageLoop(void *ptr);
 void skipPath(char *path, char *relativePath, int toSkip);
 
 /**
- * Function that execute a fork: the child does an execpl in order to execute a find
- * while a childPid is initialized for the father in order to check if it's alive
+ * Function that execute a fork: the child does an execpl in order to execute a
+ * find while a childPid is initialized for the father in order to check if it's
+ * alive
  *
  * args:
- *    char *compactedPath: a string containing the path of the valid element to find
- *      obrained from the compactPath function
- *    int *fd: the file descriptor created using the pipe function in the
- *      calling function
- *    int *childPid: a pointer to an integer which will be initialized to the pid
- *      of the child obtained from the fork function
+ *    char *compactedPath: a string containing the path of the valid element to
+ * find obrained from the compactPath function int *fd: the file descriptor
+ * created using the pipe function in the calling function int *childPid: a
+ * pointer to an integer which will be initialized to the pid of the child
+ * obtained from the fork function
  *
  *
  * returns
@@ -647,17 +650,16 @@ void skipPath(char *path, char *relativePath, int toSkip);
 int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 
 /**
- * Function that calls the preformInsert function and then enqueues the file into
- * a List of files which will be later on assigned to the managers
+ * Function that calls the preformInsert function and then enqueues the file
+ * into a List of files which will be later on assigned to the managers
  *
  * args:
- *    TreeNode startingNode: the TreeNode (aka the directory) from where it will be
- *      started a search for the least common ancestor
- *    List fileToAssign: a List of TreeNode (aka files) which will be later on
- *      assigned to the managers in order to be processed
- *    char *relativePath: a string containing only a specific part of the path
- *      (only the part which is referred to the startingNode)
- *    char *completePath: a complete path to a file which is returned from a bash call
+ *    TreeNode startingNode: the TreeNode (aka the directory) from where it will
+ * be started a search for the least common ancestor List fileToAssign: a List
+ * of TreeNode (aka files) which will be later on assigned to the managers in
+ * order to be processed char *relativePath: a string containing only a specific
+ * part of the path (only the part which is referred to the startingNode) char
+ * *completePath: a complete path to a file which is returned from a bash call
  *      to the find function
  *
  *
@@ -667,12 +669,12 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
 int insertAndSchedule(TreeNode startingNode, List filesToAssign,
                       char *relativePath, char *completePath);
 
-
 /**
- * loop where the files staged in the fileToAssign List are sent to the managers and the files
- * are controlled the pipes of the managers to see if some of them finished reading some of the
- * files which where assigned previously. This loop also checks for any dead manager and
- * recovers their incompleted files in order to re-assign them.
+ * loop where the files staged in the fileToAssign List are sent to the managers
+ * and the files are controlled the pipes of the managers to see if some of them
+ * finished reading some of the files which where assigned previously. This loop
+ * also checks for any dead manager and recovers their incompleted files in
+ * order to re-assign them.
  *
  * args:
  *    void *ptr: args for thread
@@ -680,10 +682,11 @@ int insertAndSchedule(TreeNode startingNode, List filesToAssign,
 void *sendFileLoop(void *ptr);
 
 /**
- * Function that checks if a manager process is still alive by calling kill(pid, 0)
+ * Function that checks if a manager process is still alive by calling kill(pid,
+ * 0)
  *
  * args:
- *    Manager m: the manager which will be checked 
+ *    Manager m: the manager which will be checked
  *
  *
  * returns
@@ -694,7 +697,7 @@ int isManagerAlive(Manager m);
 /**
  * Function that recovers all the files from a dead manager, puts them back
  * in the filesToAssign List and then spawns a new manager in order to
- * subsitute the dead one. 
+ * subsitute the dead one.
  *
  *
  * args:
@@ -741,8 +744,8 @@ int manageFileToSend(PriorityQueue managers, int currentWorker,
  *      assigned to the managers
  *    int currentWorker: the number of actual workers at the moment of the
  *      processing request
- * 
- * 
+ *
+ *
  * returns
  *    SUCCESS or a negative number which must be handled
  */
@@ -791,10 +794,9 @@ int changeWorkerAmount(PriorityQueue managers, const int amount);
  *
  *
  * args:
- *    List requestedFiles: the list of files requested from the users in a previous
- *      operation
- *    long long unsigned *requestedFilesTable: the table containing the characters of
- *      the previous requested
+ *    List requestedFiles: the list of files requested from the users in a
+ * previous operation long long unsigned *requestedFilesTable: the table
+ * containing the characters of the previous requested
  *
  * returns
  *    SUCCESS or a negative number which must be handled
@@ -807,7 +809,7 @@ int resetRequestedFile(List requestedFiles,
  *
  *
  * args:
- *    long long unsigned *dst: the destination table 
+ *    long long unsigned *dst: the destination table
  *    long long unsigned *src: the source table
  *    const int dim: the dimension of the two table
  *
@@ -1912,10 +1914,11 @@ void *fileManageLoop(void *ptr) {
       } else {
         skipPath(candidate->path, relativePath, candidate->toSkip);
         pthread_mutex_lock(&(sharedResources->mutex));
-        //! Changed this code with the function created for that specific case so need to check if I didn't break anything
+        //! Changed this code with the function created for that specific case
+        //! so need to check if I didn't break anything
         rc_ia = insertAndSchedule(candidate->startingNode,
-                                          sharedResources->fileToAssign,
-                                          relativePath, candidate->path);
+                                  sharedResources->fileToAssign, relativePath,
+                                  candidate->path);
         pthread_mutex_unlock(&(sharedResources->mutex));
         insertFlag = FAILURE;
       }
@@ -2059,9 +2062,9 @@ void *sendFileLoop(void *ptr) {
   int counter = 0;
   unsigned long long charCounter = 0;
   int *pipe = NULL;
-  char *path = (char *) malloc(sizeof(char) * PATH_MAX);
-  char *number = (char *) malloc(sizeof(char) * PATH_MAX);
-  char *controlWord = (char *) malloc(sizeof(char) * CONTROL_WORD_LEN);
+  char *path = (char *)malloc(sizeof(char) * PATH_MAX);
+  char *number = (char *)malloc(sizeof(char) * PATH_MAX);
+  char *controlWord = (char *)malloc(sizeof(char) * CONTROL_WORD_LEN);
   char charRead = 'a';
   int numbersToRead = NCHAR_TABLE;
   int bytesRead = 1;
@@ -2162,7 +2165,6 @@ void *sendFileLoop(void *ptr) {
                         rc_dn =
                             detachNodeFromList(manager->filesInExecution, node);
                         if (info->isRequested == SUCCESS) {
-                          printf("Done e updato\n");
                           sharedResources->sendChanges = SUCCESS;
                         }
                         if (rc_dn != SUCCESS) {
@@ -2172,7 +2174,6 @@ void *sendFileLoop(void *ptr) {
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       if (found == 1) {
                         if (info->isRequested == SUCCESS) {
-                          printf("Undo e updato\n");
                           sharedResources->sendChanges = SUCCESS;
                         }
                       }
@@ -2186,7 +2187,7 @@ void *sendFileLoop(void *ptr) {
                 rc_rm = respawnManager(tmpManagers, manager,
                                        sharedResources->fileToAssign);
                 alreadyPushed = SUCCESS;
-                if(rc_rm != SUCCESS){
+                if (rc_rm != SUCCESS) {
                   rc_t = errorHandler(rc_rm);
                 } else {
                   rc_t = errorHandler(DEAD_PROCESS);
@@ -2198,7 +2199,7 @@ void *sendFileLoop(void *ptr) {
           rc_rm = respawnManager(tmpManagers, manager,
                                  sharedResources->fileToAssign);
           alreadyPushed = SUCCESS;
-          if(rc_rm != SUCCESS){
+          if (rc_rm != SUCCESS) {
             rc_t = errorHandler(rc_rm);
           } else {
             rc_t = errorHandler(DEAD_PROCESS);
@@ -2312,7 +2313,8 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
     else {
       int rc_sp1 = sprintf(nworkers, "%d", currentWorker);
       if (rc_sp1 > 0) {
-        int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], ((FileInfo)file->data)->path);
+        int rc_wr =
+            writeDescriptor(pipe[WRITE_CHANNEL], ((FileInfo)file->data)->path);
         int rc_wr_2 = writeDescriptor(pipe[WRITE_CHANNEL], nworkers);
         if (rc_wr < SUCCESS || rc_wr_2 < SUCCESS)
           rc_t = SEND_FAILURE;
@@ -2583,7 +2585,7 @@ void readString(int fd, char *dst) {
       dst[index++] = charRead;
     }
   }
-  if(charRead != '\0'){
+  if (charRead != '\0') {
     dst[index] = 0;
   }
 }
@@ -2729,12 +2731,12 @@ void *writeOnFIFOLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     if (sharedResources->toRetrive != NULL) {
       if (fd > 0) {
-        if(strcmp(sharedResources->toRetrive, "/") == 0){
+        if (strcmp(sharedResources->toRetrive, "/") == 0) {
           requested = getRoot(sharedResources->fs);
         } else {
           requested =
-            performInsert(sharedResources->toRetrive, NULL,
-                          getRoot(sharedResources->fs), DIRECTORY, &msg);
+              performInsert(sharedResources->toRetrive, NULL,
+                            getRoot(sharedResources->fs), DIRECTORY, &msg);
         }
         if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
           sharedResources->currentDirectory = requested;
@@ -2757,7 +2759,6 @@ void *writeOnFIFOLoop(void *ptr) {
 
     pthread_mutex_lock(&(sharedResources->mutex));
     if (sharedResources->sendChanges == SUCCESS) {
-      printf("Mando update\n");
       if (fd > 0) {
         rc_wd = writeDescriptor(fd, "tabl");
         if (rc_wd > 0) {
@@ -2771,7 +2772,7 @@ void *writeOnFIFOLoop(void *ptr) {
       sharedResources->sendChanges = -1;
     }
     pthread_mutex_unlock(&(sharedResources->mutex));
-    usleep(500000);
+    usleep(500);
   }
   free(toSend);
   close(fd);
