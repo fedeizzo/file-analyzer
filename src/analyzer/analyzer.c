@@ -319,6 +319,18 @@ int changeManagersAmount(PriorityQueue managers, const int currentManagers,
 int addManagers(PriorityQueue managers, int amount);
 
 /**
+ * Inits analyzer's pipe
+ *
+ * args:
+ *    const int readPipe[]: read pipe
+ *    const int writePipe[]: write pipe
+ *
+ * returns
+ *    0 in case of success, negative number otherwise
+ */
+int parentInitExecPipe(const int toParent[], const int toChild[]);
+
+/**
  * Inits Manager's pipes
  *
  * args:
@@ -603,8 +615,16 @@ void destroyTreeNodeCandidate(void *data);
  */
 void *fileManageLoop(void *ptr);
 
-
-// TODO... I forgot about this function
+/**
+ * Function that skips a certain amount (toSkip) of characters in the path
+ * and save this "relative path" in a string  
+ *
+ * args:
+ *    char *path: the original path where is needed to skip some characters
+ *    char *relativePath: a string which will contains the resulted path
+ *    int toSkip: number of the characters to skip in the path string
+ *
+ */
 void skipPath(char *path, char *relativePath, int toSkip);
 
 /**
@@ -646,6 +666,7 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid);
  */
 int insertAndSchedule(TreeNode startingNode, List filesToAssign,
                       char *relativePath, char *completePath);
+
 
 /**
  * loop where the files staged in the fileToAssign List are sent to the managers and the files
@@ -742,8 +763,8 @@ void *readFromFIFOLoop(void *ptr);
  * content inside a destination string
  *
  * args:
- *    int fd: descriptor
- *    char *dst: destination whole string
+ *    int fd: file descriptor of the pipe
+ *    char *dst: destination string
  *
  * returns:
  *    1 in case of success, otherwise -1
@@ -765,7 +786,82 @@ void readString(int fd, char *dst);
  */
 int changeWorkerAmount(PriorityQueue managers, const int amount);
 
-int parentInitExecPipe(const int toParent[], const int toChild[]);
+/**
+ * Function that resets the requestedFiles List and the requestedFilesTable
+ *
+ *
+ * args:
+ *    List requestedFiles: the list of files requested from the users in a previous
+ *      operation
+ *    long long unsigned *requestedFilesTable: the table containing the characters of
+ *      the previous requested
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled
+ */
+int resetRequestedFile(List requestedFiles,
+                       long long unsigned *requestedFilesTable);
+
+/**
+ * Function that sums two different table
+ *
+ *
+ * args:
+ *    long long unsigned *dst: the destination table 
+ *    long long unsigned *src: the source table
+ *    const int dim: the dimension of the two table
+ *
+ * returns
+ *    SUCCESS or a negative number which must be handled
+ */
+int sumTables(long long unsigned *dst, long long unsigned *src, const int dim);
+
+/**
+ * Loop to writes on the FIFO directed to the reporter
+ *
+ * args:
+ *    void *ptr: args for thread
+ */
+void *writeOnFIFOLoop(void *ptr);
+
+/**
+ * Functions that sends the children of a selected directory (aka TreeNode)
+ * to the reporter
+ *
+ * args:
+ *    TreeNode requested: the directory requested from the reporter
+ *    int fd: file descriptor of the pipe
+ *    char *toSend: a string used to save the informations for the reporter
+ *
+ * returns:
+ *    SUCCESS otherwise a negative number which must be handled
+ */
+int sendChildToReporter(TreeNode requested, int fd, char *toSend);
+
+/**
+ * Functions that sends a table containing the informations of all
+ * of the requested files from the reporter (number of characters)
+ *
+ * args:
+ *    int fd: file descriptor of the pipe
+ *    long long unsigned *requestedFilesTable: the table cotaining
+ *      the occurrences of a characters for all the requested files
+ *
+ * returns:
+ *    SUCCESS otherwise a negative number which must be handled
+ */
+int sendTableToReporter(int fd, long long unsigned *requestedFilesTable);
+
+/**
+ * Function that handles errors
+ *
+ * args:
+ *    int errorCode: error code
+ *
+ * returns
+ *    0 in case input error isn't fatal, otherwise -1
+ */
+int errorHandler(int errorCode);
 
 int getCwd(char *dst) {
   int rc_cwd = SUCCESS;
@@ -1291,6 +1387,17 @@ int addManagers(PriorityQueue managers, int amount) {
     }
   } else {
     rc_t = MALLOC_FAILURE;
+  }
+  return rc_t;
+}
+
+int parentInitExecPipe(const int toParent[], const int toChild[]) {
+  int rc_t = SUCCESS;
+  int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
+  int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
+
+  if (rc_cl == -1 || rc_cl2 == -1) {
+    rc_t = PIPE_FAILURE;
   }
   return rc_t;
 }
@@ -2543,13 +2650,210 @@ int changeWorkerAmount(PriorityQueue managers, const int amount) {
   return rc_t;
 }
 
-int parentInitExecPipe(const int toParent[], const int toChild[]) {
+int resetRequestedFile(List requestedFiles,
+                       long long unsigned *requestedFilesTable) {
   int rc_t = SUCCESS;
-  int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
-  int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
+  int rc_po = SUCCESS;
+  int i = 0;
+  TreeNode requested = NULL;
+  FileInfo file = NULL;
+  int requestedSize = 0;
+  if (requestedFiles != NULL) {
+    requestedSize = requestedFiles->size;
+    while (requestedSize > 0) {
+      requested = (TreeNode)front(requestedFiles);
+      rc_po = pop(requestedFiles);
+      if (requested != NULL && rc_po == SUCCESS) {
+        file = (FileInfo)requested->data;
+        if (file != NULL) {
+          file->isRequested = -1;
+        } else {
+          rc_t = NULL_POINTER;
+        }
+      } else {
+        rc_t = UNEXPECTED_LIST_ERROR;
+      }
+      requestedSize--;
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
 
-  if (rc_cl == -1 || rc_cl2 == -1) {
-    rc_t = PIPE_FAILURE;
+  if (requestedFilesTable != NULL) {
+    for (i = 0; i < NCHAR_TABLE; i++) {
+      requestedFilesTable[i] = 0;
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+
+  return rc_t;
+}
+
+int sumTables(long long unsigned *dst, long long unsigned *src, const int dim) {
+  int rc_t = SUCCESS;
+  int i = 0;
+  if (dst != NULL && src != NULL) {
+    for (i = 0; i < dim; i++) {
+      if (ULLONG_MAX - dst[i] >= src[i]) {
+        dst[i] += src[i];
+      } else {
+        rc_t = CHARACTER_OVERFLOW;
+      }
+    }
+  } else {
+    rc_t = NULL_POINTER;
+  }
+  return rc_t;
+}
+
+void *writeOnFIFOLoop(void *ptr) {
+  sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
+  TreeNode requested = NULL;
+  int rc_t = SUCCESS;
+  char *toSend = (char *)malloc(sizeof(char) * PATH_MAX);
+  int rc_al = checkAllocationError(toSend);
+  if (rc_al != SUCCESS) {
+    rc_t = MALLOC_FAILURE;
+  }
+  int msg = SUCCESS;
+  int rc_wd = SUCCESS;
+  int rc_ctr = SUCCESS;
+  char *writeFifo =
+      "/tmp/analyzerToReporter"; // Non sarebbe meglio una costante? Lol
+  int rc_fi = mkfifo(writeFifo, 0666);
+  int fd = open(writeFifo, O_WRONLY);
+  while (rc_t == SUCCESS) {
+    pthread_mutex_lock(&(sharedResources->mutex));
+    if (sharedResources->toRetrive != NULL) {
+      if (fd > 0) {
+        requested =
+            performInsert(sharedResources->toRetrive, NULL,
+                          getRoot(sharedResources->fs), DIRECTORY, &msg);
+        if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
+          sharedResources->currentDirectory = requested;
+          // TODO... handle strcpy with wrapper function
+          strcpy(sharedResources->cwd, sharedResources->toRetrive);
+          rc_ctr = sendChildToReporter(requested, fd, toSend);
+          if (rc_ctr != SUCCESS) {
+            rc_t = errorHandler(rc_ctr);
+          }
+        } else {
+          rc_t = errorHandler(msg);
+          rc_wd = writeDescriptor(fd, "0");
+        }
+      }
+      //! MAY BREAK SMTH
+      free(sharedResources->toRetrive);
+      sharedResources->toRetrive = NULL;
+    }
+    pthread_mutex_unlock(&(sharedResources->mutex));
+
+    pthread_mutex_lock(&(sharedResources->mutex));
+    if (sharedResources->sendChanges == SUCCESS) {
+      if (fd > 0) {
+        rc_wd = writeDescriptor(fd, "tabl");
+        if (rc_wd > 0) {
+          int rc_st =
+              sendTableToReporter(fd, sharedResources->requestedFilesTable);
+          if (rc_st != SUCCESS) {
+            rc_t = errorHandler(rc_st);
+          }
+        }
+      }
+      sharedResources->sendChanges = -1;
+    }
+    pthread_mutex_unlock(&(sharedResources->mutex));
+    usleep(500);
+  }
+  free(toSend);
+  close(fd);
+  kill(getpid(), SIGKILL);
+}
+
+int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
+  Node currentChild = NULL;
+  TreeNode child = NULL;
+  FileInfo file = NULL;
+  int rc_t = SUCCESS;
+  int rc_wd = writeDescriptor(fd, "tree");
+  fprintf(stdout, "Hai richiesto che ti sia inviato il signor: %s\n",
+          ((FileInfo)requested->data)->name);
+  if (requested->children != NULL && rc_wd >= SUCCESS) {
+    fprintf(stdout, "La cosa che hai chiesto ha size: %d\n",
+            requested->children->size);
+    int rc_ss = sprintf(toSend, "%d", requested->children->size);
+    if (rc_ss < 0) {
+      rc_t = errorHandler(SPRINTF_FAILURE);
+    } else {
+      rc_wd = writeDescriptor(fd, toSend);
+      if (rc_wd >= SUCCESS) {
+        currentChild = requested->children->head;
+        while (currentChild != NULL) {
+          child = (TreeNode)currentChild->data;
+          if (child != NULL) {
+            file = (FileInfo)child->data;
+            if (file != NULL) {
+              fprintf(stdout, "Invio il figlio di nome %s che ha tipo %d\n",
+                      file->name, file->isDirectory);
+              rc_wd = writeDescriptor(fd, file->name);
+              if (rc_wd > 0) {
+                if (file->isDirectory == DIRECTORY) {
+                  rc_wd = writeDescriptor(fd, "d");
+                } else {
+                  rc_wd = writeDescriptor(fd, "f");
+                }
+                if (rc_wd < 0) {
+                  // TODO... not sure what to do
+                }
+              } else {
+                // TODO... not sure what to do, vedremo lmao
+              }
+            } else {
+              rc_t = NULL_POINTER;
+            }
+          } else {
+            rc_t = NULL_POINTER;
+          }
+          currentChild = currentChild->next;
+        }
+      } else {
+        // TODO... to handle???
+        writeDescriptor(fd, "0");
+      }
+    }
+  } else {
+    // TODO... to handle???
+    writeDescriptor(fd, "0");
+  }
+  return rc_t;
+}
+
+int sendTableToReporter(int fd, long long unsigned *requestedFilesTable) {
+  int rc_t = SUCCESS;
+  int rc_al = SUCCESS;
+  int j = 0;
+  char *number = malloc(PATH_MAX * sizeof(char));
+  rc_al = checkAllocationError(number);
+  if (rc_al == SUCCESS) {
+    if (requestedFilesTable != NULL) {
+      for (j = 0; j < NCHAR_TABLE; j++) {
+        int rc_sp;
+        rc_sp = sprintf(number, "%llu", requestedFilesTable[j]);
+        if (rc_sp <= SUCCESS)
+          rc_t = CAST_FAILURE;
+        else {
+          int rc_wr = writeDescriptor(fd, number);
+          if (rc_wr == -1)
+            rc_t = SUMMARY_FAILURE;
+        }
+      }
+    } else {
+      rc_t = NULL_POINTER;
+    }
+    free(number);
+  } else {
+    rc_t = MALLOC_FAILURE;
   }
   return rc_t;
 }
@@ -2700,214 +3004,6 @@ int errorHandler(int errorCode) {
     break;
   }
 
-  return rc_t;
-}
-
-int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
-  Node currentChild = NULL;
-  TreeNode child = NULL;
-  FileInfo file = NULL;
-  int rc_t = SUCCESS;
-  int rc_wd = writeDescriptor(fd, "tree");
-  fprintf(stdout, "Hai richiesto che ti sia inviato il signor: %s\n",
-          ((FileInfo)requested->data)->name);
-  if (requested->children != NULL && rc_wd >= SUCCESS) {
-    fprintf(stdout, "La cosa che hai chiesto ha size: %d\n",
-            requested->children->size);
-    int rc_ss = sprintf(toSend, "%d", requested->children->size);
-    if (rc_ss < 0) {
-      rc_t = errorHandler(SPRINTF_FAILURE);
-    } else {
-      rc_wd = writeDescriptor(fd, toSend);
-      if (rc_wd >= SUCCESS) {
-        currentChild = requested->children->head;
-        while (currentChild != NULL) {
-          child = (TreeNode)currentChild->data;
-          if (child != NULL) {
-            file = (FileInfo)child->data;
-            if (file != NULL) {
-              fprintf(stdout, "Invio il figlio di nome %s che ha tipo %d\n",
-                      file->name, file->isDirectory);
-              rc_wd = writeDescriptor(fd, file->name);
-              if (rc_wd > 0) {
-                if (file->isDirectory == DIRECTORY) {
-                  rc_wd = writeDescriptor(fd, "d");
-                } else {
-                  rc_wd = writeDescriptor(fd, "f");
-                }
-                if (rc_wd < 0) {
-                  // TODO... not sure what to do
-                }
-              } else {
-                // TODO... not sure what to do, vedremo lmao
-              }
-            } else {
-              rc_t = NULL_POINTER;
-            }
-          } else {
-            rc_t = NULL_POINTER;
-          }
-          currentChild = currentChild->next;
-        }
-      } else {
-        // TODO... to handle???
-        writeDescriptor(fd, "0");
-      }
-    }
-  } else {
-    // TODO... to handle???
-    writeDescriptor(fd, "0");
-  }
-  return rc_t;
-}
-
-int sendTableToReporter(int fd, long long unsigned *requestedFilesTable) {
-  int rc_t = SUCCESS;
-  int rc_al = SUCCESS;
-  int j = 0;
-  char *number = malloc(PATH_MAX * sizeof(char));
-  rc_al = checkAllocationError(number);
-  if (rc_al == SUCCESS) {
-    if (requestedFilesTable != NULL) {
-      for (j = 0; j < NCHAR_TABLE; j++) {
-        int rc_sp;
-        rc_sp = sprintf(number, "%llu", requestedFilesTable[j]);
-        if (rc_sp <= SUCCESS)
-          rc_t = CAST_FAILURE;
-        else {
-          int rc_wr = writeDescriptor(fd, number);
-          if (rc_wr == -1)
-            rc_t = SUMMARY_FAILURE;
-        }
-      }
-    } else {
-      rc_t = NULL_POINTER;
-    }
-    free(number);
-  } else {
-    rc_t = MALLOC_FAILURE;
-  }
-  return rc_t;
-}
-
-void *writeOnFIFOLoop(void *ptr) {
-  sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
-  TreeNode requested = NULL;
-  int rc_t = SUCCESS;
-  char *toSend = (char *)malloc(sizeof(char) * PATH_MAX);
-  int rc_al = checkAllocationError(toSend);
-  if (rc_al != SUCCESS) {
-    rc_t = MALLOC_FAILURE;
-  }
-  int msg = SUCCESS;
-  int rc_wd = SUCCESS;
-  int rc_ctr = SUCCESS;
-  char *writeFifo =
-      "/tmp/analyzerToReporter"; // Non sarebbe meglio una costante? Lol
-  int rc_fi = mkfifo(writeFifo, 0666);
-  int fd = open(writeFifo, O_WRONLY);
-  while (rc_t == SUCCESS) {
-    pthread_mutex_lock(&(sharedResources->mutex));
-    if (sharedResources->toRetrive != NULL) {
-      if (fd > 0) {
-        requested =
-            performInsert(sharedResources->toRetrive, NULL,
-                          getRoot(sharedResources->fs), DIRECTORY, &msg);
-        if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
-          sharedResources->currentDirectory = requested;
-          // TODO... handle strcpy with wrapper function
-          strcpy(sharedResources->cwd, sharedResources->toRetrive);
-          rc_ctr = sendChildToReporter(requested, fd, toSend);
-          if (rc_ctr != SUCCESS) {
-            rc_t = errorHandler(rc_ctr);
-          }
-        } else {
-          rc_t = errorHandler(msg);
-          rc_wd = writeDescriptor(fd, "0");
-        }
-      }
-      //!MAY BREAK SMTH
-      free(sharedResources->toRetrive);
-      sharedResources->toRetrive = NULL;
-    }
-    pthread_mutex_unlock(&(sharedResources->mutex));
-
-    pthread_mutex_lock(&(sharedResources->mutex));
-    if (sharedResources->sendChanges == SUCCESS) {
-      if (fd > 0) {
-        rc_wd = writeDescriptor(fd, "tabl");
-        if (rc_wd > 0) {
-          int rc_st =
-              sendTableToReporter(fd, sharedResources->requestedFilesTable);
-          if (rc_st != SUCCESS) {
-            rc_t = errorHandler(rc_st);
-          }
-        }
-      }
-      sharedResources->sendChanges = -1;
-    }
-    pthread_mutex_unlock(&(sharedResources->mutex));
-    usleep(500);
-  }
-  free(toSend);
-  close(fd);
-  kill(getpid(), SIGKILL);
-}
-
-int resetRequestedFile(List requestedFiles,
-                       long long unsigned *requestedFilesTable) {
-  int rc_t = SUCCESS;
-  int rc_po = SUCCESS;
-  int i = 0;
-  TreeNode requested = NULL;
-  FileInfo file = NULL;
-  int requestedSize = 0;
-  if (requestedFiles != NULL) {
-    requestedSize = requestedFiles->size;
-    while (requestedSize > 0) {
-      requested = (TreeNode)front(requestedFiles);
-      rc_po = pop(requestedFiles);
-      if (requested != NULL && rc_po == SUCCESS) {
-        file = (FileInfo)requested->data;
-        if (file != NULL) {
-          file->isRequested = -1;
-        } else {
-          rc_t = NULL_POINTER;
-        }
-      } else {
-        rc_t = UNEXPECTED_LIST_ERROR;
-      }
-      requestedSize--;
-    }
-  } else {
-    rc_t = NULL_POINTER;
-  }
-
-  if (requestedFilesTable != NULL) {
-    for (i = 0; i < NCHAR_TABLE; i++) {
-      requestedFilesTable[i] = 0;
-    }
-  } else {
-    rc_t = NULL_POINTER;
-  }
-
-  return rc_t;
-}
-
-int sumTables(long long unsigned *dst, long long unsigned *src, const int dim) {
-  int rc_t = SUCCESS;
-  int i = 0;
-  if (dst != NULL && src != NULL) {
-    for (i = 0; i < dim; i++) {
-      if (ULLONG_MAX - dst[i] >= src[i]) {
-        dst[i] += src[i];
-      } else {
-        rc_t = CHARACTER_OVERFLOW;
-      }
-    }
-  } else {
-    rc_t = NULL_POINTER;
-  }
   return rc_t;
 }
 
