@@ -667,6 +667,10 @@ void trim(char *string) {
   string[len + 1] = '\0';
 }
 
+void printDirectory(void * data){
+  fprintf(stderr, "%s\n", (char *)data);
+}
+
 void *inputLoop(void *ptr) {
   userInput_t *p = (userInput_t *)(ptr);
   int rc_t = SUCCESS;
@@ -876,15 +880,22 @@ void *inputLoop(void *ptr) {
             } else {
               char *cwd = malloc(PATH_MAX * sizeof(char));
               strcpy(cwd, p->cwd);
-              strcat(cwd, "/");
+              if(strcmp(p->cwd,  "/") != 0) {
+                strcat(cwd, "/");
+              }
               strcat(cwd, tree);
+              fprintf(stderr, "Path vale %s\n", cwd);
+
               int isDirectory =
                   isIn(p->userInput->directories, cwd, isStringEqual);
               if (isDirectory == SUCCESS) {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
                 strcpy(cwd, p->cwd);
-                strcat(cwd, "/");
+                if(strcmp(p->cwd,  "/") != 0) {
+                  strcat(cwd, "/");
+                }
                 strcat(cwd, tree);
+                fprintf(stderr, "Path vale %s\n", cwd);
                 int index = 0;
                 p->screen->treeStartCol = 0;
                 p->screen->treeEndCol = 0;
@@ -894,7 +905,9 @@ void *inputLoop(void *ptr) {
               } else {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
                 strcpy(cwd, p->cwd);
-                strcat(cwd, "/");
+                if(strcmp(p->cwd,  "/") != 0) {
+                  strcat(cwd, "/");
+                }
                 strcat(cwd, tree);
                 int isFile = isIn(p->userInput->files, cwd, isStringEqual);
 

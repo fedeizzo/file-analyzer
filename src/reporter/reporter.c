@@ -262,7 +262,7 @@ void *userInputLoop(void *ptr) {
     }
     usleep(50000);
   }
-  printf("sono morto\n");
+  //printf("sono morto\n");
 }
 
 void writeStats(unsigned long long *table) {
@@ -523,7 +523,7 @@ void *readFifoLoop(void *ptr) {
       /* remove("/tmp/analyzerToReporter"); */
       rc_t = SUCCESS;
       while (rc_t == SUCCESS) {
-        printf("Sono epico in read file loop\n");
+        //printf("Sono epico in read file loop\n");
         int readOperationFlag = 0;
         char *dst = malloc(PATH_MAX * sizeof(char));
         dst[0] = '\0';
@@ -860,7 +860,9 @@ int readTree(int readOpeartion, int fd, List directories, List files,
               dst2);
       char *elem = malloc(PATH_MAX * sizeof(char));
       strcpy(elem, cwd);
-      strcat(elem, "/");
+      if(strcmp(cwd, "/") != 0) {
+        strcat(elem, "/");
+      }
       strcat(elem, dst);
       if (strcmp(dst2, "d") == 0) {
         rc_t = push(directories, elem);

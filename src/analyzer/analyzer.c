@@ -2162,6 +2162,7 @@ void *sendFileLoop(void *ptr) {
                         rc_dn =
                             detachNodeFromList(manager->filesInExecution, node);
                         if (info->isRequested == SUCCESS) {
+                          printf("Done e updato\n");
                           sharedResources->sendChanges = SUCCESS;
                         }
                         if (rc_dn != SUCCESS) {
@@ -2171,6 +2172,7 @@ void *sendFileLoop(void *ptr) {
                     } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
                       if (found == 1) {
                         if (info->isRequested == SUCCESS) {
+                          printf("Undo e updato\n");
                           sharedResources->sendChanges = SUCCESS;
                         }
                       }
@@ -2755,6 +2757,7 @@ void *writeOnFIFOLoop(void *ptr) {
 
     pthread_mutex_lock(&(sharedResources->mutex));
     if (sharedResources->sendChanges == SUCCESS) {
+      printf("Mando update\n");
       if (fd > 0) {
         rc_wd = writeDescriptor(fd, "tabl");
         if (rc_wd > 0) {
@@ -2768,7 +2771,7 @@ void *writeOnFIFOLoop(void *ptr) {
       sharedResources->sendChanges = -1;
     }
     pthread_mutex_unlock(&(sharedResources->mutex));
-    usleep(500);
+    usleep(500000);
   }
   free(toSend);
   close(fd);
