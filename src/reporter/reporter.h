@@ -10,6 +10,7 @@ typedef struct UserInputStr {
   List results;
   List directories;
   List files;
+  int toggledChanged;
   unsigned long long *table;
   char *tree;
   int managers;

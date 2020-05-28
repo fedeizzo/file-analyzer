@@ -27,12 +27,13 @@ const char *helpMsg =
 char *guiHelpMsg[] = {"Welcome, this is a list of command:",
                       "  quit      -> quit programm",
                       "  help      -> display this message",
+                      "  input     -> write a path (absolute or relative)",
                       "  n         -> change worker amount",
                       "  m         -> change manager amount",
                       "  tree      -> enter tree mode",
                       "    * up, down arrow -> to navigate",
-                      "    * .              ->to toggle/untoggle all",
-                      "    * ..             ->to navigate father directory",
+                      "    * .              -> to toggle/untoggle all",
+                      "    * ..             -> to navigate father directory",
                       "  maiuscole -> display only maiuscole",
                       "  minuscole -> display only minuscole",
                       "  punteg.   -> display only punteg.",
@@ -644,11 +645,11 @@ void drawHelpMsg(Screen screen) {
   int i = 0;
   int col = 21;
   int row = 7;
-  int start = (((screen->rows - 5) - row) - 14) / 2;
-  int end = (((screen->cols - 1) - col) - 51) / 2;
+  int start = (((screen->rows - 5) - row) - 15) / 2;
+  int end = (((screen->cols - 1) - col) - 52) / 2;
   row += start;
   col += end;
-  for (i = 0; i < 14; i++) {
+  for (i = 0; i < 15; i++) {
     writeScreen(screen, guiHelpMsg[i], col, row++);
   }
 }
@@ -846,36 +847,26 @@ void *inputLoop(void *ptr) {
               p->screen->treeEndCol = 0;
               p->screen->treeStartRow = 0;
               free(tmpPath);
-            } else if (strcmp(tree, ".") == 0) {
+            } else if (strcmp(tree, ".") == 0 &&
+                       p->userInput->files->size > 0) {
+              p->userInput->toggledChanged = 1;
               Node element = p->userInput->files->head;
               while (element != NULL) {
                 char *totalPath = malloc(PATH_MAX * sizeof(char));
-                /*char *f = malloc(PATH_MAX * sizeof(char));
-                strcpy(f, element->data);*/
                 strcpy(totalPath, element->data);
-                /*strcpy(totalPath, p->cwd);
-                strcat(totalPath, "/");
-                strcat(totalPath, f);*/
-                fprintf(stderr,
-                        "Quanto vale element di data %s, totalpath %s\n",
-                        (char *)element->data, totalPath);
                 int isToggled = deleteNode(p->userInput->results, totalPath,
                                            isStringEqual, free);
                 if (isToggled != SUCCESS) {
-                  // fprintf(stderr, "faccio il toggle %s\n", totalPath);
                   push(p->userInput->results, totalPath);
                 } else {
                   free(totalPath);
                 }
-                // free(f);
                 element = element->next;
               }
               int i = 0;
               for (i = 0; i < NCHAR_TABLE; i++) {
                 p->userInput->table[i] = 0;
               }
-              // TODO ask to other if also directories must have the same
-              // behavior
             } else {
               char *cwd = malloc(PATH_MAX * sizeof(char));
               strcpy(cwd, p->cwd);
@@ -931,12 +922,14 @@ void *inputLoop(void *ptr) {
             //! PERCHE' TI ROMPI... PERCHEEEEEEEE'???
             char *path = malloc(PATH_MAX * sizeof(char));
             char *realPath = malloc(PATH_MAX * sizeof(char));
-            strcpy(path, p->cwd);
-            strcat(path, "/");
-            strcat(path, cmd);
-            fprintf(stderr, "path completo: %s\n", path);
-            realpath(path, realPath);
-            fprintf(stderr, "realPath: %s\n", realPath);
+            if (cmd[0] != '/') {
+              strcpy(path, p->cwd);
+              strcat(path, "/");
+              strcat(path, cmd);
+              realpath(path, realPath);
+            } else {
+              strcpy(realPath, cmd);
+            }
             //! Probably will break everything (just to point out a possible
             //! breaking point)
             free(path);
