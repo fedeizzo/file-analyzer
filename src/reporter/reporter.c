@@ -52,36 +52,6 @@ UserInput newUserInput() {
   if (rc_al < SUCCESS || rc_al2 < SUCCESS || rc_al3 < SUCCESS ||
       rc_al4 < SUCCESS)
     ui = NULL;
-
-  // TODO test
-  /*char *dir1 = malloc(PATH_MAX * sizeof(char));
-  char *dir2 = malloc(PATH_MAX * sizeof(char));
-  char *fil1 = malloc(PATH_MAX * sizeof(char));
-  char *fil2 = malloc(PATH_MAX * sizeof(char));
-  char *fil3 = malloc(PATH_MAX * sizeof(char));
-  char *fil4 = malloc(PATH_MAX * sizeof(char));
-  *strcpy(dir1,
-         "/tmp/progetto/bin/directory del mio paese1");
-  strcpy(dir2,
-         "/tmp/progetto/bin/directory 2");
-  strcpy(fil1,
-         "/tmp/progetto/bin/file del tuo paese 1");
-  strcpy(fil2,
-         "/tmp/progetto/bin/file 2");
-  strcpy(fil2,
-         "/tmp/progetto/bin/file 2");
-  strcpy(fil3,
-         "/tmp/progetto/bin/file 3");
-  strcpy(fil4,
-         "/tmp/progetto/bin/file 4");
-
-  push(ui->directories, dir1);
-  push(ui->directories, dir2);
-  push(ui->files, fil1);
-  push(ui->files, fil2);
-  push(ui->files, fil3);
-  push(ui->files, fil4); */
-  // TODO test ended
   return ui;
 }
 
@@ -116,7 +86,6 @@ int main(int argc, char **argv) {
   char *writeFifo = "/tmp/reporterToAnalyzer";
   char *readFifo = "/tmp/analyzerToReporter";
   char *cwd = malloc(PATH_MAX * sizeof(char));
-  // TODO test only
   getcwd(cwd, PATH_MAX);
   /* remove(writeFifo); */
   int rc_fi = mkfifo(writeFifo, 0666);
@@ -411,8 +380,6 @@ void *writeFifoLoop(void *ptr) {
     pathsSizePlaceholder = input->userInput->paths->size;
     pthread_mutex_unlock(&(input->mutex));
     if (pathsSizePlaceholder > 0) {
-      /* printf("va che non e vuota come pensavi\n"); */
-      /* printf("sto per aprire la fifo avendo letto %s\n", path); */
       fprintf(stderr, "open numero 1\n");
       /* fd = open(fifoPath, O_WRONLY); */
       fprintf(stderr, "open numero 1 aperta\n");
@@ -423,18 +390,12 @@ void *writeFifoLoop(void *ptr) {
         if (fd > 0) {
           int rc_po = pop(input->userInput->paths);
           if (rc_po == -1) {
-            /* printf("la pop e' andata una merda\n"); */
-          } else {
-            /* printf("la pop e' andata una in maniera magistrale\n"); */
-          }
+            // TODO  add failure
+          } 
           rc_t = sendDirectives(fd, path, &(input->userInput->managers),
                                 &(input->userInput->workers));
           rc_t = sendTree(fd, input->cwd);
           fprintf(stderr, "ho inviato la seconda volta\n");
-          // TODO debug only
-          /* if (strcmp(path, input->cwd) == 0) { */
-          /*   sendTree(fd, input->cwd); */
-          /* } */
         }
         free(path);
       }
@@ -470,18 +431,14 @@ void *writeFifoLoop(void *ptr) {
       /* printf("last: %d, new: %d\n", lastWorker, input->userInput->workers);
        */
       lastWorker = workerCountPlaceholder;
-      fprintf(stderr, "open numero 3\n");
       /* fd = open(fifoPath, O_WRONLY); */
-      fprintf(stderr, "open numero 3 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        /* rc_t = sendDirectives(fd, "///", &(input->userInput->managers), */
-        /*                       &(input->userInput->workers)); */
+        rc_t = sendDirectives(fd, "///", &(input->userInput->managers), 
+                               &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "close numero 3\n");
       /* close(fd); */
-      fprintf(stderr, "close numero 3 chiusa\n");
     }
 
     pthread_mutex_lock(&(input->mutex));
@@ -497,9 +454,7 @@ void *writeFifoLoop(void *ptr) {
       pthread_mutex_lock(&(input->mutex));
       input->userInput->toggledChanged = 0;
       if (fd > 0) {
-        // printf("sto per entrar nel invio classico\n");
         rc_t = sendResult(fd, input->userInput->results);
-        // printf("entrato\n");
       }
       pthread_mutex_unlock(&(input->mutex));
       fprintf(stderr, "close numero 4\n");
@@ -698,7 +653,6 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
         strcat(newAbsolutePath, cwd);
         strcat(newAbsolutePath, "/");
         strcat(newAbsolutePath, newPath);
-        // printf("Path tot: %s\n", newAbsolutePath);
       } else {
         strcpy(newAbsolutePath, newPath);
       }
@@ -799,7 +753,6 @@ int readResult(List pathResults, char *cwd) {
 }
 
 int sendResult(int fd, List pathResults) {
-  fprintf(stderr, "Sono entrato nella malfamatissima SEND RESULT\n");
   int rc_t = SUCCESS;
   int old;
   int index = 0;
@@ -853,7 +806,6 @@ int updateTree(char *path) {
 }
 
 int sendTree(int fd, char *treePath) {
-  fprintf(stderr, "Devo mandare lo stramaledetto TREEEEEE\n");
   char *tmpPath = malloc(sizeof(char) * PATH_MAX);
   int rc_t = SUCCESS;
   int old;
@@ -912,10 +864,8 @@ int readTree(int readOpeartion, int fd, List directories, List files,
       strcat(elem, dst);
       if (strcmp(dst2, "d") == 0) {
         rc_t = push(directories, elem);
-        fprintf(stderr, "Ho pushato una cartella %s \n", elem);
       } else {
         rc_t = push(files, elem);
-        fprintf(stderr, "Ho pushato un file %s\n", elem);
       }
       readOpeartion--;
     } else
@@ -927,7 +877,6 @@ int readTree(int readOpeartion, int fd, List directories, List files,
 }
 
 int readTable(int fd, unsigned long long *table) {
-  fprintf(stderr, "Entro in read table\n");
   int rc_t = SUCCESS;
   int numbersToRead = NCHAR_TABLE;
   int index = 0;

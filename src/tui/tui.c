@@ -878,7 +878,6 @@ void *inputLoop(void *ptr) {
               strcpy(cwd, p->cwd);
               strcat(cwd, "/");
               strcat(cwd, tree);
-              fprintf(stderr, "AOOOOOOOOOO SONO QUIIIIIII CWD: %s\n", cwd);
               int isDirectory =
                   isIn(p->userInput->directories, cwd, isStringEqual);
               if (isDirectory == SUCCESS) {
@@ -892,22 +891,16 @@ void *inputLoop(void *ptr) {
                 p->screen->treeStartRow = 0;
                 strcpy(p->userInput->tree, cwd);
                 strcpy(p->cwd, cwd);
-                fprintf(stderr, "VA IN USERINPUT SONO QUIIIIIII CWD: %s\n",
-                        cwd);
               } else {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
-                fprintf(stderr, "AOOOOOOOOOO\n");
                 strcpy(cwd, p->cwd);
                 strcat(cwd, "/");
                 strcat(cwd, tree);
-                fprintf(stderr, "cwd vale %s\n", cwd);
                 int isFile = isIn(p->userInput->files, cwd, isStringEqual);
 
                 if (isFile == SUCCESS) {
                   int rc_re = deleteNode(p->userInput->results, cwd,
                                          isStringEqual, free);
-                  fprintf(stderr, "provo se va bene a fare il toggle di %s\n",
-                          cwd);
                   if (rc_re != SUCCESS) {
                     fprintf(stderr, "faccio il toggle di %s\n", cwd);
                     push(p->userInput->results, cwd);
