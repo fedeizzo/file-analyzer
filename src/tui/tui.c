@@ -24,6 +24,21 @@ const char *helpMsg =
     "\t-m, --mumber      : specify the workers amount\n"
     "\t-f,,--normal-mode : normal mode without fancy graphic\n";
 
+char *guiHelpMsg[] = {"Welcome, this is a list of command:",
+                      "  quit      -> quit programm",
+                      "  help      -> display this message",
+                      "  input     -> write a path (absolute or relative)",
+                      "  n         -> change worker amount",
+                      "  m         -> change manager amount",
+                      "  tree      -> enter tree mode",
+                      "    * up, down arrow -> to navigate",
+                      "    * .              -> to toggle/untoggle all",
+                      "    * ..             -> to navigate father directory",
+                      "  maiuscole -> display only maiuscole",
+                      "  minuscole -> display only minuscole",
+                      "  punteg.   -> display only punteg.",
+                      "  cifre     -> display only cifre",
+                      "  tutto     -> display all"};
 /* Use this variable to remember original terminal attributes. */
 
 struct termios saved_attributes;
@@ -200,6 +215,7 @@ int insertBorder(Screen screen) {
           (c == screen->cols - 1 && r == 4) || (c == 0 && r == 4))
         screen->grid[c][r] = '+';
       else if (r == 0 || r == 2 || r == 4 || (r == 6 && 0 < c && c < 19) ||
+               (r == 8 && 0 < c && c < 19) ||
                (r == screen->rows - 5 && 19 < c && c < screen->cols - 1) ||
                r == screen->rows - 1)
         screen->grid[c][r] = HOR_TABLE;
@@ -208,26 +224,6 @@ int insertBorder(Screen screen) {
       else
         screen->grid[c][r] = ' ';
     }
-  }
-  i = 0;
-  int col = 21;
-  int row = 7;
-  char *msg = malloc(300 * sizeof(char));
-  int rc_al = checkAllocationError(msg);
-  if (rc_al == SUCCESS) {
-    writeScreen(screen, "  | cont   ", 21, 6);
-    for (i = 33; i < 127; i++) {
-      sprintf(msg, "  |        ");
-      writeScreen(screen, msg, col, row++);
-      if (row >= screen->rows - 5) {
-        row = 7;
-        col += 11;
-        writeScreen(screen, "  | cont   ", col, 6);
-      }
-    }
-    free(msg);
-  } else {
-    rc_t = MALLOC_FAILURE;
   }
 
   return rc_t;
@@ -239,8 +235,8 @@ void writeScreenError(char *str) {
 }
 
 void writeScreenLog(int heigth, char *str) {
-  moveCursor(21, heigth - 3);
-  printf("\033[33m %s\033[m", str);
+  moveCursor(21, heigth - 2);
+  printf("\033[36m %s\033[m", str);
 }
 
 int printLog(Screen screen, int fd) {
@@ -272,7 +268,7 @@ int commandFilter(const int cmd, const int counter) {
     if (counter >= 48 && counter <= 57)
       rc_t = 0;
   } else if (cmd == 5) {
-    if (counter >= 33 && counter <= 126)
+    if (counter >= 0 && counter <= 128)
       rc_t = 0;
   }
 
@@ -295,6 +291,7 @@ void draw(Screen screen) {
       }
     }
   }
+
   fflush(stdout);
 }
 
@@ -306,16 +303,20 @@ void lastDir(char *tmpCwd, char *cwd, int *start, int *end) {
       lastSlash = index;
   }
   int until = 17;
+  int str = *start;
   if (strlen(cwd) - lastSlash > 17) {
-    lastSlash += *start % strlen(cwd) - lastSlash;
-    until = *end % strlen(cwd) - lastSlash;
+    int nextStart = (lastSlash + str) % (strlen(cwd) - lastSlash);
+    lastSlash += nextStart;
+    // TODO implemnt little stop
   }
+  fprintf(stderr, "%s\n", cwd);
+  fprintf(stderr, "start: %d, lastSlash %d,  until: %d\n", *start, lastSlash,
+          until);
   index = 0;
   while (index < until && cwd[lastSlash] != '\0') {
     tmpCwd[index++] = cwd[lastSlash++];
   }
   tmpCwd[index] = '\0';
-  fprintf(stderr, "start: %d, end: %d\n", *start, *end);
   fprintf(stderr, "yeee: %s\n", tmpCwd);
 }
 
@@ -323,24 +324,30 @@ void drawTree(Screen screen, List directories, List files, List toggled,
               char *cwd, int *startCol, int *endCol, const int startRow,
               const int endRow) {
   char *tmpCwd = malloc(17 * sizeof(char));
-  lastDir(tmpCwd, cwd, startCol, endCol);
-  writeScreen(screen, "                ", 2, 7);
+  if(strcmp(cwd, "/") == 0){
+    strcpy(tmpCwd, cwd);
+  } else {
+    lastDir(tmpCwd, cwd, startCol, endCol);
+  }
+  writeScreen(screen, "                 ", 2, 7);
   writeScreen(screen, tmpCwd, 2, 7);
 
   //! If the code breaks, move this in another position
   // char *totalPath = malloc(PATH_MAX * sizeof(char));
   char *line = malloc(17 * sizeof(char));
-  int lineCounter = 10;
+  int lineCounter = 11;
   Node element = directories->head;
+  int elementPrinted = 0;
   while (element != NULL) {
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
-    if (lineCounter < screen->rows - 1) {
-      writeScreen(screen, "                ", 2, lineCounter);
+    if (lineCounter < screen->rows - 1 && elementPrinted >= startRow) {
+      writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
+    elementPrinted++;
   }
   element = files->head;
   while (element != NULL) {
@@ -348,23 +355,25 @@ void drawTree(Screen screen, List directories, List files, List toggled,
     strcat(totalPath, "/");
     strcat(totalPath, element->data);*/
     int isToggled = isIn(toggled, element->data, isStringEqual);
-    if (isToggled == SUCCESS) {
+    if (isToggled == SUCCESS && lineCounter < screen->rows - 1 &&
+        elementPrinted >= startRow) {
       moveCursor(2, lineCounter + 1);
       printf("\033[41m \033[m");
     }
 
     strcpy(line, (char *)element->data);
     lastDir(tmpCwd, line, startCol, endCol);
-    if (lineCounter < screen->rows - 1) {
-      writeScreen(screen, "                ", 2, lineCounter);
+    if (lineCounter < screen->rows - 1 && elementPrinted >= startRow) {
+      writeScreen(screen, "                 ", 2, lineCounter);
       writeScreen(screen, tmpCwd, 2, lineCounter);
       lineCounter++;
     }
     element = element->next;
+    elementPrinted++;
   }
 
   while (lineCounter < screen->rows - 1) {
-    writeScreen(screen, "                ", 2, lineCounter);
+    writeScreen(screen, "                 ", 2, lineCounter);
     lineCounter++;
   }
 
@@ -437,18 +446,45 @@ int initScreen(Screen screen) {
   int rc_t = insertBorder(screen);
   if (rc_t == SUCCESS) {
     writeScreen(screen, "input: ", 2, 1);
-    writeScreen(screen,
-                " comandi: quit, n, m, tree, maiuscole, minuscole, punteg., "
-                "cifre, tutto",
-                1, 3);
+    writeScreen(
+        screen,
+        " comandi: quit, help, n, m, tree, maiuscole, minuscole, punteg., "
+        "cifre, tutto",
+        1, 3);
     /* writeScreen(p->screen, command, 7, 7); */
-    writeScreen(screen, " .. ", 1, 8);
-    writeScreen(screen, " . ", 1, 9);
+    writeScreen(screen, " .. ", 1, 9);
+    writeScreen(screen, " . ", 1, 10);
     draw(screen);
-    writeScreen(screen, "LOG/ERROR", 21, screen->rows - 4);
+    writeScreen(screen, "STATISTICS", 21, screen->rows - 4);
   }
 
   return rc_t;
+}
+
+void computeStatistics(Screen screen, unsigned long long *table) {
+  char clearString[screen->cols - 22];
+  int i = 0;
+  for (i = 0; i < screen->cols - 22; i++) {
+    clearString[i] = ' ';
+  }
+  clearString[screen->cols - 23] = '\0';
+  writeScreen(screen, clearString, 21, screen->rows - 3);
+
+  unsigned long long tot = 0;
+  unsigned long long selected = 0;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    tot += table[i];
+    if (commandFilter(screen->cmd, i) == 0) {
+      selected += table[i];
+    }
+  }
+  char tmpString[100];
+  int percentage = 0;
+  if (tot != 0 && selected != 0) {
+    percentage = (int)((long double)selected / (long double)tot * 100);
+  }
+  sprintf(tmpString, "Percentage over total: %d%%", percentage);
+  writeScreen(screen, tmpString, 21, screen->rows - 3);
 }
 
 void *graphicsLoop(void *ptr) {
@@ -477,15 +513,22 @@ void *graphicsLoop(void *ptr) {
     rc_t = GRAPHIC_LOOP_FAILURE;
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(p->mutex));
+    computeStatistics(p->screen, p->userInput->table);
     draw(p->screen);
     drawTree(p->screen, p->userInput->directories, p->userInput->files,
              p->userInput->results, p->cwd, &p->screen->treeStartCol,
-             &p->screen->treeEndCol, 0, 0);
+             &p->screen->treeEndCol, p->screen->treeStartRow, 0);
+    /* printf("%d", p->screen->treeStartRow); */
     pthread_mutex_unlock(&(p->mutex));
-    usleep(1000000);
+    usleep(650000);
     if (scrollCounte % 2 == 0) {
-      p->screen->treeEndCol++;
-      p->screen->treeStartCol++;
+      if (p->screen->treeStartCol == PATH_MAX) {
+        p->screen->treeEndCol = 0;
+        p->screen->treeStartCol = 0;
+      } else {
+        p->screen->treeEndCol++;
+        p->screen->treeStartCol++;
+      }
     }
   }
   kill(getpid(), SIGKILL);
@@ -510,30 +553,54 @@ void drawInputLine(Screen screen) {
   fflush(stdout);
 }
 
+void clearCenter(Screen screen) {
+  int i = 0;
+  int j = 0;
+  for (i = 21; i < screen->cols - 1; i++) {
+    for (j = 5; j < screen->rows - 5; j++) {
+      screen->grid[i][j] = ' ';
+    }
+  }
+}
+
 void updateTable(Screen screen, unsigned long long *table) {
   int rc_t = SUCCESS;
-  char *msg = malloc(300 * sizeof(char));
 
+  int i = 0;
+  int col = 21;
+  int row = 7;
+  char *msg = malloc(PATH_MAX * sizeof(char));
   int rc_al = checkAllocationError(msg);
+  if (rc_al == SUCCESS) {
+    writeScreen(screen, "  | cont   ", 21, 6);
+    for (i = 33; i < 127; i++) {
+      sprintf(msg, "  |        ");
+      writeScreen(screen, msg, col, row++);
+      if (row >= screen->rows - 5) {
+        row = 7;
+        col += 11;
+        writeScreen(screen, "  | cont   ", col, 6);
+      }
+    }
+  } else {
+    rc_t = MALLOC_FAILURE;
+  }
+
   if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
 
-  int i = 0;
-  int col = 22;
-  int row = 7;
+  i = 0;
+  col = 22;
+  row = 7;
   for (i = 33; i < 127; i++) {
+    sprintf(msg, "         ");
+    writeScreen(screen, msg, col + 2, row);
     if (commandFilter(screen->cmd, i) != 0) {
       sprintf(msg, " ");
       writeScreen(screen, msg, col, row);
       sprintf(msg, "         ");
       writeScreen(screen, msg, col + 2, row++);
     } else {
-      /* int rndChoose = rand() % 2; */
-      /* int rnd; */
-      /* if (rndChoose == 0) */
-      /*   rnd = rand() % 1000; */
-      /* else */
-      /*   rnd = rand() % 100; */
       unsigned long long count = table[i];
       sprintf(msg, "%c", i);
       writeScreen(screen, msg, col, row);
@@ -548,7 +615,47 @@ void updateTable(Screen screen, unsigned long long *table) {
       col += 11;
     }
   }
+  sprintf(msg, "other");
+  /* row++; */
+  if (row >= screen->rows - 5) {
+    row = 7;
+    col += 11;
+  }
+  writeScreen(screen, msg, col, row++);
+  if (row >= screen->rows - 5) {
+    row = 7;
+    col += 11;
+  }
+  sprintf(msg, "         ");
+  writeScreen(screen, msg, col, row);
+
+  unsigned long long count = 0;
+  for (i = 0; i < 33; i++) {
+    count += table[i];
+  }
+  count += table[NCHAR_TABLE - 1];
+  sprintf(msg, "%llu", count);
+  if (commandFilter(screen->cmd, 128) == 0) {
+    if (count >= 1000000)
+      writeScreen(screen, msg, col, row++);
+    else
+      writeScreen(screen, msg, col + 1, row++);
+  }
+
   free(msg);
+}
+
+void drawHelpMsg(Screen screen) {
+  int i = 0;
+  int col = 21;
+  int row = 7;
+  int start = (((screen->rows - 5) - row) - 15) / 2;
+  int end = (((screen->cols - 1) - col) - 52) / 2;
+  row += start;
+  col += end;
+  for (i = 0; i < 15; i++) {
+    writeScreen(screen, guiHelpMsg[i], col, row++);
+  }
 }
 
 void trim(char *string) {
@@ -596,10 +703,17 @@ void *inputLoop(void *ptr) {
   int treeMode = 0;
   int numberManagerMode = 0;
   int numberWorkerMode = 0;
+  // TODO check allocation
+  char *treeInput = malloc(PATH_MAX * sizeof(char));
+  int counterTreeInput = 0;
   while (rc_t == SUCCESS) {
     key = EOF;
     pthread_mutex_lock(&(p->mutex));
-    updateTable(p->screen, p->userInput->table);
+    clearCenter(p->screen);
+    if (p->screen->cmd == 6)
+      drawHelpMsg(p->screen);
+    else
+      updateTable(p->screen, p->userInput->table);
     pthread_mutex_unlock(&(p->mutex));
 
     pthread_mutex_lock(&(p->mutex));
@@ -649,6 +763,12 @@ void *inputLoop(void *ptr) {
         } else if (strcmp(cmd, "tutto") == 0) {
           writeScreen(p->screen, "input: ", 2, 1);
           p->screen->cmd = 5;
+          row = 1;
+          column = 9;
+          free(cmd);
+        } else if (strcmp(cmd, "help") == 0) {
+          writeScreen(p->screen, "input: ", 2, 1);
+          p->screen->cmd = 6;
           row = 1;
           column = 9;
           free(cmd);
@@ -706,54 +826,58 @@ void *inputLoop(void *ptr) {
               }
               p->screen->grid[i][5] = ' ';
             }
+            p->screen->grid[18][5] = ' ';
             tree[cmdCounter] = '\0';
             trim(tree);
+            treeInput[counterTreeInput] = '\0';
+            strcat(treeInput, tree);
+            strcpy(tree, treeInput);
+            treeInput[0] = '\0';
+            counterTreeInput = 0;
             if (strcmp(tree, "..") == 0) {
               // free(p->userInput->tree);
               p->userInput->tree[0] = '\0';
-              char *tmpPath = malloc(sizeof(char) * PATH_MAX);
-              chdir("..");
-              getcwd(p->cwd, PATH_MAX);
-              strcpy(p->userInput->tree, p->cwd);
+              if(strcmp(p->cwd,  "/") != 0) {
+                char *tmpPath = malloc(sizeof(char) * PATH_MAX);
+                chdir("..");
+                getcwd(p->cwd, PATH_MAX);
+                strcpy(p->userInput->tree, p->cwd);
+                free(tmpPath);
+              }
               // OLD ONE
               /* strcat(tmpPath, p->cwd); */
               /* strcat(tmpPath, "/.."); */
               /* realpath(tmpPath, p->userInput->tree); */
               /* strcpy(p->cwd, p->userInput->tree); */
               fprintf(stderr, "Dopo .. tree vale %s\n", p->userInput->tree);
-              free(tmpPath);
-            } else if (strcmp(tree, ".") == 0) {
+              p->screen->treeStartCol = 0;
+              p->screen->treeEndCol = 0;
+              p->screen->treeStartRow = 0;
+            } else if (strcmp(tree, ".") == 0 &&
+                       p->userInput->files->size > 0) {
+              p->userInput->toggledChanged = 1;
               Node element = p->userInput->files->head;
               while (element != NULL) {
                 char *totalPath = malloc(PATH_MAX * sizeof(char));
-                /*char *f = malloc(PATH_MAX * sizeof(char));
-                strcpy(f, element->data);*/
                 strcpy(totalPath, element->data);
-                /*strcpy(totalPath, p->cwd);
-                strcat(totalPath, "/");
-                strcat(totalPath, f);*/
-                fprintf(stderr,
-                        "Quanto vale element di data %s, totalpath %s\n",
-                        (char *)element->data, totalPath);
                 int isToggled = deleteNode(p->userInput->results, totalPath,
                                            isStringEqual, free);
                 if (isToggled != SUCCESS) {
-                  // fprintf(stderr, "faccio il toggle %s\n", totalPath);
                   push(p->userInput->results, totalPath);
                 } else {
                   free(totalPath);
                 }
-                // free(f);
                 element = element->next;
               }
-              // TODO ask to other if also directories must have the same
-              // behavior
+              int i = 0;
+              for (i = 0; i < NCHAR_TABLE; i++) {
+                p->userInput->table[i] = 0;
+              }
             } else {
               char *cwd = malloc(PATH_MAX * sizeof(char));
               strcpy(cwd, p->cwd);
               strcat(cwd, "/");
               strcat(cwd, tree);
-              fprintf(stderr, "AOOOOOOOOOO SONO QUIIIIIII CWD: %s\n", cwd);
               int isDirectory =
                   isIn(p->userInput->directories, cwd, isStringEqual);
               if (isDirectory == SUCCESS) {
@@ -762,34 +886,28 @@ void *inputLoop(void *ptr) {
                 strcat(cwd, "/");
                 strcat(cwd, tree);
                 int index = 0;
-                // TODO control overflow
-                /*
-    while (cwd[index] != '\0') {
-      int old = index;
-      index++;
-      cwd[old] = cwd[index];
-    }*/
+                p->screen->treeStartCol = 0;
+                p->screen->treeEndCol = 0;
+                p->screen->treeStartRow = 0;
                 strcpy(p->userInput->tree, cwd);
                 strcpy(p->cwd, cwd);
-                fprintf(stderr, "VA IN USERINPUT SONO QUIIIIIII CWD: %s\n",
-                        cwd);
               } else {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
-                fprintf(stderr, "AOOOOOOOOOO\n");
                 strcpy(cwd, p->cwd);
                 strcat(cwd, "/");
                 strcat(cwd, tree);
-                fprintf(stderr, "cwd vale %s\n", cwd);
                 int isFile = isIn(p->userInput->files, cwd, isStringEqual);
 
                 if (isFile == SUCCESS) {
                   int rc_re = deleteNode(p->userInput->results, cwd,
                                          isStringEqual, free);
-                  fprintf(stderr, "provo se va bene a fare il toggle di %s\n",
-                          cwd);
                   if (rc_re != SUCCESS) {
                     fprintf(stderr, "faccio il toggle di %s\n", cwd);
                     push(p->userInput->results, cwd);
+                  } else {
+                    for (i = 0; i < NCHAR_TABLE; i++) {
+                      p->userInput->table[i] = 0;
+                    }
                   }
                 }
                 free(tree);
@@ -803,12 +921,14 @@ void *inputLoop(void *ptr) {
             //! PERCHE' TI ROMPI... PERCHEEEEEEEE'???
             char *path = malloc(PATH_MAX * sizeof(char));
             char *realPath = malloc(PATH_MAX * sizeof(char));
-            strcpy(path, p->cwd);
-            strcat(path, "/");
-            strcat(path, cmd);
-            fprintf(stderr, "path completo: %s\n", path);
-            realpath(path, realPath);
-            fprintf(stderr, "realPath: %s\n", realPath);
+            if (cmd[0] != '/') {
+              strcpy(path, p->cwd);
+              strcat(path, "/");
+              strcat(path, cmd);
+              realpath(path, realPath);
+            } else {
+              strcpy(realPath, cmd);
+            }
             //! Probably will break everything (just to point out a possible
             //! breaking point)
             free(path);
@@ -822,6 +942,8 @@ void *inputLoop(void *ptr) {
       } else if (key == 27) {
         isTreeLastMode = 0;
         if (treeMode) {
+          treeInput[0] = '\0';
+          counterTreeInput = 0;
           int i;
           for (i = 2; i < 18; i++) {
             p->screen->grid[i][row] = ' ';
@@ -833,13 +955,26 @@ void *inputLoop(void *ptr) {
           for (i = 9; i < p->screen->cols - 1; i++) {
             p->screen->grid[i][row] = ' ';
           }
+          p->screen->grid[9][row] = '|';
           isTreeLastMode = 1;
         }
       } else if (key == 127) {
         isTreeLastMode = 0;
-        if ((column > 9 && !treeMode) || (treeMode && column > 2)) {
-          p->screen->grid[column--][row] = ' ';
-          p->screen->grid[column][row] = '|';
+        if (treeMode && counterTreeInput > 0) {
+          int i = 16;
+          while (i > 1) {
+            int j = i - 1;
+            if (i == 2)
+              p->screen->grid[i][row] = treeInput[--counterTreeInput];
+            else
+              p->screen->grid[i][row] = p->screen->grid[j][row];
+            i = j;
+          }
+        } else {
+          if ((column > 9 && !treeMode) || (treeMode && column > 2)) {
+            p->screen->grid[column--][row] = ' ';
+            p->screen->grid[column][row] = '|';
+          }
         }
       } else if (key == '[' || key == ']') {
         if (key == '[' && lastKey == 27 && isTreeLastMode == 1) {
@@ -859,9 +994,19 @@ void *inputLoop(void *ptr) {
               (treeMode && column < 18)) {
             p->screen->grid[column++][row] = key;
             p->screen->grid[column][row] = '|';
+          } else if (treeMode && column >= 18) {
+            treeInput[counterTreeInput++] = p->screen->grid[2][row];
+            int i = 2;
+            while (p->screen->grid[i][row] != '|' || i < 16) {
+              int j = i + 1;
+              if (p->screen->grid[j][row] == '|')
+                p->screen->grid[i][row] = key;
+              else
+                p->screen->grid[i][row] = p->screen->grid[j][row];
+              i = j;
+            }
           }
         } else {
-          isTreeLastMode = 0;
           if ((column < p->screen->cols - 2 && !treeMode) ||
               (treeMode && column < 18)) {
             if (key >= 48 && key <= 57) {
@@ -870,12 +1015,20 @@ void *inputLoop(void *ptr) {
             }
           }
         }
-      } else if (lastKey == '[' &&
-                 (key == 65 || key == 66 || key == 67 || key == 68)) {
+      } else if (lastKey == '[' && (key == 65 || key == 66)) {
         if (treeMode == 1) {
-          if (key == 67) {
-            p->screen->treeEndCol++;
-            p->screen->treeStartCol++;
+          if (key == 65) { // UP
+            p->screen->treeStartRow--;
+            if (p->screen->treeStartRow < 0) {
+              p->screen->treeStartRow = 0;
+            }
+          } else if (key == 66) { // DOWN
+            p->screen->treeStartRow++;
+            int max =
+                p->userInput->directories->size + p->userInput->files->size - 1;
+            if (p->screen->treeStartRow > max) {
+              p->screen->treeStartRow--;
+            }
           }
         }
       }
@@ -890,7 +1043,7 @@ void *inputLoop(void *ptr) {
       rc_t = GET_SIZE_FAILURE;
     if ((*oldHeigth != *heigth || *oldWidth != *width) && rc_t == SUCCESS) {
       pthread_mutex_lock(&(p->mutex));
-      while ((*heigth < 28 || *width < 87) && rc_t == SUCCESS) {
+      while ((*heigth < 28 || *width < 89) && rc_t == SUCCESS) {
         clear();
         printf(
             "window dimension is to small, please increase window size or "
