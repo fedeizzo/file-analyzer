@@ -19,7 +19,7 @@ const char *helpMsgV2 =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
     "OPTIONS:\n"
     "\t-h, --help        : print this message\n"
-    "\t-n, --number     : specify the managers amount\n"
+    "\t-n, --number      : specify the managers amount\n"
     "\t-m, --mumber      : specify the workers amount\n"
     "\t-f,,--normal-mode : normal mode without fancy graphic\n";
 
@@ -29,6 +29,9 @@ UserInput newUserInput() {
   int rc_al2 = SUCCESS;
   int rc_al3 = SUCCESS;
   int rc_al4 = SUCCESS;
+  int rc_al5 = SUCCESS;
+  int rc_al6 = SUCCESS;
+  int rc_al7 = SUCCESS;
 
   if (rc_al == SUCCESS) {
     ui->paths = newList();
@@ -37,20 +40,26 @@ UserInput newUserInput() {
     ui->files = newList();
     ui->tree = malloc(PATH_MAX * sizeof(char));
     ui->table = calloc(NCHAR_TABLE, sizeof(unsigned long long));
-    // TODO Check allocation
+
     ui->tree[0] = '\0';
     if (ui->paths == NULL)
       rc_al2 = -1;
     if (ui->results == NULL)
       rc_al3 = -1;
-    rc_al4 = checkAllocationError(ui->paths);
+    if (ui->directories == NULL)
+      rc_al4 = -1;
+    if (ui->files == NULL)
+      rc_al5 = -1;
+    rc_al6 = checkAllocationError(ui->tree);
+    rc_al7 = checkAllocationError(ui->table);
     ui->managers = 3;
     ui->workers = 4;
     ui->toggledChanged = 0;
   }
 
   if (rc_al < SUCCESS || rc_al2 < SUCCESS || rc_al3 < SUCCESS ||
-      rc_al4 < SUCCESS)
+      rc_al4 < SUCCESS || rc_al5 < SUCCESS || rc_al6 < SUCCESS ||
+      rc_al7 < SUCCESS)
     ui = NULL;
   return ui;
 }
@@ -60,25 +69,154 @@ void destroyUserInput(UserInput userInput) {
   destroyList(userInput->results, free);
   destroyList(userInput->directories, free);
   destroyList(userInput->files, free);
-  // TODO double free nel caso ultima operazione sia una tree
-  free(userInput->tree);
+  if (userInput->tree != NULL)
+    free(userInput->tree);
   free(userInput->table);
 }
 
+/**
+ * Thread for user input in normal mode
+ *
+ * args:
+ *    void *ptr: pointer to shared resources
+ */
 void *userInputLoop(void *ptr);
+
+/**
+ * Thread that writes in fifo directed to analyzer
+ *
+ * args:
+ *    void *ptr: pointer to shared resources
+ */
+void *writeFifoLoop(void *ptr);
+
+/**
+ * Thread that reads in fifo directed to analyzer
+ *
+ * args:
+ *    void *ptr: pointer to shared resources
+ */
+void *readFifoLoop(void *ptr);
+
+/**
+ * Reads directives from standard input
+ *
+ * args:
+ *    List paths     : a list where new paths are saved
+ *    int *numManager: a pointer where new manager number are saved
+ *    int *numWorker : a pointer where new worker number are saved
+ *    char *cwd      : a pointer where new cwd are saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int readDirectives(List paths, int *numManager, int *numWorker, char *cwd);
 
-void *writeFifoLoop(void *ptr);
-void *readFifoLoop(void *ptr);
+/**
+ * Writes directives into the fifo
+ *
+ * args:
+ *    int fd         : file descriptor
+ *    List paths     : a list where new paths are saved
+ *    int *numManager: a pointer where new manager number are saved
+ *    int *numWorker : a pointer where new worker number are saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int sendDirectives(int fd, char *path, int *numManager, int *numWorker);
+
+/**
+ * Reads a result from fifo
+ *
+ * args:
+ *    List pathResults: list where path results are saved
+ *    char *cwd       : pointer where new cwd are saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int readResult(List pathResults, char *cwd);
+
+/**
+ * Writes results into the pipe
+ *
+ * args:
+ *    int fd          : file descriptor
+ *    List pathResults: list where path results are saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int sendResult(int fd, List pathResults);
+
+/**
+ * Updates tree path
+ *
+ * args:
+ *    char *path: pointer where new path are updated
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int updateTree(char *path);
+
+/**
+ * Writes the request into the fifo
+ *
+ * args:
+ *    int fd       : file descriptor
+ *    List treePath: the path of the node for which children are requested
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int sendTree(int fd, char *treePath);
+
+/**
+ * Reads result sent from analyzer through the fifo
+ *
+ * args:
+ *    int readOpearation: the number of read operation
+ *    int fd          : file descriptor
+ *    List directories: list where directories are saved
+ *    List files      : list where files results are saved
+ *    char *cwd       : pointer where new cwd are saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int readTree(int readOperation, int fd, List directories, List files,
              char *cwd);
+
+/**
+ * Reads a table of toggled file from fifo
+ *
+ * args:
+ *    int fd                   : file descriptor
+ *    unsigned long long *table: array where table is saved
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
 int readTable(int fd, unsigned long long *table);
+
+/**
+ * Computes statistics and shows to user for normal mode
+ *
+ * args:
+ *    unsigned long long *table: array where table is saved
+ */
 void writeStats(unsigned long long *table);
+
+/**
+ * Reads from a file descriptor until \0 char
+ *
+ * args:
+ *    int fd   : file descriptor
+ *    char *dst: destination of the read operation
+ */
+void readString(int fd, char *dst);
 
 int main(int argc, char **argv) {
   int managers;
@@ -87,9 +225,7 @@ int main(int argc, char **argv) {
   char *readFifo = "/tmp/analyzerToReporter";
   char *cwd = malloc(PATH_MAX * sizeof(char));
   getcwd(cwd, PATH_MAX);
-  /* remove(writeFifo); */
   int rc_fi = mkfifo(writeFifo, 0666);
-  /* int rc_fi2 = mkfifo(readFifo, 0666); */
   UserInput userInput;
   userInput = newUserInput();
   int iter1;
@@ -195,7 +331,7 @@ int main(int argc, char **argv) {
       pthread_join(writeFifoThraed, NULL);
       pthread_join(readFifoThread, NULL);
     }
-  } else {
+  } else if (rc_t != HELP_PRINT) {
     printError("Bad usage or malformed option");
     printf("%s\n", helpMsgV2);
   }
@@ -210,22 +346,23 @@ void *userInputLoop(void *ptr) {
 
   int rc_t = SUCCESS;
   char *cmdMsg =
-      "write:\n\t dire->to send directive to analyzer\n\t requ->to request "
-      "the analisy on one or more files\n\t tree->i can't explain\n\t resu "
+      "write:\n   dire->to send directive to analyzer\n   requ->to request "
+      "the analisy on one or more files\n   tree->i can't explain\n   resu "
       "->display result of requested files";
-  char *direMsg = "directive mode, write:\n\t filePath or folderPath then line "
-                  "feed\n\t number of "
-                  "manager then line feed\n\t nubmer fo worker then line feed";
+  char *direMsg = "directive mode, write:\n   filePath or folderPath then line "
+                  "feed\n   number of "
+                  "manager then line feed\n   nubmer fo worker then line feed";
   char *requMsg =
-      "request mode, write:\n\t the file names of which you want the analisy "
-      "the line feed\n\t requ to exit from requ mode then line feed";
+      "request mode, write:\n   the file names of which you want the analisy "
+      "the line feed\n   requ to exit from requ mode then line feed";
   char *treeMsg =
-      "tree mode, write:\n\t the file names of which you want the analisy";
+      "tree mode, write:\n   the file names of which you want the analisy";
   while (rc_t == SUCCESS) {
     printf("%s\n", cmdMsg);
     char *dst = malloc(PATH_MAX * sizeof(char));
+    rc_t = checkAllocationError(dst);
     int bytesRead = read(0, dst, 5);
-    if (bytesRead > 0) {
+    if (bytesRead > 0 && rc_t == SUCCESS) {
       if (strncmp(dst, "dire", 4) == 0) {
         printf("%s\n", direMsg);
         pthread_mutex_lock(&(input->mutex));
@@ -237,8 +374,8 @@ void *userInputLoop(void *ptr) {
         moveCursor(0, 0);
         fflush(stdout);
         if (rc_t == CAST_FAILURE) {
-          printf("please insert a valid format\n\t -path\t -number of manager "
-                 "(int)\n\t -number of worker (int)\n");
+          printf("please insert a valid format\n   -path   -number of manager "
+                 "(int)\n   -number of worker (int)\n");
           rc_t = SUCCESS;
         }
       } else if (strncmp(dst, "requ", 4) == 0) {
@@ -262,12 +399,13 @@ void *userInputLoop(void *ptr) {
     }
     usleep(50000);
   }
-  //printf("sono morto\n");
 }
 
 void writeStats(unsigned long long *table) {
   char *outString = malloc(PATH_MAX * sizeof(char));
   char *tmpString = malloc(PATH_MAX * sizeof(char));
+  int rc_al = checkAllocationError(outString);
+  int rc_al2 = checkAllocationError(tmpString);
   unsigned long long maiuscole = 0;
   unsigned long long minuscole = 0;
   unsigned long long punteg = 0;
@@ -291,64 +429,52 @@ void writeStats(unsigned long long *table) {
     tutto += table[i];
   }
 
-  int percentageMaiuscole = 0;
-  int percentageMinuscole = 0;
-  int percentagePunteg = 0;
-  int percentageCifre = 0;
-  int percentageOther = 0;
-  strcat(outString, "Statistics:\n");
-  sprintf(tmpString, "\tTutto: %llu\n", tutto);
-  strcat(outString, tmpString);
-  if (tutto != 0 && maiuscole != 0) {
-    percentageMaiuscole =
-        (int)((long double)maiuscole / (long double)tutto * 100);
-  }
-  sprintf(tmpString, "\tMaiuscole: %llu  -- percentage over total: %d%%\n",
-          maiuscole, percentageMaiuscole);
-  strcat(outString, tmpString);
-  if (tutto != 0 && minuscole != 0) {
-    percentageMinuscole =
-        (int)((long double)minuscole / (long double)tutto * 100);
-  }
-  sprintf(tmpString, "\tMinuscole: %llu  -- percentage over total: %d%%\n",
-          minuscole, percentageMinuscole);
-  strcat(outString, tmpString);
-  if (tutto != 0 && punteg != 0) {
-    percentagePunteg = (int)((long double)punteg / (long double)tutto * 100);
-  }
-  sprintf(tmpString, "\tPunteg: %llu  -- percentage over total: %d%%\n", punteg,
-          percentagePunteg);
-  strcat(outString, tmpString);
-  if (tutto != 0 && cifre != 0) {
-    percentageCifre = (int)((long double)cifre / (long double)tutto * 100);
-  }
-  sprintf(tmpString, "\tCifre: %llu  -- percentage over total: %d%%\n", cifre,
-          percentageCifre);
-  strcat(outString, tmpString);
-  if (tutto != 0 && other != 0) {
-    percentageOther = (int)((long double)other / (long double)tutto * 100);
-  }
-  sprintf(tmpString, "\tOther: %llu  -- percentage over total: %d%%\n", other,
-          percentageOther);
-  strcat(outString, tmpString);
+  if (rc_al == SUCCESS && rc_al2 == SUCCESS) {
+    int percentageMaiuscole = 0;
+    int percentageMinuscole = 0;
+    int percentagePunteg = 0;
+    int percentageCifre = 0;
+    int percentageOther = 0;
+    strcat(outString, "Statistics:\n");
+    sprintf(tmpString, "  Tutto: %llu\n", tutto);
+    strcat(outString, tmpString);
+    if (tutto != 0 && maiuscole != 0) {
+      percentageMaiuscole =
+          (int)((long double)maiuscole / (long double)tutto * 100);
+    }
+    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %d%%\n",
+            maiuscole, percentageMaiuscole);
+    strcat(outString, tmpString);
+    if (tutto != 0 && minuscole != 0) {
+      percentageMinuscole =
+          (int)((long double)minuscole / (long double)tutto * 100);
+    }
+    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %d%%\n",
+            minuscole, percentageMinuscole);
+    strcat(outString, tmpString);
+    if (tutto != 0 && punteg != 0) {
+      percentagePunteg = (int)((long double)punteg / (long double)tutto * 100);
+    }
+    sprintf(tmpString, "  Punteg: %llu  -- percentage over total: %d%%\n",
+            punteg, percentagePunteg);
+    strcat(outString, tmpString);
+    if (tutto != 0 && cifre != 0) {
+      percentageCifre = (int)((long double)cifre / (long double)tutto * 100);
+    }
+    sprintf(tmpString, "  Cifre: %llu  -- percentage over total: %d%%\n", cifre,
+            percentageCifre);
+    strcat(outString, tmpString);
+    if (tutto != 0 && other != 0) {
+      percentageOther = (int)((long double)other / (long double)tutto * 100);
+    }
+    sprintf(tmpString, "  Other: %llu  -- percentage over total: %d%%\n", other,
+            percentageOther);
+    strcat(outString, tmpString);
 
-  printf("%s\n", outString);
-  free(outString);
-}
-
-int isAnalyzerAlive() {
-  int rc_t = -1;
-  int pid = fork();
-
-  if (pid == 0) {
-    execlp("ps -a | grep 'ricevente'", "ps -a | grep 'ricevente'", NULL);
-  } else if (pid > 0) {
-    waitpid(pid, &rc_t, WNOHANG);
-
-    WEXITSTATUS(rc_t);
+    printf("%s\n", outString);
+    free(outString);
+    free(tmpString);
   }
-
-  return rc_t;
 }
 
 void *writeFifoLoop(void *ptr) {
@@ -357,12 +483,9 @@ void *writeFifoLoop(void *ptr) {
   int rc_t = SUCCESS;
   int fd;
   char *fifoPath = malloc(PATH_MAX * sizeof(char));
+  rc_t = checkAllocationError(fifoPath);
   int lastManager = 3;
   int lastWorker = 4;
-  pthread_mutex_lock(&(input->mutex));
-  strcpy(fifoPath, input->writeFifo);
-  pthread_mutex_unlock(&(input->mutex));
-  // TODO shamefull fifo open and close
   int pathsSizePlaceholder = 0;
   int managerCountPlaceholder = 3;
   int workerCountPlaceholder = 4;
@@ -370,39 +493,34 @@ void *writeFifoLoop(void *ptr) {
   int toggledFlagPlaceholder = 0;
   int lastResultCount = 0;
   char firstCharTree = '\0';
+  if (rc_t == SUCCESS) {
+    pthread_mutex_lock(&(input->mutex));
+    strcpy(fifoPath, input->writeFifo);
+    pthread_mutex_unlock(&(input->mutex));
+    fd = open(fifoPath, O_WRONLY);
+    pthread_mutex_lock(&(input->mutex));
+    rc_t = sendTree(fd, input->cwd);
+    pthread_mutex_unlock(&(input->mutex));
+  }
 
-  fd = open(fifoPath, O_WRONLY);
-  pthread_mutex_lock(&(input->mutex));
-  rc_t = sendTree(fd, input->cwd);
-  pthread_mutex_unlock(&(input->mutex));
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(input->mutex));
     pathsSizePlaceholder = input->userInput->paths->size;
     pthread_mutex_unlock(&(input->mutex));
     if (pathsSizePlaceholder > 0) {
-      fprintf(stderr, "open numero 1\n");
-      /* fd = open(fifoPath, O_WRONLY); */
-      fprintf(stderr, "open numero 1 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       char *path = front(input->userInput->paths);
       if (path != NULL) {
         fprintf(stderr, "ciclo\n");
         if (fd > 0) {
           int rc_po = pop(input->userInput->paths);
-          if (rc_po == -1) {
-            // TODO  add failure
-          } 
           rc_t = sendDirectives(fd, path, &(input->userInput->managers),
                                 &(input->userInput->workers));
           rc_t = sendTree(fd, input->cwd);
-          fprintf(stderr, "ho inviato la seconda volta\n");
         }
         free(path);
       }
       pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "close numero 1\n");
-      /* close(fd); */
-      fprintf(stderr, "close numero 1 chiusa\n");
     }
 
     pthread_mutex_lock(&(input->mutex));
@@ -410,35 +528,25 @@ void *writeFifoLoop(void *ptr) {
     pthread_mutex_unlock(&(input->mutex));
     if (managerCountPlaceholder != lastManager) {
       lastManager = managerCountPlaceholder;
-      fprintf(stderr, "open numero 2\n");
-      /* fd = open(fifoPath, O_WRONLY); */
-      fprintf(stderr, "open numero 2 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
         rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
                               &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "close numero 2\n");
-      /* close(fd); */
-      fprintf(stderr, "close numero 2 chiusa\n");
     }
 
     pthread_mutex_lock(&(input->mutex));
     workerCountPlaceholder = input->userInput->workers;
     pthread_mutex_unlock(&(input->mutex));
     if (workerCountPlaceholder != lastWorker) {
-      /* printf("last: %d, new: %d\n", lastWorker, input->userInput->workers);
-       */
       lastWorker = workerCountPlaceholder;
-      /* fd = open(fifoPath, O_WRONLY); */
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        rc_t = sendDirectives(fd, "///", &(input->userInput->managers), 
-                               &(input->userInput->workers));
+        rc_t = sendDirectives(fd, "///", &(input->userInput->managers),
+                              &(input->userInput->workers));
       }
       pthread_mutex_unlock(&(input->mutex));
-      /* close(fd); */
     }
 
     pthread_mutex_lock(&(input->mutex));
@@ -448,50 +556,32 @@ void *writeFifoLoop(void *ptr) {
     if (resultsSizePlaceholder != lastResultCount ||
         toggledFlagPlaceholder == 1) {
       lastResultCount = resultsSizePlaceholder;
-      fprintf(stderr, "open numero 4\n");
-      /* fd = open(fifoPath, O_WRONLY); */
-      fprintf(stderr, "open numero 4 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       input->userInput->toggledChanged = 0;
       if (fd > 0) {
         rc_t = sendResult(fd, input->userInput->results);
       }
       pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "close numero 4\n");
-      /* close(fd); */
-      fprintf(stderr, "close numero 4 chiusa\n");
     }
 
     pthread_mutex_lock(&(input->mutex));
     firstCharTree = input->userInput->tree[0];
     pthread_mutex_unlock(&(input->mutex));
     if (firstCharTree != '\0') {
-      fprintf(stderr, "open numero 5\n");
-      /* fd = open(fifoPath, O_WRONLY); */
-      fprintf(stderr, "open numero 5 aperta\n");
       pthread_mutex_lock(&(input->mutex));
       if (fd > 0) {
-        fprintf(stderr, "Richiesta del tree %s\n", input->userInput->tree);
         rc_t = sendTree(fd, input->userInput->tree);
-        fprintf(stderr, "Send tree dice %d\n", rc_t);
         if (rc_t == SUCCESS) {
-          // strcpy(input->userInput->tree, input->cwd);
-          // fprintf(stderr, "Cambio working directory\n");
           input->userInput->tree[0] = '\0';
           chdir(input->cwd);
-          fprintf(stderr, "INPUT CWD: %s\n", input->cwd);
         }
       }
       pthread_mutex_unlock(&(input->mutex));
-      fprintf(stderr, "close numero 5\n");
-      /* close(fd); */
-      fprintf(stderr, "close numero 5 chiusa\n");
     }
     usleep(500);
   }
   close(fd);
   free(fifoPath);
-  fprintf(stderr, "MORTO READ LOOP\n");
 }
 
 void readString(int fd, char *dst) {
@@ -513,71 +603,71 @@ void *readFifoLoop(void *ptr) {
   int rc_t = SUCCESS;
   int fd;
   char *fifoPath = malloc(PATH_MAX * sizeof(char));
-  pthread_mutex_lock(&(input->mutex));
-  strcpy(fifoPath, input->readFifo);
-  pthread_mutex_unlock(&(input->mutex));
+  rc_t = checkAllocationError(fifoPath);
+
+  if (rc_t == SUCCESS) {
+    pthread_mutex_lock(&(input->mutex));
+    strcpy(fifoPath, input->readFifo);
+    pthread_mutex_unlock(&(input->mutex));
+  }
 
   while (1) {
     if (access(fifoPath, F_OK) == 0) {
       int fd = open(fifoPath, O_RDONLY);
-      /* remove("/tmp/analyzerToReporter"); */
       rc_t = SUCCESS;
       while (rc_t == SUCCESS) {
-        //printf("Sono epico in read file loop\n");
         int readOperationFlag = 0;
         char *dst = malloc(PATH_MAX * sizeof(char));
-        dst[0] = '\0';
-        readString(fd, dst);
-        fprintf(stderr, "Ho letto dalla fifo %s\n", dst);
-        if (strcmp(dst, "tree") == 0) {
-          fprintf(stderr, "E' TREE\n");
+        int rc_al = checkAllocationError(dst);
+        if (rc_al == SUCCESS) {
           dst[0] = '\0';
           readString(fd, dst);
-          int castedNumber;
-          int rc_cast = sscanf(dst, "%d", &castedNumber);
-          fprintf(stderr, "Casted number = %d\n", castedNumber);
-          if (rc_cast != EOF) {
-            List tmpDirs = newList();
-            List tmpFiles = newList();
-            // TODO check allocation
-            char *tmpCwd = malloc(PATH_MAX * sizeof(char));
-            if (tmpFiles == NULL || tmpDirs == NULL)
-              rc_t = MALLOC_FAILURE;
-            else {
-              pthread_mutex_lock(&(input->mutex));
-              strcpy(tmpCwd, input->cwd);
-              pthread_mutex_unlock(&(input->mutex));
-              rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles, tmpCwd);
-              fprintf(stderr, "Muoio dopo read tree\n");
-              pthread_mutex_lock(&(input->mutex));
-              destroyList(input->userInput->directories, free);
-              destroyList(input->userInput->files, free);
-              fprintf(
-                  stderr,
-                  "Muoio dopo la distruzione delle liste, epico finito male\n");
-              input->userInput->directories = tmpDirs;
-              input->userInput->files = tmpFiles;
-              pthread_mutex_unlock(&(input->mutex));
+          if (strcmp(dst, "tree") == 0) {
+            dst[0] = '\0';
+            readString(fd, dst);
+            int castedNumber;
+            int rc_cast = sscanf(dst, "%d", &castedNumber);
+            if (rc_cast != EOF) {
+              List tmpDirs = newList();
+              List tmpFiles = newList();
+              char *tmpCwd = malloc(PATH_MAX * sizeof(char));
+              int rc_al = checkAllocationError(tmpCwd);
+              if (tmpFiles == NULL || tmpDirs == NULL || rc_al == FAILURE)
+                rc_t = MALLOC_FAILURE;
+              else {
+                pthread_mutex_lock(&(input->mutex));
+                strcpy(tmpCwd, input->cwd);
+                pthread_mutex_unlock(&(input->mutex));
+                rc_t = readTree(castedNumber, fd, tmpDirs, tmpFiles, tmpCwd);
+                pthread_mutex_lock(&(input->mutex));
+                destroyList(input->userInput->directories, free);
+                destroyList(input->userInput->files, free);
+                free(tmpCwd);
+                input->userInput->directories = tmpDirs;
+                input->userInput->files = tmpFiles;
+                pthread_mutex_unlock(&(input->mutex));
+              }
             }
+          } else if (strcmp(dst, "tabl") == 0) {
+            unsigned long long *tmpTable =
+                calloc(NCHAR_TABLE, sizeof(unsigned long long));
+            int rc_al = checkAllocationError(tmpTable);
+            if (rc_al == SUCCESS) {
+              readTable(fd, tmpTable);
+              pthread_mutex_lock(&(input->mutex));
+              int i = 0;
+              for (i = 0; i < NCHAR_TABLE; i++) {
+                input->userInput->table[i] = tmpTable[i];
+              }
+              pthread_mutex_unlock(&(input->mutex));
+              free(tmpTable);
+            } else {
+              rc_t = MALLOC_FAILURE;
+            }
+          } else {
+            rc_t = FAILURE;
           }
-        } else if (strcmp(dst, "tabl") == 0) {
-          fprintf(stderr, "E' TABL");
-          unsigned long long *tmpTable =
-              calloc(NCHAR_TABLE, sizeof(unsigned long long));
-          readTable(fd, tmpTable);
-          fprintf(stderr, "SE NON ESCO SONO FOTTUTO!!!\n");
-          pthread_mutex_lock(&(input->mutex));
-          int i = 0;
-          for (i = 0; i < NCHAR_TABLE; i++) {
-            input->userInput->table[i] = tmpTable[i];
-          }
-          pthread_mutex_unlock(&(input->mutex));
-          fprintf(stderr, "DIOCANE SONO ANCORA QUA!!!\n");
-          free(tmpTable);
-        } else {
-          rc_t = FAILURE;
         }
-
         usleep(500);
       }
       close(fd);
@@ -585,7 +675,6 @@ void *readFifoLoop(void *ptr) {
     usleep(500);
   }
   free(fifoPath);
-  fprintf(stderr, "MORTO READ LOOP\n");
 }
 
 int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
@@ -595,74 +684,75 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
   int rc_al = checkAllocationError(newPath);
   if (rc_al < SUCCESS) {
     rc_t = MALLOC_FAILURE;
-  }
-  char nWorker[PATH_MAX];
-  char nManager[PATH_MAX];
-  int counter = 0;
-  int numberManager = 0;
-  int numberWorker = 0;
+  } else {
+    char nWorker[PATH_MAX];
+    char nManager[PATH_MAX];
+    int counter = 0;
+    int numberManager = 0;
+    int numberWorker = 0;
 
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    newPath[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  newPath[counter] = '\0';
-  if (newPath[strlen(newPath) - 1] == '\n') {
-    newPath[strlen(newPath) - 1] = '\0';
-  }
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    nManager[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  nManager[counter] = '\0';
-
-  int rc_sc = sscanf(nManager, "%d", &numberManager);
-  if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") == 0)) {
-    rc_t = CAST_FAILURE;
-  }
-
-  counter = 0;
-  do {
-    int rc = readChar(READ_CHANNEL, readBuffer);
-    nWorker[counter++] = readBuffer[0];
-  } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
-  nWorker[counter] = '\0';
-
-  int rc_sc2 = sscanf(nWorker, "%d", &numberWorker);
-  if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") == 0)) {
-    rc_t = CAST_FAILURE;
-  }
-
-  if (newPath[0] == '\0' || nWorker[0] == '\0') {
-    char *msgErr = (char *)malloc(300);
-    int rc_ca = checkAllocationError(msgErr);
-    if (rc_ca < 0) {
-      printError("I can't allocate memory");
-    } else {
-      sprintf(msgErr, "inisde reporter with pid: %d", getpid());
-      printError(msgErr);
-      free(msgErr);
+    counter = 0;
+    do {
+      int rc = readChar(READ_CHANNEL, readBuffer);
+      newPath[counter++] = readBuffer[0];
+    } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+    newPath[counter] = '\0';
+    if (newPath[strlen(newPath) - 1] == '\n') {
+      newPath[strlen(newPath) - 1] = '\0';
     }
-  } else if (rc_t == SUCCESS) {
-    char *newAbsolutePath = malloc(PATH_MAX * sizeof(char));
-    int rc_al = checkAllocationError(newAbsolutePath);
-    if (rc_al == SUCCESS) {
-      if (newPath[0] != '/') {
-        strcat(newAbsolutePath, cwd);
-        strcat(newAbsolutePath, "/");
-        strcat(newAbsolutePath, newPath);
+    counter = 0;
+    do {
+      int rc = readChar(READ_CHANNEL, readBuffer);
+      nManager[counter++] = readBuffer[0];
+    } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+    nManager[counter] = '\0';
+
+    int rc_sc = sscanf(nManager, "%d", &numberManager);
+    if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") == 0)) {
+      rc_t = CAST_FAILURE;
+    }
+
+    counter = 0;
+    do {
+      int rc = readChar(READ_CHANNEL, readBuffer);
+      nWorker[counter++] = readBuffer[0];
+    } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
+    nWorker[counter] = '\0';
+
+    int rc_sc2 = sscanf(nWorker, "%d", &numberWorker);
+    if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") == 0)) {
+      rc_t = CAST_FAILURE;
+    }
+
+    if (newPath[0] == '\0' || nWorker[0] == '\0') {
+      char *msgErr = (char *)malloc(300);
+      int rc_ca = checkAllocationError(msgErr);
+      if (rc_ca < 0) {
+        printError("I can't allocate memory");
       } else {
-        strcpy(newAbsolutePath, newPath);
+        sprintf(msgErr, "inisde reporter with pid: %d", getpid());
+        printError(msgErr);
+        free(msgErr);
       }
-      free(newPath);
-      enqueue(paths, newAbsolutePath);
-    } else {
-      rc_t = MALLOC_FAILURE;
+    } else if (rc_t == SUCCESS) {
+      char *newAbsolutePath = malloc(PATH_MAX * sizeof(char));
+      int rc_al = checkAllocationError(newAbsolutePath);
+      if (rc_al == SUCCESS) {
+        if (newPath[0] != '/') {
+          strcat(newAbsolutePath, cwd);
+          strcat(newAbsolutePath, "/");
+          strcat(newAbsolutePath, newPath);
+        } else {
+          strcpy(newAbsolutePath, newPath);
+        }
+        free(newPath);
+        enqueue(paths, newAbsolutePath);
+      } else {
+        rc_t = MALLOC_FAILURE;
+      }
+      *numManager = numberManager;
+      *numWorker = numberWorker;
     }
-    *numManager = numberManager;
-    *numWorker = numberWorker;
   }
 
   return rc_t;
@@ -761,30 +851,29 @@ int sendResult(int fd, List pathResults) {
   rc_al = checkAllocationError(tmpPath);
   if (rc_al != SUCCESS) {
     rc_t = MALLOC_FAILURE;
-  }
-  Node element = pathResults->head;
-  while (element != NULL && rc_t == SUCCESS) {
-    index = 0;
-    char *path = element->data;
-    if (path != NULL) {
-      // TODO OVERFLOW da gestire
-      while (path[index] != '\0') {
-        old = index;
-        index++;
-        tmpPath[old] = path[index];
+  } else {
+    Node element = pathResults->head;
+    while (element != NULL && rc_t == SUCCESS) {
+      index = 0;
+      char *path = element->data;
+      if (path != NULL) {
+        while (path[index] != '\0' && index < PATH_MAX) {
+          old = index;
+          index++;
+          if (index < PATH_MAX)
+            tmpPath[old] = path[index];
+        }
+        int rc_wr = writeDescriptor(fd, tmpPath);
+        if (rc_wr < SUCCESS)
+          rc_t = -1;
       }
-      fprintf(stderr, "Mando un path %s\n", path);
-      fprintf(stderr, "senza slash %s\n", tmpPath);
-      int rc_wr = writeDescriptor(fd, tmpPath);
-      if (rc_wr < SUCCESS)
-        rc_t = -1;
+      element = element->next;
     }
-    element = element->next;
+
+    free(tmpPath);
+
+    writeDescriptor(fd, "//");
   }
-
-  free(tmpPath);
-
-  writeDescriptor(fd, "//");
 
   return rc_t;
 }
@@ -813,31 +902,28 @@ int sendTree(int fd, char *treePath) {
   int rc_al = checkAllocationError(tmpPath);
   if (rc_al != SUCCESS) {
     rc_t = MALLOC_FAILURE;
-  }
-
-  if(strcmp(treePath, "/") == 0){
-    strcpy(tmpPath, treePath);
   } else {
-    if (rc_t == SUCCESS && treePath[0] == '/') {
-      // TODO overflow da gestire
-      while (treePath[index] != '\0') {
-        old = index;
-        index++;
-        tmpPath[old] = treePath[index];
+    if (strcmp(treePath, "/") == 0) {
+      strcpy(tmpPath, treePath);
+    } else {
+      if (rc_t == SUCCESS && treePath[0] == '/') {
+        while (treePath[index] != '\0' && index < PATH_MAX) {
+          old = index;
+          index++;
+          if (index < PATH_MAX)
+            tmpPath[old] = treePath[index];
+        }
       }
     }
+
+    int rc_wr = writeDescriptor(fd, tmpPath);
+    if (rc_t == SUCCESS && rc_wr < SUCCESS)
+      rc_t = -1;
+
+    writeDescriptor(fd, "tree");
+
+    free(tmpPath);
   }
-
-  fprintf(stderr, "Tree path vale: %s\n", tmpPath);
-  int rc_wr = writeDescriptor(fd, tmpPath);
-  if (rc_t == SUCCESS && rc_wr < SUCCESS)
-    rc_t = -1;
-
-  writeDescriptor(fd, "tree");
-
-  // treePath[0] = '\0';
-
-  free(tmpPath);
   return rc_t;
 }
 
@@ -850,29 +936,32 @@ int readTree(int readOpeartion, int fd, List directories, List files,
 
   while (readOpeartion != 0 && rc_t == SUCCESS) {
     char *dst = malloc(PATH_MAX * sizeof(char));
-    dst[0] = '\0';
-    readString(fd, dst);
     char *dst2 = malloc(PATH_MAX * sizeof(char));
-    dst2[0] = '\0';
-    readString(fd, dst2);
-    if (strcmp(dst, "") != 0 && strcmp(dst2, "") != 0) {
-      fprintf(stderr, "Ho letto come figlio il sig: %s di tipo %s\n", dst,
-              dst2);
-      char *elem = malloc(PATH_MAX * sizeof(char));
-      strcpy(elem, cwd);
-      if(strcmp(cwd, "/") != 0) {
-        strcat(elem, "/");
+    if (checkAllocationError(dst) == SUCCESS &&
+        checkAllocationError(dst2) == SUCCESS) {
+      dst[0] = '\0';
+      readString(fd, dst);
+      dst2[0] = '\0';
+      readString(fd, dst2);
+      if (strcmp(dst, "") != 0 && strcmp(dst2, "") != 0) {
+        char *elem = malloc(PATH_MAX * sizeof(char));
+        if (checkAllocationError(elem) == SUCCESS) {
+          strcpy(elem, cwd);
+          if (strcmp(cwd, "/") != 0) {
+            strcat(elem, "/");
+          }
+          strcat(elem, dst);
+          if (strcmp(dst2, "d") == 0) {
+            rc_t = push(directories, elem);
+          } else {
+            rc_t = push(files, elem);
+          }
+          readOpeartion--;
+        }
       }
-      strcat(elem, dst);
-      if (strcmp(dst2, "d") == 0) {
-        rc_t = push(directories, elem);
-      } else {
-        rc_t = push(files, elem);
-      }
-      readOpeartion--;
-    } else
       free(dst);
-    free(dst2);
+      free(dst2);
+    }
   }
 
   return rc_t;
@@ -884,17 +973,19 @@ int readTable(int fd, unsigned long long *table) {
   int index = 0;
   while (numbersToRead > 0) {
     char *dst = malloc(PATH_MAX * sizeof(char));
-    readString(fd, dst);
-    // printf("STAMPO %s\n", dst);
-    unsigned long long count = 0;
-    int rc_cast = sscanf(dst, "%llu", &count);
-    if (rc_cast != EOF)
-      table[index++] = count;
-    else
-      rc_t = CAST_FAILURE;
+    rc_t = checkAllocationError(dst);
+    if (rc_t == SUCCESS) {
+      readString(fd, dst);
+      unsigned long long count = 0;
+      int rc_cast = sscanf(dst, "%llu", &count);
+      if (rc_cast != EOF)
+        table[index++] = count;
+      else
+        rc_t = CAST_FAILURE;
 
-    numbersToRead--;
-    free(dst);
+      numbersToRead--;
+      free(dst);
+    }
   }
 
   return rc_t;

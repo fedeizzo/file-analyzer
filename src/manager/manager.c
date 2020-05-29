@@ -396,19 +396,8 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
-    if (directives == STOP_MANAGER) {
-      clearWorkersWork(sharedRes->workers, sharedRes->todo, sharedRes->tables);
-      destroyList(sharedRes->tables, destroyTable);
-      destroyList(sharedRes->todo, destroyWork);
 
-      sharedRes->tables = newList();
-      sharedRes->todo = newList();
-      if (sharedRes->tables == NULL || sharedRes->todo == NULL)
-        rc_work = MALLOC_FAILURE;
-
-      sharedRes->directive->directiveStatus = SUMMARY;
-    } else if (directives == NEW_DIRECTIVES ||
-               sharedRes->directive->paths->size > 0) {
+    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0) {
 
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
@@ -930,7 +919,17 @@ void *readDirectives(void *ptr) {
         }
       } else if (rc_t == SUCCESS) {
         if (stopFlag == 1) {
-          sharedRes->directive->directiveStatus = STOP_MANAGER;
+          clearWorkersWork(sharedRes->workers, sharedRes->todo,
+                           sharedRes->tables);
+          destroyList(sharedRes->tables, destroyTable);
+          destroyList(sharedRes->todo, destroyWork);
+
+          sharedRes->tables = newList();
+          sharedRes->todo = newList();
+          if (sharedRes->tables == NULL || sharedRes->todo == NULL)
+            rc_t = MALLOC_FAILURE;
+
+          sharedRes->directive->directiveStatus = SUMMARY;
           stopFlag = 0;
         } else
           sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
