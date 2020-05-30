@@ -625,8 +625,7 @@ void trim(char *string) {
   string[len + 1] = '\0';
 }
 
-int resize(Screen screen, int *oldHeigth, int *oldWidth, int *heigth,
-           int *width) {
+int resize(int *oldHeigth, int *oldWidth, int *heigth, int *width) {
   int rc_si = getHeigth(heigth);
   int rc_si2 = getWidth(width);
   int rc_t = SUCCESS;
@@ -646,20 +645,127 @@ int resize(Screen screen, int *oldHeigth, int *oldWidth, int *heigth,
         rc_t = GET_SIZE_FAILURE;
       sleep(1);
     }
-    if (rc_t == SUCCESS) {
-      destroyScreen(screen);
-      screen = newScreen(*width, *heigth);
-      clear();
-      rc_in = initScreen(screen);
-
-      *oldHeigth = *heigth;
-      *oldWidth = *width;
-    }
   }
 
   if (rc_t < SUCCESS || rc_in < SUCCESS || rc_si < SUCCESS || rc_si2 < SUCCESS)
     rc_t = INPUT_LOOP_FAILURE;
   return rc_t;
+}
+
+void changeCommandMode(Screen screen, int *cmd, int cmdMode, int *row,
+                       int *column) {
+  writeScreen(screen, "input: ", 2, 1);
+  *cmd = cmdMode;
+  *row = 1;
+  *column = 9;
+}
+
+void moveBackward(Screen screen, UserInput userInput, char *cwd) {
+  userInput->tree[0] = '\0';
+  if (strcmp(cwd, "/") != 0) {
+    char *tmpPath = malloc(sizeof(char) * PATH_MAX);
+    if (checkAllocationError(tmpPath) == SUCCESS) {
+      chdir("..");
+      getcwd(cwd, PATH_MAX);
+      strcpy(userInput->tree, cwd);
+      free(tmpPath);
+    }
+  }
+  screen->treeStartCol = 0;
+  screen->treeEndCol = 0;
+  screen->treeStartRow = 0;
+}
+
+void toggleAll(UserInput userInput) {
+  userInput->toggledChanged = 1;
+  Node element = userInput->files->head;
+  while (element != NULL) {
+    char *totalPath = malloc(PATH_MAX * sizeof(char));
+    if (checkAllocationError(totalPath) == SUCCESS) {
+      strcpy(totalPath, element->data);
+      int isToggled =
+          deleteNode(userInput->results, totalPath, isStringEqual, free);
+      if (isToggled != SUCCESS) {
+        push(userInput->results, totalPath);
+      } else {
+        free(totalPath);
+      }
+      element = element->next;
+    }
+  }
+  int i = 0;
+  for (i = 0; i < NCHAR_TABLE; i++) {
+    userInput->table[i] = 0;
+  }
+}
+
+void changeComponentAmount(Screen screen, char *cmd, int *componentAmount,
+                           int *row, int *column) {
+  writeScreen(screen, "input: ", 2, 1);
+  int castPlaceholder;
+  sscanf(cmd, "%d", &castPlaceholder);
+  *componentAmount = castPlaceholder;
+  *row = 1;
+  *column = 9;
+}
+
+void selectNode(Screen screen, UserInput userInput, char *realCwd, char *tree) {
+  char *cwd = malloc(PATH_MAX * sizeof(char));
+  if (checkAllocationError(cwd) == SUCCESS) {
+    strcpy(cwd, realCwd);
+    if (strcmp(realCwd, "/") != 0) {
+      strcat(cwd, "/");
+    }
+    strcat(cwd, tree);
+
+    int isDirectory = isIn(userInput->directories, cwd, isStringEqual);
+    if (isDirectory == SUCCESS) {
+      int index = 0;
+      screen->treeStartCol = 0;
+      screen->treeEndCol = 0;
+      screen->treeStartRow = 0;
+      strcpy(userInput->tree, cwd);
+      strcpy(realCwd, cwd);
+      free(cwd);
+    } else {
+      int isFile = isIn(userInput->files, cwd, isStringEqual);
+
+      if (isFile == SUCCESS) {
+        int rc_re = deleteNode(userInput->results, cwd, isStringEqual, free);
+        if (rc_re != SUCCESS) {
+          push(userInput->results, cwd);
+        } else {
+          int i = 0;
+          for (i = 0; i < NCHAR_TABLE; i++) {
+            userInput->table[i] = 0;
+          }
+        }
+      }
+    }
+  }
+  free(tree);
+}
+
+void askComputation(Screen screen, UserInput userInput, char *cwd, char *cmd,
+                    int *row, int *column) {
+  writeScreen(screen, "input: ", 2, 1);
+  char *path = malloc(PATH_MAX * sizeof(char));
+  char *rlPath = malloc(PATH_MAX * sizeof(char));
+  if (checkAllocationError(path) == SUCCESS &&
+      checkAllocationError(rlPath) == SUCCESS) {
+    if (cmd[0] != '/') {
+      strcpy(path, cwd);
+      strcat(path, "/");
+      strcat(path, cmd);
+      realpath(path, rlPath);
+    } else {
+      strcpy(rlPath, cmd);
+    }
+    free(path);
+    enqueue(userInput->paths, rlPath);
+  }
+  *row = 1;
+  *column = 9;
 }
 
 void *inputLoop(void *ptr) {
@@ -698,7 +804,6 @@ void *inputLoop(void *ptr) {
   int treeMode = 0;
   int numberManagerMode = 0;
   int numberWorkerMode = 0;
-  // TODO check allocation
   char *treeInput = malloc(PATH_MAX * sizeof(char));
   int rc_al5 = checkAllocationError(treeInput);
   if (rc_al5 != SUCCESS)
@@ -728,43 +833,24 @@ void *inputLoop(void *ptr) {
         }
         cmd[cmdCounter] = '\0';
         trim(cmd);
-        /* p->screen->cmd = 4; */
 
         if (strcmp(cmd, "maiuscole") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 1;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 1, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "minuscole") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 2;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 2, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "punteg.") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 3;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 3, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "cifre") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 4;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 4, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "tutto") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 5;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 5, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "help") == 0) {
-          writeScreen(p->screen, "input: ", 2, 1);
-          p->screen->cmd = 6;
-          row = 1;
-          column = 9;
+          changeCommandMode(p->screen, &p->screen->cmd, 6, &row, &column);
           free(cmd);
         } else if (strcmp(cmd, "tree") == 0) {
           writeScreen(p->screen, "tree:  press esc to return in input mode", 2,
@@ -792,24 +878,17 @@ void *inputLoop(void *ptr) {
           numberManagerMode = 1;
         } else {
           if (numberManagerMode == 1) {
-            writeScreen(p->screen, "input: ", 2, 1);
-            int castPlaceholder;
-            sscanf(cmd, "%d", &castPlaceholder);
-            p->userInput->managers = castPlaceholder;
+            changeComponentAmount(p->screen, cmd, &p->userInput->managers, &row,
+                                  &column);
             numberManagerMode = 0;
             free(cmd);
-            row = 1;
-            column = 9;
           } else if (numberWorkerMode == 1) {
-            writeScreen(p->screen, "input: ", 2, 1);
-            int castPlaceholder;
-            sscanf(cmd, "%d", &castPlaceholder);
-            p->userInput->workers = castPlaceholder;
+            changeComponentAmount(p->screen, cmd, &p->userInput->workers, &row,
+                                  &column);
             numberWorkerMode = 0;
             free(cmd);
-            row = 1;
-            column = 9;
           } else if (treeMode == 1) {
+            // READING AND PARSING INPUT
             writeScreen(p->screen, "input: ", 2, 1);
             free(cmd);
             char *tree = malloc(PATH_MAX * sizeof(char));
@@ -828,116 +907,19 @@ void *inputLoop(void *ptr) {
             strcpy(tree, treeInput);
             treeInput[0] = '\0';
             counterTreeInput = 0;
+
             if (strcmp(tree, "..") == 0) {
-              // free(p->userInput->tree);
-              p->userInput->tree[0] = '\0';
-              if (strcmp(p->cwd, "/") != 0) {
-                char *tmpPath = malloc(sizeof(char) * PATH_MAX);
-                chdir("..");
-                getcwd(p->cwd, PATH_MAX);
-                strcpy(p->userInput->tree, p->cwd);
-                free(tmpPath);
-              }
-              // OLD ONE
-              /* strcat(tmpPath, p->cwd); */
-              /* strcat(tmpPath, "/.."); */
-              /* realpath(tmpPath, p->userInput->tree); */
-              /* strcpy(p->cwd, p->userInput->tree); */
-              fprintf(stderr, "Dopo .. tree vale %s\n", p->userInput->tree);
-              p->screen->treeStartCol = 0;
-              p->screen->treeEndCol = 0;
-              p->screen->treeStartRow = 0;
+              moveBackward(p->screen, p->userInput, p->cwd);
             } else if (strcmp(tree, ".") == 0 &&
                        p->userInput->files->size > 0) {
-              p->userInput->toggledChanged = 1;
-              Node element = p->userInput->files->head;
-              while (element != NULL) {
-                char *totalPath = malloc(PATH_MAX * sizeof(char));
-                strcpy(totalPath, element->data);
-                int isToggled = deleteNode(p->userInput->results, totalPath,
-                                           isStringEqual, free);
-                if (isToggled != SUCCESS) {
-                  push(p->userInput->results, totalPath);
-                } else {
-                  free(totalPath);
-                }
-                element = element->next;
-              }
-              int i = 0;
-              for (i = 0; i < NCHAR_TABLE; i++) {
-                p->userInput->table[i] = 0;
-              }
+              toggleAll(p->userInput);
             } else {
-              char *cwd = malloc(PATH_MAX * sizeof(char));
-              strcpy(cwd, p->cwd);
-              if (strcmp(p->cwd, "/") != 0) {
-                strcat(cwd, "/");
-              }
-              strcat(cwd, tree);
-              fprintf(stderr, "Path vale %s\n", cwd);
-
-              int isDirectory =
-                  isIn(p->userInput->directories, cwd, isStringEqual);
-              if (isDirectory == SUCCESS) {
-                char *cwd = malloc(PATH_MAX * sizeof(char));
-                strcpy(cwd, p->cwd);
-                if (strcmp(p->cwd, "/") != 0) {
-                  strcat(cwd, "/");
-                }
-                strcat(cwd, tree);
-                fprintf(stderr, "Path vale %s\n", cwd);
-                int index = 0;
-                p->screen->treeStartCol = 0;
-                p->screen->treeEndCol = 0;
-                p->screen->treeStartRow = 0;
-                strcpy(p->userInput->tree, cwd);
-                strcpy(p->cwd, cwd);
-              } else {
-                char *cwd = malloc(PATH_MAX * sizeof(char));
-                strcpy(cwd, p->cwd);
-                if (strcmp(p->cwd, "/") != 0) {
-                  strcat(cwd, "/");
-                }
-                strcat(cwd, tree);
-                int isFile = isIn(p->userInput->files, cwd, isStringEqual);
-
-                if (isFile == SUCCESS) {
-                  int rc_re = deleteNode(p->userInput->results, cwd,
-                                         isStringEqual, free);
-                  if (rc_re != SUCCESS) {
-                    fprintf(stderr, "faccio il toggle di %s\n", cwd);
-                    push(p->userInput->results, cwd);
-                  } else {
-                    for (i = 0; i < NCHAR_TABLE; i++) {
-                      p->userInput->table[i] = 0;
-                    }
-                  }
-                }
-                free(tree);
-              }
+              selectNode(p->screen, p->userInput, p->cwd, tree);
             }
             row = 5;
             column = 2;
           } else if (strcmp(cmd, "") != 0) {
-            writeScreen(p->screen, "input: ", 2, 1);
-            /* printf("sto incodando come un caimano %lu\n", strlen(cmd)); */
-            //! PERCHE' TI ROMPI... PERCHEEEEEEEE'???
-            char *path = malloc(PATH_MAX * sizeof(char));
-            char *realPath = malloc(PATH_MAX * sizeof(char));
-            if (cmd[0] != '/') {
-              strcpy(path, p->cwd);
-              strcat(path, "/");
-              strcat(path, cmd);
-              realpath(path, realPath);
-            } else {
-              strcpy(realPath, cmd);
-            }
-            //! Probably will break everything (just to point out a possible
-            //! breaking point)
-            free(path);
-            enqueue(p->userInput->paths, realPath);
-            row = 1;
-            column = 9;
+            askComputation(p->screen, p->userInput, p->cwd, cmd, &row, &column);
           }
         }
 
@@ -1041,7 +1023,16 @@ void *inputLoop(void *ptr) {
     pthread_mutex_unlock(&(p->mutex));
 
     pthread_mutex_lock(&(p->mutex));
-    rc_t = resize(p->screen, oldHeigth, oldWidth, heigth, width);
+    rc_t = resize(oldHeigth, oldWidth, heigth, width);
+    if (rc_t == SUCCESS && (*oldHeigth != *heigth || *oldWidth != *width)) {
+      destroyScreen(p->screen);
+      p->screen = newScreen(*width, *heigth);
+      clear();
+      rc_in = initScreen(p->screen);
+
+      *oldHeigth = *heigth;
+      *oldWidth = *width;
+    }
     pthread_mutex_unlock(&(p->mutex));
 
     usleep(50000);
