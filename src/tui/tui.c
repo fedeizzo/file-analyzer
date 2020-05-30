@@ -19,10 +19,10 @@
 const char *helpMsg =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
     "OPTIONS:\n"
-    "\t-h, --help        : print this message\n"
-    "\t-n, --number     : specify the managers amount\n"
-    "\t-m, --mumber      : specify the workers amount\n"
-    "\t-f,,--normal-mode : normal mode without fancy graphic\n";
+    "    -h, --help        : print this message\n"
+    "    -n, --number      : specify the managers amount\n"
+    "    -m, --mumber      : specify the workers amount\n"
+    "    -f, --normal-mode : normal mode without fancy graphic\n";
 
 char *guiHelpMsg[] = {"Welcome, this is a list of command:",
                       "  quit      -> quit programm",
@@ -324,7 +324,7 @@ void drawTree(Screen screen, List directories, List files, List toggled,
               char *cwd, int *startCol, int *endCol, const int startRow,
               const int endRow) {
   char *tmpCwd = malloc(17 * sizeof(char));
-  if(strcmp(cwd, "/") == 0){
+  if (strcmp(cwd, "/") == 0) {
     strcpy(tmpCwd, cwd);
   } else {
     lastDir(tmpCwd, cwd, startCol, endCol);
@@ -667,9 +667,7 @@ void trim(char *string) {
   string[len + 1] = '\0';
 }
 
-void printDirectory(void * data){
-  fprintf(stderr, "%s\n", (char *)data);
-}
+void printDirectory(void *data) { fprintf(stderr, "%s\n", (char *)data); }
 
 void *inputLoop(void *ptr) {
   userInput_t *p = (userInput_t *)(ptr);
@@ -841,7 +839,7 @@ void *inputLoop(void *ptr) {
             if (strcmp(tree, "..") == 0) {
               // free(p->userInput->tree);
               p->userInput->tree[0] = '\0';
-              if(strcmp(p->cwd,  "/") != 0) {
+              if (strcmp(p->cwd, "/") != 0) {
                 char *tmpPath = malloc(sizeof(char) * PATH_MAX);
                 chdir("..");
                 getcwd(p->cwd, PATH_MAX);
@@ -880,7 +878,7 @@ void *inputLoop(void *ptr) {
             } else {
               char *cwd = malloc(PATH_MAX * sizeof(char));
               strcpy(cwd, p->cwd);
-              if(strcmp(p->cwd,  "/") != 0) {
+              if (strcmp(p->cwd, "/") != 0) {
                 strcat(cwd, "/");
               }
               strcat(cwd, tree);
@@ -891,7 +889,7 @@ void *inputLoop(void *ptr) {
               if (isDirectory == SUCCESS) {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
                 strcpy(cwd, p->cwd);
-                if(strcmp(p->cwd,  "/") != 0) {
+                if (strcmp(p->cwd, "/") != 0) {
                   strcat(cwd, "/");
                 }
                 strcat(cwd, tree);
@@ -905,7 +903,7 @@ void *inputLoop(void *ptr) {
               } else {
                 char *cwd = malloc(PATH_MAX * sizeof(char));
                 strcpy(cwd, p->cwd);
-                if(strcmp(p->cwd,  "/") != 0) {
+                if (strcmp(p->cwd, "/") != 0) {
                   strcat(cwd, "/");
                 }
                 strcat(cwd, tree);
@@ -1086,9 +1084,9 @@ void *inputLoop(void *ptr) {
   }
 }
 
-int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
-                   int *mode) {
-  int rc_t;
+int optionsHandler(List args, const char *cwd, const int argc, char **argv,
+                   int *n, int *m, int *mode) {
+  int rc_t = SUCCESS;
 
   int i;
   int flagged[3] = {0, 0, 0};
@@ -1128,12 +1126,24 @@ int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
         rc_t = DOUBLE_OPTION_FAILURE;
       }
     } else {
-      // TODO find a way to handle files before options
-      int rc_pu = push(args, (void *)argv[i]);
-      if (rc_pu < SUCCESS) {
-        rc_t = MALLOC_FAILURE;
+      char *newAbsolutePath = malloc(PATH_MAX * sizeof(char));
+      int rc_al = checkAllocationError(newAbsolutePath);
+      if (rc_al == SUCCESS) {
+        if (argv[i][0] != '/') {
+          strcat(newAbsolutePath, cwd);
+          strcat(newAbsolutePath, "/");
+          strcat(newAbsolutePath, argv[i]);
+        } else {
+          strcpy(newAbsolutePath, argv[i]);
+        }
+        int rc_pu = enqueue(args, newAbsolutePath);
+        // TODO find a way to handle files before options
+        if (rc_pu < SUCCESS) {
+          rc_t = MALLOC_FAILURE;
+        }
       }
     }
   }
+
   return rc_t;
 }

@@ -236,6 +236,6 @@ void *inputLoop(void *ptr);
  *    in *m: the variable where worker number is saved
  *    int *mode: the variable where running mode is saved
  */
-int optionsHandler(List args, const int argc, char **argv, int *n, int *m,
+int optionsHandler(List args, const char *cwd, const int argc, char **argv, int *n, int *m,
                    int *mode);
 #endif

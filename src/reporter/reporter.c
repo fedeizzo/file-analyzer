@@ -219,8 +219,7 @@ void writeStats(unsigned long long *table);
 void readString(int fd, char *dst);
 
 int main(int argc, char **argv) {
-  int managers;
-  int workers;
+  int rc_t = SUCCESS;
   char *writeFifo = "/tmp/reporterToAnalyzer";
   char *readFifo = "/tmp/analyzerToReporter";
   char *cwd = malloc(PATH_MAX * sizeof(char));
@@ -231,6 +230,12 @@ int main(int argc, char **argv) {
   int iter1;
   int iter2;
   int iter3;
+
+  int mode = FANCY_MODE;
+
+  int rc_opt = optionsHandler(userInput->paths, cwd, argc, argv,
+                              &userInput->workers, &userInput->managers, &mode);
+  rc_t = rc_opt;
 
   pthread_t userInputThraed;
   pthread_t writeFifoThraed;
@@ -243,21 +248,9 @@ int main(int argc, char **argv) {
   input.readFifo = readFifo;
   input.cwd = cwd;
 
-  int rc_t = SUCCESS;
-
   // TUI
-  int n = 3;
-  int m = 4;
-  int mode = FANCY_MODE;
-  List args = newList();
-  if (args == NULL)
-    rc_t = MALLOC_FAILURE;
-
-  int rc_opt = optionsHandler(args, argc, argv, &n, &m, &mode);
-  rc_t = rc_opt;
 
   if (rc_t == SUCCESS) {
-    printf("the programm start with n=%d e m=%d\n", n, m);
     int *width = malloc(sizeof(int));
     int *heigth = malloc(sizeof(int));
 

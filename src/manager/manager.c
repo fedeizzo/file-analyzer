@@ -390,6 +390,9 @@ void *workLoop(void *ptr) {
       pthread_mutex_unlock(&(sharedRes->mutex));
       usleep(5000);
     }
+    if (kill(getppid(), 0) != 0) {
+      kill(getpid(), SIGKILL);
+    }
     pthread_mutex_lock(&(sharedRes->mutex));
     if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
       sendSummary(sharedRes->tables);
@@ -913,8 +916,8 @@ void *readDirectives(void *ptr) {
         if (rc_ca < 0) {
           printError("I can't allocate memory");
         } else {
-          sprintf(msgErr, "inside manager with pid: %d", getpid());
-          printError(msgErr);
+          /* sprintf(msgErr, "inside manager with pid: %d", getpid()); */
+          /* printError(msgErr); */
           free(msgErr);
         }
       } else if (rc_t == SUCCESS) {

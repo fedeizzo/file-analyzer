@@ -51,22 +51,19 @@ $(BIN_FOLDER)worker.o: ./src/worker/worker.c ./src/worker/worker.h
 $(BIN_FOLDER)wrapping.o: ./src/wrapping/wrapping.c ./src/wrapping/wrapping.h
 	gcc $(FLAGS) -c ./src/wrapping/wrapping.c  -o $(BIN_FOLDER)wrapping.o
 
-$(BIN_FOLDER)main.o: ./src/main.c \
-	./src/analyzer/analyzer.h \
-	./src/manager/manager.h \
-	./src/reporter/reporter.h \
-	./src/list/list.h \
-	./src/table/table.h \
-	./src/work/work.h \
-	./src/worker/worker.h \
-	./src/wrapping/wrapping.h
+$(BIN_FOLDER)main.o: ./src/main.c
 	gcc $(FLAGS) -c ./src/main.c -o $(BIN_FOLDER)main.o
 
 .SILENT:
 help:
 	cat README
 
-build: $(BIN_FOLDER)main.o \
+makeDir:
+	[ -d bin ] || mkdir bin
+
+build: makeDir \
+	clean \
+	$(BIN_FOLDER)main.o \
   $(BIN_FOLDER)analyzer.o \
   $(BIN_FOLDER)manager.o \
   $(BIN_FOLDER)reporter.o \
@@ -105,23 +102,11 @@ build: $(BIN_FOLDER)main.o \
 	  $(BIN_FOLDER)reporter.o \
 	  $(BIN_FOLDER)wrapping.o \
 		$(BIN_FOLDER)tui.o
+	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)counter\
+	  $(BIN_FOLDER)main.o
 
 clean:
-	rm $(BIN_FOLDER)analyzer \
-	  $(BIN_FOLDER)counter \
-	  $(BIN_FOLDER)worker \
-	  $(BIN_FOLDER)manager \
-	  $(BIN_FOLDER)reporter \
-	  $(BIN_FOLDER)tui \
-	  $(BIN_FOLDER)analyzer.o \
-	  $(BIN_FOLDER)list.o \
-	  $(BIN_FOLDER)main.o \
-	  $(BIN_FOLDER)manager.o \
-		$(BIN_FOLDER)priorityQueue.o \
-	  $(BIN_FOLDER)reporter.o \
-	  $(BIN_FOLDER)table.o \
-	  $(BIN_FOLDER)tree.o \
-	  $(BIN_FOLDER)tui.o \
-	  $(BIN_FOLDER)work.o \
-	  $(BIN_FOLDER)worker.o \
-	  $(BIN_FOLDER)wrapping.o
+	rm -rf $(BIN_FOLDER)*
+
+cleanObj:
+	rm -rf $(BIN_FOLDER)*.o

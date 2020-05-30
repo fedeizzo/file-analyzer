@@ -12,6 +12,7 @@ Makefile help:
   * build    : compiles the program and creates an executable file named
                counter
   * clean    : removes all file creted during build operation
+  * cleanObj : removes all object files created during build operation
   * help     : print this file
 
 Project logic:
@@ -35,18 +36,28 @@ Directories logic:
 |-- Makefile
 |-- README
 |-- bin
-|-- file.txt
 `-- src
     |-- analyzer
     |   |-- analyzer.c
     |   `-- analyzer.h
+    |-- config
+    |   `-- config.h
+    |-- conteggio
+    |-- conteggio2
     |-- list
     |   |-- list.c
     |   `-- list.h
     |-- main.c
     |-- manager
+    |   |-- README.md
+    |   |-- directivesThread.png
     |   |-- manager.c
-    |   `-- manager.h
+    |   |-- manager.h
+    |   |-- manager.pdf
+    |   `-- workThread.png
+    |-- priorityQueue
+    |   |-- priorityQueue.c
+    |   `-- priorityQueue.h
     |-- reporter
     |   |-- reporter.c
     |   `-- reporter.h
@@ -63,8 +74,12 @@ Directories logic:
     |   |-- work.c
     |   `-- work.h
     |-- worker
+    |   |-- README.md
+    |   |-- Worker.png
     |   |-- worker.c
-    |   `-- worker.h
+    |   |-- worker.h
+    |   `-- worker.pdf
     `-- wrapping
         |-- wrapping.c
         `-- wrapping.h
+
