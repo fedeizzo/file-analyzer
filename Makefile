@@ -103,7 +103,8 @@ build: makeDir \
 	  $(BIN_FOLDER)wrapping.o \
 		$(BIN_FOLDER)tui.o
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)counter\
-	  $(BIN_FOLDER)main.o
+	  $(BIN_FOLDER)main.o \
+	  $(BIN_FOLDER)wrapping.o
 
 clean:
 	rm -rf $(BIN_FOLDER)*

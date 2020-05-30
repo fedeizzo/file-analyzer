@@ -263,23 +263,15 @@ int main(int argc, char **argv) {
              "UI\n");
       mode = NORMAL_MODE;
       printf("we give to you the possibility to read this message for 5s\n");
-      /* sleep(1); */
-      /* printf("we give to you the possibility to read this message for
-       * 4s\n");
-       */
-      /* sleep(1); */
-      /* printf("we give to you the possibility to read this message for
-       * 3s\n");
-       */
-      /* sleep(1); */
-      /* printf("we give to you the possibility to read this message for
-       * 2s\n");
-       */
-      /* sleep(1); */
-      /* printf("we give to you the possibility to read this message for
-       * 1s\n");
-       */
-      /* sleep(1); */
+      sleep(1);
+      printf("we give to you the possibility to read this message for 4s\n");
+      sleep(1);
+      printf("we give to you the possibility to read this message for 3s\n");
+      sleep(1);
+      printf("we give to you the possibility to read this message for 2s\n");
+      sleep(1);
+      printf("we give to you the possibility to read this message for 1s\n");
+      sleep(1);
       clear();
       moveCursor(0, 0);
       fflush(stdout);
@@ -504,7 +496,6 @@ void *writeFifoLoop(void *ptr) {
       pthread_mutex_lock(&(input->mutex));
       char *path = front(input->userInput->paths);
       if (path != NULL) {
-        fprintf(stderr, "ciclo\n");
         if (fd > 0) {
           int rc_po = pop(input->userInput->paths);
           rc_t = sendDirectives(fd, path, &(input->userInput->managers),
