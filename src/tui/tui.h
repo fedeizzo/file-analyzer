@@ -1,9 +1,11 @@
 #ifndef __TUI_H__
 #define __TUI_H__
 
-#include "../list/list.h"
 #include <pthread.h>
+
 #include "../config/config.h"
+#include "../list/list.h"
+
 
 /**
  * Holds screen info and content
@@ -52,7 +54,7 @@ void set_input_mode(void);
  * Creates a screen
  *
  * args:
- *    int width: width of the screen
+ *    int width : width of the screen
  *    int heigth: heigth of the screen
  *
  * returns:
@@ -91,6 +93,15 @@ int getWidth(int *width);
 int getHeigth(int *heigth);
 
 /**
+ * Checks if two string is equal (used in List)
+ *
+ * args:
+ *    void *data : first string to compare
+ *    void *data2: second string to compare
+ */
+int isStringEqual(void *data, void *data2);
+
+/**
  * Clears the screen
  */
 void clear();
@@ -109,9 +120,9 @@ void moveCursor(int x, int y);
  *
  * args:
  *    Screen screen: the screen where write operation is made
- *    char *str: the string for the write operation
- *    int x: the column of the position
- *    int y: the row of the position
+ *    char *str    : the string for the write operation
+ *    int x        : the column of the position
+ *    int y        : the row of the position
  */
 void writeScreen(Screen screen, char *str, int x, int y);
 
@@ -125,41 +136,12 @@ void writeScreen(Screen screen, char *str, int x, int y);
  *    0 in case of success, negative otherwise
  */
 int insertBorder(Screen screen);
-
-/**
- * Writes an error string inside the screen
- *
- * args:
- *    char *str: the string for the write operation
- */
-void writeScreenError(char *str);
-
-/**
- * Writes a log string inside the screen
- *
- * args:
- *    int heigth: heigth for the positioning
- *    char *str: the string for the write operation
- */
-void writeScreenLog(int heigth, char *str);
-
-/**
- * Prints LOG/ERROR from other components of the programm
- *
- * args:
- *    Screen screen: the screen where write operation is made
- *    int fd: file descriptor from which LOG are read
- *
- * returns:
- *    0 in case of success, negative otherwise
- */
-int printLog(Screen screen, int fd);
-
+ 
 /**
  * Filters the correct chars that must be displayed on the screen based on the mode
  *
  * args:
- *    const ind cmd: the mode
+ *    const ind cmd    : the mode
  *    const int counter: the char code (ASCII)
  */
 int commandFilter(const int cmd, const int counter);
@@ -171,8 +153,6 @@ int commandFilter(const int cmd, const int counter);
  *    Screen screen: the screen that holds the grid
  */
 void draw(Screen screen);
-int checkCommand(char *cmd);
-int checkFile(char *path);
 
 /**
  * Gets keyboard events asynchronously for input operation
@@ -194,6 +174,15 @@ int getkey();
 int initScreen(Screen screen);
 
 /**
+ * Computes statistics calculus reading table
+ *
+ * args:
+ *    Screen screen            : the screen where calculus are written
+ *    unsigned long long *table: the table from which informations are read
+ */
+void computeStatistics(Screen screen, unsigned long long *table);
+
+/**
  * Thread loop that holds draw operations of the screen
  *
  * args:
@@ -210,15 +199,89 @@ void *graphicsLoop(void *ptr);
 void drawInputLine(Screen screen);
 
 /**
+ * Clears the center of the screen
+ *
+ * args:
+ *    Screen screen: the screen for the refresh operation
+ */
+void clearCenter(Screen screen);
+
+/**
  * Draws the counting table
  *
  * args:
- *    Screen screen: the screen for the write operation
+ *    Screen screen            : the screen for the write operation
+ *    unsigned long long *table: the table from which informations are read
  */
 void updateTable(Screen screen, unsigned long long *table);
 
 /**
- * Thread loop that holds user's input opoerations
+ * Draws help message in the center of the screen
+ *
+ * args:
+ *    Screen screen: the screen for the refresh operation
+ */
+void drawHelpMsg(Screen screen);
+
+/**
+ * Draws the center of the screen
+ *
+ * args:
+ *    Screen screen            : the screen for the refresh operation
+ *    unsigned long long *table: the table from which informations are read
+ */
+void drawCenter(Screen screen, unsigned long long *table);
+
+/**
+ * Trims a string removing whitespace after last non space char
+ *
+ * args:
+ *    char *string: the string for trim operation
+ */
+void trim(char *string);
+
+/**
+ * Checks if the screen must be resized
+ *
+ * args:
+ *    int *oldHeigth: the old height value
+ *    int *oldWidth : the old width value
+ *    int *height   : the new height value
+ *    int *width    : the new width value
+ *
+ * returns:
+ *    0 in case of success, otherwise negative
+ */
+int resize(int *oldHeigth, int *oldWidth, int *heigth, int *width);
+
+/**
+ * Changes command mode based on input as argument
+ *
+ * args:
+ *    Screen screen: the screen where some infos are printed
+ *    int *cmd     : the input from user
+ *    int cmdMode  : a number that represents the mode
+ *    int *row     : the row where cursor is moved after the update
+ *    int *column  : the column where cursor is moved after the update
+ */
+void changeCommandMode(Screen screen, int *cmd, int cmdMode, int *row,
+                       int *column);
+
+/**
+ * Changes the component amount passed as argument
+ *
+ * args:
+ *    Screen screen       : the screen where some infos are printed
+ *    char *cmd           : the input written by the user
+ *    int *componentAmount: the component that must be changed
+ *    int *row            : the row where the cursor is moved after the update
+ *    int *column         : the column where the cursor is moved after update
+ */
+void changeComponentAmount(Screen screen, char *cmd, int *componentAmount,
+                           int *row, int *column);
+
+/**
+ * Thread loop that holds user's input operations
  *
  * args:
  *    void *ptr: pointer to mutex struct at the start of this file

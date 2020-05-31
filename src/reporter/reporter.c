@@ -151,17 +151,6 @@ int readResult(List pathResults, char *cwd);
 int sendResult(int fd, List pathResults);
 
 /**
- * Updates tree path
- *
- * args:
- *    char *path: pointer where new path are updated
- *
- * returns:
- *    0 in case of success, otherwise negative
- */
-int updateTree(char *path);
-
-/**
  * Writes the request into the fifo
  *
  * args:
@@ -256,7 +245,7 @@ int main(int argc, char **argv) {
 
     getHeigth(heigth);
     getWidth(width);
-    if (*heigth < 28 || *width < 89) {
+    if (*heigth < 28 || *width < 89 || mode == NORMAL_MODE) {
       printf("For a better user experience we suggest you to increase the size "
              "of "
              "the terminal window. We develped a fancy graphics with a better "
@@ -331,24 +320,23 @@ void *userInputLoop(void *ptr) {
 
   int rc_t = SUCCESS;
   char *cmdMsg =
-      "write:\n   dire->to send directive to analyzer\n   requ->to request "
-      "the analisy on one or more files\n   tree->i can't explain\n   resu "
-      "->display result of requested files";
+      "write:\n   dire -> to send directive to analyzer\n   requ -> to request "
+      "the analisy on one or more files\n   resu "
+      "-> display result of requested files\n   quit -> quit the programm";
   char *direMsg = "directive mode, write:\n   filePath or folderPath then line "
                   "feed\n   number of "
                   "manager then line feed\n   nubmer fo worker then line feed";
   char *requMsg =
-      "request mode, write:\n   the file names of which you want the analisy "
+      "request mode, write:\n   the files names of which you want the analisy "
       "the line feed\n   requ to exit from requ mode then line feed";
-  char *treeMsg =
-      "tree mode, write:\n   the file names of which you want the analisy";
   while (rc_t == SUCCESS) {
     printf("%s\n", cmdMsg);
     char *dst = malloc(PATH_MAX * sizeof(char));
     rc_t = checkAllocationError(dst);
     int bytesRead = read(0, dst, 5);
+    dst[bytesRead - 1] = '\0';
     if (bytesRead > 0 && rc_t == SUCCESS) {
-      if (strncmp(dst, "dire", 4) == 0) {
+      if (strcmp(dst, "dire") == 0) {
         printf("%s\n", direMsg);
         pthread_mutex_lock(&(input->mutex));
         rc_t = readDirectives(input->userInput->paths,
@@ -363,7 +351,7 @@ void *userInputLoop(void *ptr) {
                  "(int)\n   -number of worker (int)\n");
           rc_t = SUCCESS;
         }
-      } else if (strncmp(dst, "requ", 4) == 0) {
+      } else if (strcmp(dst, "requ") == 0) {
         printf("%s\n", requMsg);
         pthread_mutex_lock(&(input->mutex));
         readResult(input->userInput->results, input->cwd);
@@ -372,14 +360,14 @@ void *userInputLoop(void *ptr) {
         moveCursor(0, 0);
         fflush(stdout);
         printf("we are processing your request, please wait\n");
-      } else if (strncmp(dst, "tree", 4) == 0) {
-        pthread_mutex_lock(&(input->mutex));
-        updateTree(input->userInput->tree);
-        pthread_mutex_unlock(&(input->mutex));
-      } else if (strncmp(dst, "resu", 4) == 0) {
+      } else if (strcmp(dst, "resu") == 0) {
         pthread_mutex_lock(&(input->mutex));
         writeStats(input->userInput->table);
         pthread_mutex_unlock(&(input->mutex));
+      } else if (strcmp(dst, "quit") == 0) {
+        clear();
+        moveCursor(0, 0);
+        exit(0);
       }
     }
     usleep(50000);
@@ -858,22 +846,6 @@ int sendResult(int fd, List pathResults) {
 
     writeDescriptor(fd, "//");
   }
-
-  return rc_t;
-}
-
-int updateTree(char *path) {
-  int rc_t = SUCCESS;
-
-  int index = 0;
-  char charRead = 'a';
-  int bytesRead = -1;
-  while (bytesRead != 0 && charRead != '\n') {
-    bytesRead = readChar(0, &charRead);
-    if (bytesRead > 0)
-      path[index++] = charRead;
-  }
-  path[--index] = '\0';
 
   return rc_t;
 }

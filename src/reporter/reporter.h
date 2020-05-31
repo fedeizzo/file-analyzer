@@ -1,9 +1,10 @@
 #ifndef __REPORTER_H__
 #define __REPORTER_H__
 
+#include <pthread.h>
+
 #include "../list/list.h"
 #include "../tui/tui.h"
-#include <pthread.h>
 
 typedef struct UserInputStr {
   List paths;

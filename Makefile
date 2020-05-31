@@ -75,6 +75,7 @@ build: makeDir \
   $(BIN_FOLDER)work.o \
   $(BIN_FOLDER)worker.o \
   $(BIN_FOLDER)wrapping.o
+	echo "building..." 
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)analyzer \
 	  $(BIN_FOLDER)analyzer.o \
 	  $(BIN_FOLDER)list.o \
@@ -105,9 +106,22 @@ build: makeDir \
 	gcc $(FLAGS) $(FLAGS_THREAD) -o $(BIN_FOLDER)counter\
 	  $(BIN_FOLDER)main.o \
 	  $(BIN_FOLDER)wrapping.o
+	echo "done"
+
+log: build \
+	$(BIN_FOLDER)main.o \
+  $(BIN_FOLDER)wrapping.o
+	echo "adding log option..."
+	gcc $(FLAGS) $(FLAGS_THREAD) -D LOG -o $(BIN_FOLDER)counter\
+	  ./src/main.c \
+	  $(BIN_FOLDER)wrapping.o
+	echo "done"
 
 clean:
 	rm -rf $(BIN_FOLDER)*
 
 cleanObj:
 	rm -rf $(BIN_FOLDER)*.o
+
+buildMinimal: build \
+	cleanObj

@@ -8,6 +8,10 @@
 #include "./config/config.h"
 #include "./wrapping/wrapping.h"
 
+#ifndef LOG
+#define LOG 0
+#endif
+
 int main(int argc, char *argv[]) {
   char *analyzerOutput = "outputAnalyzer.txt";
   char *analyzerLog = "log.txt";
@@ -31,8 +35,14 @@ int main(int argc, char *argv[]) {
       execvp("./reporter", args);
       kill(getpid(), SIGKILL);
     } else {
-      int out = open(analyzerOutput, O_WRONLY | O_TRUNC | O_CREAT, 00644);
-      int log = open(analyzerLog, O_WRONLY | O_TRUNC | O_CREAT, 00644);
+      int out, log;
+      if (LOG != 0) {
+        out = open(analyzerOutput, O_WRONLY | O_TRUNC | O_CREAT, 00644);
+        log = open(analyzerLog, O_WRONLY | O_TRUNC | O_CREAT, 00644);
+      } else {
+        out = open("/dev/null", O_WRONLY | O_TRUNC | O_CREAT, 00644);
+        log = open("/dev/null", O_WRONLY | O_TRUNC | O_CREAT, 00644);
+      }
       if (out > SUCCESS && log > SUCCESS) {
         createDup(log, 2);
         createDup(out, 1);

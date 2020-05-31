@@ -235,27 +235,6 @@ int insertBorder(Screen screen) {
   return rc_t;
 }
 
-void writeScreenError(char *str) {
-  moveCursor(21, 6);
-  printf("\033[41m %s\033[m", str);
-}
-
-void writeScreenLog(int heigth, char *str) {
-  moveCursor(21, heigth - 2);
-  printf("\033[36m %s\033[m", str);
-}
-
-int printLog(Screen screen, int fd) {
-  char dst[300];
-  int rc_rd = readDescriptor(fd, dst, 300);
-  if (rc_rd == SUCCESS)
-    writeScreen(screen, dst, 21, screen->rows - 3);
-  else {
-    rc_rd = PRINT_LOG_FAILURE;
-  }
-  return rc_rd;
-}
-
 int commandFilter(const int cmd, const int counter) {
   int rc_t = -1;
   if (cmd == 1) {
@@ -660,6 +639,14 @@ void changeCommandMode(Screen screen, int *cmd, int cmdMode, int *row,
   *column = 9;
 }
 
+/**
+ * Moves backward in file system tree
+ *
+ * args:
+ *    Screen screen      : the screen where some infos are printed
+ *    UserInput userInput: user input
+ *    char *cwd          : current location in file system tree
+ */
 void moveBackward(Screen screen, UserInput userInput, char *cwd) {
   userInput->tree[0] = '\0';
   if (strcmp(cwd, "/") != 0) {
@@ -676,6 +663,12 @@ void moveBackward(Screen screen, UserInput userInput, char *cwd) {
   screen->treeStartRow = 0;
 }
 
+/**
+ * Toggles all files in the current directory
+ *
+ * args:
+ *    UserInput userInput: userInput
+ */
 void toggleAll(UserInput userInput) {
   userInput->toggledChanged = 1;
   Node element = userInput->files->head;
@@ -709,6 +702,15 @@ void changeComponentAmount(Screen screen, char *cmd, int *componentAmount,
   *column = 9;
 }
 
+/**
+ * Selects a node for which we want to know the children
+ *
+ * args:
+ *    Screen screen      : the screen where some infos are printed
+ *    UserInput userInput: user input
+ *    char *cwd          : current location in file system tree
+ *    char *realCwd      : current real location in file system tree
+ */
 void selectNode(Screen screen, UserInput userInput, char *realCwd, char *tree) {
   char *cwd = malloc(PATH_MAX * sizeof(char));
   if (checkAllocationError(cwd) == SUCCESS) {
@@ -746,6 +748,17 @@ void selectNode(Screen screen, UserInput userInput, char *realCwd, char *tree) {
   free(tree);
 }
 
+/**
+ * Adds a file in List that contains all files that must be sent to the analyzer
+ *
+ * args:
+ *    Screen screen      : the screen where some infos are printed
+ *    UserInput userInput: user input
+ *    char *cwd          : the current location in file system tree
+ *    char *cmd          : the user input
+ *    int *row            : the row where the cursor is moved after the update
+ *    int *column         : the column where the cursor is moved after update
+ */
 void askComputation(Screen screen, UserInput userInput, char *cwd, char *cmd,
                     int *row, int *column) {
   writeScreen(screen, "input: ", 2, 1);
