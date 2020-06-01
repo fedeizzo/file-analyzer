@@ -109,7 +109,7 @@ int writeDescriptor(const int fd, const char msg[]) {
     code = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during writing descriptor: %d", fd);
-    printError(msgErr);
+    /* printError(msgErr); */
   }
   return code;
 }

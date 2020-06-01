@@ -298,8 +298,11 @@ int executeWork(const int fd, const unsigned long long start,
 
   unsigned long long step = workAmount + 2;
 
-  if (workAmount + 2 >= availableMem * 90 / 100)
-    step = availableMem * 90 / 100;
+  if (workAmount + 2 >= availableMem * 70 / 100)
+    step = availableMem * 70 / 100;
+
+  if (step > 1000000000)
+    step = 1000000000;
 
   char *charsRead = malloc(step * sizeof(char));
   int rc_al = checkAllocationError(charsRead);

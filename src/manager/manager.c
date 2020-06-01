@@ -954,7 +954,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   if (rc_al == -1 || rc_al2 == -1)
     rc_t = TABLE_FAILURE;
   else {
-    if (access(path, F_OK) != -1) {
+    if (access(path, R_OK) != -1) {
       int rc_pu = push(tables, t);
       if (rc_pu == 0) {
         int fd = openFile(path, O_RDONLY);
