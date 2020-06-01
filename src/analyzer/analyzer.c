@@ -2141,8 +2141,10 @@ void *sendFileLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     //fprintf(stderr, "OTTENGO lock lettura manager SF\n");
     nManager = (*(sharedResources->nManager));
+    //printf("OTTENGO lock lettura manager SF con SIZE: %d\n", *(sharedResources->nManager));
     while (nManager > 0 && rc_t == SUCCESS) {
       manager = popPriorityQueue(sharedResources->managers);
+      //printf("controllo il manager %d\n", manager->m_pid);
       if (manager != NULL) {
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
@@ -2352,7 +2354,9 @@ int manageFileToSend(PriorityQueue managers, int currentWorker,
         }
       } else {
         rc_rm = respawnManager(managers, m, filesToAssign);
-        rc_t = DEAD_PROCESS;
+        if (rc_rm == SUCCESS){
+          rc_t = DEAD_PROCESS;
+        }
       }
     }
   } else {

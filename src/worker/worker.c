@@ -155,7 +155,6 @@ int initWork(unsigned long long *start, unsigned long long *end,
   if (*stopFlag == 0) {
     int rc_sc = sscanf(bufferStart, "%llu", start);
     int rc_sc2 = sscanf(bufferEnd, "%llu", end);
-    // fprintf(stderr, "ho ricevuto %s %llu %llu\n", path, *start, *end);
 
     if (path[strlen(path) - 1] == '\n') {
       path[strlen(path) - 1] = '\0';
@@ -245,7 +244,6 @@ unsigned long long getAvailableMemory() {
       }
       lineToIgnore--;
     }
-
     char freeMem[PATH_MAX];
     int index = 0;
     charRead = 'a';
@@ -276,6 +274,7 @@ unsigned long long getAvailableMemory() {
 
     sscanf(available, "%llu", &casted);
     rc_t = casted * 1024;
+    closeDescriptor(fd);
   }
 
   return rc_t;
@@ -298,8 +297,8 @@ int executeWork(const int fd, const unsigned long long start,
 
   unsigned long long step = workAmount + 2;
 
-  if (workAmount + 2 >= availableMem * 70 / 100)
-    step = availableMem * 70 / 100;
+  if (workAmount + 2 >= availableMem * 50 / 100)
+    step = availableMem * 50 / 100;
 
   if (step > 1000000000)
     step = 1000000000;

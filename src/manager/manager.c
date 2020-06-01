@@ -277,6 +277,7 @@ int workerInitPipe(const int readPipe[], const int writePipe[]);
  */
 int parentInitExecPipe(const int readPipe[], const int writePipe[]);
 
+// TODO update doc and remove summary flag
 /**
  * Sends summary to STDOUT
  *
@@ -286,7 +287,7 @@ int parentInitExecPipe(const int readPipe[], const int writePipe[]);
  * returns
  *    0 in case of success, negative number otherwise
  */
-int sendSummary(List tables);
+int sendSummary(Table t, List tables);
 
 /**
  * Handles errors
@@ -394,9 +395,10 @@ void *workLoop(void *ptr) {
       kill(getpid(), SIGKILL);
     }
     pthread_mutex_lock(&(sharedRes->mutex));
-    if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
-      sendSummary(sharedRes->tables);
-    }
+    // TODO remove this if
+    //if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
+    //sendSummary(sharedRes->tables);
+    //}
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
 
@@ -672,7 +674,8 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
   int rc_t = SUCCESS;
   int readFromWorker = w->pipe[READ_CHANNEL];
   unsigned long long bytesSent = w->bytesSent;
-  char *charSent = malloc(w->workAmount * sizeof(char));
+  //char *charSent = malloc(w->workAmount * sizeof(char));
+  char *charSent = malloc( 1048576* sizeof(char));
   int rc_al = checkAllocationError(charSent);
   if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
@@ -691,7 +694,11 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
         }
       }
     } else {
-      int rc_rd = read(readFromWorker, charSent, w->workAmount - w->bytesSent);
+      int rc_rd;
+      if(w->workAmount - w->bytesSent < 1048576)
+        rc_rd = read(readFromWorker, charSent, w->workAmount - w->bytesSent);
+      else 
+        rc_rd = read(readFromWorker, charSent, 1048576);
       if (rc_rd <= 0)
         rc_t = READ_FAILURE;
       else {
@@ -746,7 +753,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
     updateTable(work->tablePointer->table, workerTable);
     work->tablePointer->workAssociated--;
     *summaryFlag = 1;
-
+    sendSummary(work->tablePointer, tables);
     destroyWork(work);
   } else {
     if (work != NULL) {
@@ -999,7 +1006,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
           }
         } else {
           t->workAssociated = 0;
-          sendSummary(tables);
+          //sendSummary(tables);
+          sendSummary(t, tables);
         }
 
         int rc_cl = closeDescriptor(fd);
@@ -1056,41 +1064,35 @@ int parentInitExecPipe(const int toParent[], const int toChild[]) {
   return rc_t;
 }
 
-int sendSummary(List tables) {
+int sendSummary(Table t, List tables) {
   int rc_t = SUCCESS;
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
   int tablesSize = tables->size;
   int i = 0;
 
-  for (i = 0; i < tablesSize; i++) {
-    Table t;
-    t = front(tables);
-    rc_po = pop(tables);
-    if (rc_po == -1 || rc_pu == -1)
-      rc_t = SUMMARY_FAILURE;
-    if (t != NULL) {
-      int j = 0;
-      writeDescriptor(WRITE_CHANNEL, t->name);
-      for (j = 0; j < NCHAR_TABLE; j++) {
-        char msg[PATH_MAX];
-        int rc_sp;
-        rc_sp = sprintf(msg, "%llu", t->table[j]);
-        if (rc_sp == -1)
-          rc_t = CAST_FAILURE;
-        else {
-          int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
-          if (rc_wr == -1)
-            rc_t = SUMMARY_FAILURE;
-        }
+  if (t != NULL) {
+    int j = 0;
+    writeDescriptor(WRITE_CHANNEL, t->name);
+    for (j = 0; j < NCHAR_TABLE; j++) {
+      char msg[PATH_MAX];
+      int rc_sp;
+      rc_sp = sprintf(msg, "%llu", t->table[j]);
+      if (rc_sp == -1)
+        rc_t = CAST_FAILURE;
+      else {
+        int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
+        if (rc_wr == -1)
+          rc_t = SUMMARY_FAILURE;
       }
-      if (t->workAssociated == 0) {
-        destroyTable(t);
-        writeDescriptor(WRITE_CHANNEL, "done");
-      } else {
-        enqueue(tables, t);
-        writeDescriptor(WRITE_CHANNEL, "undo");
-      }
+    }
+    if (t->workAssociated == 0) {
+      deleteNode(tables, t, compareTable, destroyTable);
+      //destroyTable(t);
+      writeDescriptor(WRITE_CHANNEL, "done");
+    } else {
+      //enqueue(tables, t);
+      writeDescriptor(WRITE_CHANNEL, "undo");
     }
   }
 

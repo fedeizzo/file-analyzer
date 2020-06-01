@@ -38,7 +38,7 @@ int compareTable(void *t1, void *t2) {
   Table table1 = (Table)t1;
   Table table2 = (Table)t2;
 
-  if (strcmp(table1->name, table2->name) == 0) {
+  if (strcmp(table1->name, table2->name) == 0 && table1->workAssociated == table2->workAssociated) {
     rc_t = 0;
   }
   return rc_t;
