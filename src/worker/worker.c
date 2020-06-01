@@ -38,6 +38,25 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
                     int *stopFlag);
 
 /**
+ * Checks if char passed is a digit
+ *
+ * args:
+ *    char c: the char to check
+ *
+ * returns:
+ *    0 in case of success, otherwise -1
+ */
+int isDigit(char c);
+
+/**
+ * Gets the available memory in the system
+ *
+ * returns:
+ *    0 if no memory is aviable or there is an error, otherwise the correct
+ * amount
+ */
+unsigned long long getAvailableMemory();
+/**
  * Runs work
  *
  * args:
@@ -206,6 +225,62 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
   }
 }
 
+int isDigit(char c) {
+  if (c >= 48 && c <= 57)
+    return SUCCESS;
+  else
+    return FAILURE;
+}
+
+unsigned long long getAvailableMemory() {
+  int fd = open("/proc/meminfo", O_RDONLY);
+  unsigned long long rc_t = 0;
+  if (fd > 0) {
+    char charRead = 'a';
+    int lineToIgnore = 2;
+    while (lineToIgnore != 0) {
+      charRead = 'a';
+      while (charRead != '\n') {
+        readChar(fd, &charRead);
+      }
+      lineToIgnore--;
+    }
+
+    char freeMem[PATH_MAX];
+    int index = 0;
+    charRead = 'a';
+    while (charRead != '\n') {
+      int howMany = readChar(fd, &charRead);
+      if (howMany > 0) {
+        freeMem[index++] = charRead;
+      }
+    }
+    freeMem[index - 1] = '\0';
+
+    char available[PATH_MAX];
+    index = 0;
+    int flag = 0;
+    int i = 0;
+    for (i = 0; i < strlen(freeMem); i++) {
+      if (freeMem[i] == ':') {
+        flag = 1;
+      } else if (flag == 1) {
+        if (isDigit(freeMem[i]) == SUCCESS) {
+          available[index++] = freeMem[i];
+        }
+      }
+    }
+    available[index] = '\0';
+
+    unsigned long long casted = 0;
+
+    sscanf(available, "%llu", &casted);
+    rc_t = casted * 1024;
+  }
+
+  return rc_t;
+}
+
 int executeWork(const int fd, const unsigned long long start,
                 const unsigned long long end) {
   int rc_t = 0;
@@ -215,14 +290,26 @@ int executeWork(const int fd, const unsigned long long start,
 
   unsigned long long bytesRead;
   unsigned long long workAmount = end - start + 1;
-  char *charsRead = malloc((workAmount + 2) * sizeof(char));
+  unsigned long long availableMem = 0;
+  while (availableMem == 0) {
+    availableMem = getAvailableMemory();
+    usleep(100);
+  }
+
+  unsigned long long step = workAmount + 2;
+
+  if (workAmount + 2 >= availableMem * 90 / 100)
+    step = availableMem * 90 / 100;
+
+  char *charsRead = malloc(step * sizeof(char));
   int rc_al = checkAllocationError(charsRead);
   int lectures = 1;
-  if (workAmount > 1500000000) {
-    lectures = (int)(workAmount / 1500000000);
-    workAmount = 1500000000;
-    if ((workAmount % 1500000000) > 0)
+
+  if (workAmount + 2 != step) {
+    lectures = (int)(workAmount / step);
+    if ((workAmount % step) > 0)
       lectures++;
+    workAmount = step;
   }
 
   if (rc_al == SUCCESS) {
