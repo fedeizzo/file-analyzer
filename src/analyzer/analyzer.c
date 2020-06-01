@@ -2141,7 +2141,7 @@ void *sendFileLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     //fprintf(stderr, "OTTENGO lock lettura manager SF\n");
     nManager = (*(sharedResources->nManager));
-    //printf("OTTENGO lock lettura manager SF con SIZE: %d\n", *(sharedResources->nManager));
+    //printf("OTTENGO lock lettura manager SF con SIZE: %d\n", *(sharedResources->nManager)); 
     while (nManager > 0 && rc_t == SUCCESS) {
       manager = popPriorityQueue(sharedResources->managers);
       //printf("controllo il manager %d\n", manager->m_pid);
