@@ -4,26 +4,26 @@ Analyzer is the third element of the chain (starting from the bottom). The task 
 ## Structure
 The structure of an analyzer is basically composed by five threads:
 
-* readDirectivesLoop that reads directives from standard input;
-* fileManageLoop that handle the file and directory's tree obtained from the directives;
-* sendFileLoop that comunicate with managers;
-* readFromFIFOLoop that reads the reporter's directives;
+* readDirectivesLoop that reads directives from standard input
+* fileManageLoop that handle the file and directory's tree obtained from the directives
+* sendFileLoop that comunicate with managers
+* readFromFIFOLoop that reads the reporter's directives
 * writeOnFIFOLoop that accomplishes reporter requests
 
 ### Tree
 All the infos about files and directories are stored in a tree; each node except the root node can have one parent and multiple children saved in a list. Root node doesn't have a parent but has children, it also has the destructor that will be execute on each node when the function destroyTree is called.
 The basic TreeNode contains:
 
-* data;
-* children;
+* data
+* children
 * parent
 
 The data stored in the node is a FileInfo instance that consists in:
 
-* name;
-* fileTable, table that contains all the occurrences of a file groupped by character;
-* path;
-* isDirectory, flag that tells if the current node is a file with the value 0 or a directory with the value of 1;
+* name
+* fileTable, table that contains all the occurrences of a file groupped by character
+* path
+* isDirectory, flag that tells if the current node is a file with the value 0 or a directory with the value of 1
 * isRequested, flag that tells if the current node is a requested file with the value 0 or if it is not with the value of -1
 
 #### File/Directory insertion
