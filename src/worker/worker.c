@@ -118,8 +118,8 @@ int main(int argc, char *argv[]) {
 
   while (working == WORKING) {
     rc_work = executeWork(fd, start, end);
-    if (rc_work < SUCCESS) {
-      int rc_er = errorHandler(fd, end);
+    if (rc_work != SUCCESS) {
+      int rc_er = errorHandler(rc_work, end);
       if (rc_er < SUCCESS)
         working = NOT_WORKING;
     }
@@ -306,6 +306,7 @@ int executeWork(const int fd, const unsigned long long start,
   char *charsRead = malloc(step * sizeof(char));
   int rc_al = checkAllocationError(charsRead);
   int lectures = 1;
+  unsigned long long written = 0;
 
   if (workAmount + 2 != step) {
     lectures = (int)(workAmount / step);
@@ -329,22 +330,29 @@ int executeWork(const int fd, const unsigned long long start,
         int rc_wr = write(WRITE_CHANNEL, charsRead, bytesRead);
         if (rc_wr == -1)
           rc_t = WRITE_FAILURE;
+        else
+          written += rc_wr;
       } else {
         rc_t = READ_FAILURE;
       }
       lectures--;
     }
 
+    if (written != end - start + 1)
+      rc_t = FAILURE;
     if (rc_t == SUCCESS) {
       int rc_wr = writeDescriptor(WRITE_CHANNEL, "done");
       if (rc_wr == FAILURE)
         rc_t = WRITE_FAILURE;
+    } else {
+      rc_t = written;
     }
     free(charsRead);
   } else {
     rc_t = FAILURE;
   }
   closeDescriptor(fd);
+
   return rc_t;
 }
 
@@ -355,15 +363,10 @@ int sendAcknowledgment() {
   return rc_t;
 }
 
-int errorHandler(const int fd, const unsigned long long end) {
+int errorHandler(const int written, const unsigned long long end) {
   int rc_t = 0;
-  if (fd == -1)
-    rc_t = READ_DIRECTIVES_FAILURE;
-  long long rc_se = moveCursorFile(fd, 0, SEEK_CUR);
-  if (rc_se == -1)
-    rc_t = CURSOR_FAILURE;
 
-  unsigned long long workAmount = end - rc_se + 1;
+  unsigned long long workAmount = end - written + 1;
 
   while (workAmount != 0 && rc_t == 0) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "a");
@@ -373,7 +376,7 @@ int errorHandler(const int fd, const unsigned long long end) {
       workAmount--;
   }
 
-  if (workAmount == 0 && rc_t < SUCCESS) {
+  if (workAmount == 0 && rc_t == SUCCESS) {
     int rc_wr = writeDescriptor(WRITE_CHANNEL, "erro");
     if (rc_wr == -1)
       rc_t = WRITE_FAILURE;

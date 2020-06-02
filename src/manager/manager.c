@@ -406,9 +406,6 @@ void *workLoop(void *ptr) {
 
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
-        fprintf(stderr, "\tsto per passare da %d a %d\n",
-                sharedRes->directive->currentWorkers,
-                sharedRes->directive->newNWorker);
         rc_wc = changeWorkersAmount(sharedRes->workers,
                                     sharedRes->directive->currentWorkers,
                                     sharedRes->directive->newNWorker,
@@ -604,7 +601,9 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
           rc_t = NEW_WORKER_FAILURE;
       } else {
         if (w->doing != NULL) {
-          rc_pu = push(todo, w->doing);
+          int rc_pu = SUCCESS;
+          if (access(w->doing->tablePointer->name, R_OK) == 0)
+            rc_pu = push(todo, w->doing);
           if (rc_pu < SUCCESS)
             rc_t = MALLOC_FAILURE;
           else {
@@ -760,9 +759,17 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
     destroyWork(work);
   } else {
     if (work != NULL) {
-      int rc_pu = push(todo, work);
-      if (rc_pu == -1)
-        rc_t = END_WORK_FAILURE;
+      int fd = openFile(work->tablePointer->name, O_RDONLY);
+      if (fd > 0) {
+        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+        if (work->bufferStart < fileDimension &&
+            work->bufferEnd < fileDimension) {
+          int rc_pu = push(todo, work);
+          if (rc_pu == -1)
+            rc_t = END_WORK_FAILURE;
+        }
+        closeDescriptor(fd);
+      }
     }
   }
 
@@ -874,7 +881,6 @@ int remoduleWorks(List todo, List workers, List tables) {
     }
   }
 
-  fprintf(stderr, "\tsto per uscire dal erase mostruoso %d\n", todo->size);
   return rc_t;
 }
 
@@ -1016,7 +1022,6 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
           }
         } else {
           t->workAssociated = 0;
-          // sendSummary(tables);
           sendSummary(t, tables);
         }
 
