@@ -7,6 +7,8 @@ The worker is lowest component of all the system. The task of a worker is to rea
 
 Start and end points are included in the read operation. The worker after the reading operation from the standard input casts the two numbers and returns an error in case one or more fail.
 
+Before start working the worker checks if there is enough memory for allocation. If so he allocates all work amount. If the available memory is smaller than the work amount the worker tries to allocate the 50% of the available memory.
+
 When the work is finished the worker try to read another directives from the standard input.
 
 ## Considerations
