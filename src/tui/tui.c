@@ -255,6 +255,9 @@ int commandFilter(const int cmd, const int counter) {
   } else if (cmd == 5) {
     if (counter >= 0 && counter <= 128)
       rc_t = 0;
+  } else if (cmd == 6) {
+    if ((counter >= 0 && counter <= 31) || counter == 128)
+      rc_t = 0;
   }
 
   return rc_t;
@@ -407,7 +410,7 @@ int initScreen(Screen screen) {
 
 void computeStatistics(Screen screen, unsigned long long *table) {
   char clearString[screen->cols - 22];
-  int i = 0;
+  int i, j = 0;
   for (i = 0; i < screen->cols - 22; i++) {
     clearString[i] = ' ';
   }
@@ -416,19 +419,53 @@ void computeStatistics(Screen screen, unsigned long long *table) {
 
   unsigned long long tot = 0;
   unsigned long long selected = 0;
-  for (i = 0; i < NCHAR_TABLE; i++) {
-    tot += table[i];
-    if (commandFilter(screen->cmd, i) == 0) {
-      selected += table[i];
+  double percentageMaiuscole = 0;
+  double percentageMinuscole = 0;
+  double percentagePunteg = 0;
+  double percentageCifre = 0;
+  double percentageOther = 0;
+  double percentageTotal = 100;
+  for (j = 1; j < 7; j++) {
+    selected = 0;
+    tot = 0;
+    for (i = 0; i < NCHAR_TABLE; i++) {
+      tot += table[i];
+      if (commandFilter(j, i) == 0) {
+        selected += table[i];
+      }
+    }
+    double percentage = 0;
+    if (tot != 0 && selected != 0) {
+      percentage = (double)((long double)selected / (long double)tot * 100);
+    }
+    switch (j) {
+    case 1:
+      percentageMaiuscole = percentage;
+      break;
+    case 2:
+      percentageMinuscole = percentage;
+      break;
+    case 3:
+      percentagePunteg = percentage;
+      break;
+    case 4:
+      percentageCifre = percentage;
+      break;
+    case 6:
+      percentageOther = percentage;
+      break;
     }
   }
   char tmpString[100];
-  int percentage = 0;
-  if (tot != 0 && selected != 0) {
-    percentage = (int)((long double)selected / (long double)tot * 100);
-  }
-  sprintf(tmpString, "Percentage over total: %d%%", percentage);
+  /* sprintf(tmpString, "Percentage over total: %.2f%%", percentage); */
+  sprintf(tmpString,
+          "Total    : %6.2f%%   Cifre  : %6.2f%%   Minuscole: %6.2f%%",
+          percentageTotal, percentageCifre, percentageMinuscole);
   writeScreen(screen, tmpString, 21, screen->rows - 3);
+  sprintf(tmpString,
+          "Maiuscole: %6.2f%%   Punteg.: %6.2f%%   Other    : %6.2f%%",
+          percentageMaiuscole, percentagePunteg, percentageOther);
+  writeScreen(screen, tmpString, 21, screen->rows - 2);
 }
 
 void *graphicsLoop(void *ptr) {
@@ -696,8 +733,10 @@ void changeComponentAmount(Screen screen, char *cmd, int *componentAmount,
                            int *row, int *column) {
   writeScreen(screen, "input: ", 2, 1);
   int castPlaceholder;
-  sscanf(cmd, "%d", &castPlaceholder);
-  *componentAmount = castPlaceholder;
+  if (strcmp(cmd, "") != 0) {
+    sscanf(cmd, "%d", &castPlaceholder);
+    *componentAmount = castPlaceholder;
+  }
   *row = 1;
   *column = 9;
 }

@@ -396,8 +396,8 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_lock(&(sharedRes->mutex));
     // TODO remove this if
-    //if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
-    //sendSummary(sharedRes->tables);
+    // if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
+    // sendSummary(sharedRes->tables);
     //}
     pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
@@ -406,6 +406,9 @@ void *workLoop(void *ptr) {
 
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
+        fprintf(stderr, "\tsto per passare da %d a %d\n",
+                sharedRes->directive->currentWorkers,
+                sharedRes->directive->newNWorker);
         rc_wc = changeWorkersAmount(sharedRes->workers,
                                     sharedRes->directive->currentWorkers,
                                     sharedRes->directive->newNWorker,
@@ -674,8 +677,8 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
   int rc_t = SUCCESS;
   int readFromWorker = w->pipe[READ_CHANNEL];
   unsigned long long bytesSent = w->bytesSent;
-  //char *charSent = malloc(w->workAmount * sizeof(char));
-  char *charSent = malloc( 1048576* sizeof(char));
+  // char *charSent = malloc(w->workAmount * sizeof(char));
+  char *charSent = malloc(1048576 * sizeof(char));
   int rc_al = checkAllocationError(charSent);
   if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
@@ -695,9 +698,9 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
       }
     } else {
       int rc_rd;
-      if(w->workAmount - w->bytesSent < 1048576)
+      if (w->workAmount - w->bytesSent < 1048576)
         rc_rd = read(readFromWorker, charSent, w->workAmount - w->bytesSent);
-      else 
+      else
         rc_rd = read(readFromWorker, charSent, 1048576);
       if (rc_rd <= 0)
         rc_t = READ_FAILURE;
@@ -782,12 +785,17 @@ int clearWorkersWork(List workers, List todo, List tables) {
   while (list != NULL && rc_t != MALLOC_FAILURE) {
     Worker worker = list->data;
     if (worker != NULL && worker->doing != NULL) {
-      char *charSent = malloc(worker->workAmount * sizeof(char));
+      /* char *charSent = malloc(worker->workAmount * sizeof(char)); */
+      char *charSent = malloc(1048576 * sizeof(char));
       int rc_al = checkAllocationError(charSent);
       if (rc_al == SUCCESS) {
         while (worker->bytesSent < worker->workAmount && isAlive(worker) == 0) {
-          int rc_rd = read(worker->pipe[READ_CHANNEL], charSent,
-                           worker->workAmount - worker->bytesSent);
+          int rc_rd;
+          if (worker->workAmount - worker->bytesSent < 1048576)
+            rc_rd = read(worker->pipe[READ_CHANNEL], charSent,
+                         worker->workAmount - worker->bytesSent);
+          else
+            rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 1048576);
           if (rc_rd > 0)
             worker->bytesSent += rc_rd;
         }
@@ -795,6 +803,7 @@ int clearWorkersWork(List workers, List todo, List tables) {
         while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
           rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
           if (rc_rd == 5) {
+            // TODO think an else that remove the worker and insert it again
             if (strncmp(charSent, "done", 4) == 0) {
               endWork(worker, tables, BAD_ENDING, todo, NULL);
             } else if (strncmp(charSent, "erro", 4) == 0) {
@@ -834,7 +843,7 @@ int remoduleWorks(List todo, List workers, List tables) {
         work->tablePointer->workAssociated--;
         unsigned long long workDimension =
             work->bufferEnd - work->bufferStart + 1;
-        if (workDimension >= nWorkers) {
+        if (workDimension - 65536 >= nWorkers && nWorkers > 0) {
           unsigned long long step =
               (unsigned long long)workDimension / nWorkers;
           unsigned long long remainder = workDimension % nWorkers;
@@ -865,6 +874,7 @@ int remoduleWorks(List todo, List workers, List tables) {
     }
   }
 
+  fprintf(stderr, "\tsto per uscire dal erase mostruoso %d\n", todo->size);
   return rc_t;
 }
 
@@ -1006,7 +1016,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
           }
         } else {
           t->workAssociated = 0;
-          //sendSummary(tables);
+          // sendSummary(tables);
           sendSummary(t, tables);
         }
 
@@ -1088,10 +1098,10 @@ int sendSummary(Table t, List tables) {
     }
     if (t->workAssociated == 0) {
       deleteNode(tables, t, compareTable, destroyTable);
-      //destroyTable(t);
+      // destroyTable(t);
       writeDescriptor(WRITE_CHANNEL, "done");
     } else {
-      //enqueue(tables, t);
+      // enqueue(tables, t);
       writeDescriptor(WRITE_CHANNEL, "undo");
     }
   }

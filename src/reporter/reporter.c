@@ -403,45 +403,46 @@ void writeStats(unsigned long long *table) {
   }
 
   if (rc_al == SUCCESS && rc_al2 == SUCCESS) {
-    int percentageMaiuscole = 0;
-    int percentageMinuscole = 0;
-    int percentagePunteg = 0;
-    int percentageCifre = 0;
-    int percentageOther = 0;
+    double percentageMaiuscole = 0;
+    double percentageMinuscole = 0;
+    double percentagePunteg = 0;
+    double percentageCifre = 0;
+    double percentageOther = 0;
     strcat(outString, "Statistics:\n");
     sprintf(tmpString, "  Tutto: %llu\n", tutto);
     strcat(outString, tmpString);
     if (tutto != 0 && maiuscole != 0) {
       percentageMaiuscole =
-          (int)((long double)maiuscole / (long double)tutto * 100);
+          (double)((long double)maiuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %d%%\n",
+    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %.2f%%\n",
             maiuscole, percentageMaiuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && minuscole != 0) {
       percentageMinuscole =
-          (int)((long double)minuscole / (long double)tutto * 100);
+          (double)((long double)minuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %d%%\n",
+    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %.2f%%\n",
             minuscole, percentageMinuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && punteg != 0) {
-      percentagePunteg = (int)((long double)punteg / (long double)tutto * 100);
+      percentagePunteg =
+          (double)((long double)punteg / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Punteg: %llu  -- percentage over total: %d%%\n",
+    sprintf(tmpString, "  Punteg: %llu  -- percentage over total: %.2f%%\n",
             punteg, percentagePunteg);
     strcat(outString, tmpString);
     if (tutto != 0 && cifre != 0) {
-      percentageCifre = (int)((long double)cifre / (long double)tutto * 100);
+      percentageCifre = (double)((long double)cifre / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Cifre: %llu  -- percentage over total: %d%%\n", cifre,
-            percentageCifre);
+    sprintf(tmpString, "  Cifre: %llu  -- percentage over total: %.2f%%\n",
+            cifre, percentageCifre);
     strcat(outString, tmpString);
     if (tutto != 0 && other != 0) {
-      percentageOther = (int)((long double)other / (long double)tutto * 100);
+      percentageOther = (double)((long double)other / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Other: %llu  -- percentage over total: %d%%\n", other,
-            percentageOther);
+    sprintf(tmpString, "  Other: %llu  -- percentage over total: %.2f%%\n",
+            other, percentageOther);
     strcat(outString, tmpString);
 
     printf("%s\n", outString);
