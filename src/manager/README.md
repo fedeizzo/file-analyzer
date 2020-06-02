@@ -5,7 +5,7 @@ Manager is the second element of the chain (starting from the bottom). The task 
 * a number that indicates the number of worker that the manager must handle
 
 ## Structure
-The structure of a manger is basically composed by two threads. One read from standard input for new directives, the other communicates with workers.
+The structure of a manger is basically composed by two threads. One reads from standard input for new directives, the other communicates with workers.
 
 ### Directives thread
 The task of this thread is very simple:
@@ -28,13 +28,13 @@ The task of this thread is composed by some sequentially steps:
 #### New directives
 If a new directive was added the size of the file is analyzed, then works equal to current number of workers are created splitting the total size of the file.
 
-If the worker amount changes during the execution all doing works become invalidated and are split in multiples works. This operation is made for efficiency and parallelism reasons.
+If the worker amount changes during the execution, all doing works become invalidated and are split in multiples works. This operation is made for efficiency and parallelism reasons.
 
 #### Read worker's work
-Workers' works are read once for cycle. The manger try to read all worker's work amount for efficiency reason. After all work is sent the worker send a control word in order to notify if everything is ok. If done is received manager marks as ended the worker's work, otherwise worker's work is moved in to do list.
+Workers' works are read once for cycle. The manger try to read all worker's work amount for efficiency reason. After all work is sent the worker send a control word in order to notify if everything is ok. If done is received, manager marks as ended the worker's work, otherwise worker's work is moved in to do list.
 
 #### Spawn process
-By default a manger spawns four manager. The spawn process consists in:
+By default a manger spawns four worker. The spawn process consists in:
 
 1. creates two pipes (one for read, another for write)
 2. set pipes as non blocking

@@ -29,7 +29,6 @@ typedef struct sharedResources {
   List todo;
   List workers;
   List tables;
-  int summaryFlag;
   pthread_mutex_t mutex;
 } sharedResources_t;
 
