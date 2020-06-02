@@ -18,6 +18,4 @@ The atomicity of the write operation is around 4000 Bytes but in this case is no
 
 The worker performance are very impressive. The 15 Gb was read in about 30 seconds (intel i7 7th gen, 40 Gb ram and ssd), the main problem is the pipe for the communication. They have the limit size of about 65000 bytes.
 
-
-## Schema
 ![Worker schema](./Worker.png)
