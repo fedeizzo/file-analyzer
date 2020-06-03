@@ -8,7 +8,7 @@ The user interface is divided in 7 specific blocks, each of them may has differe
 * **Quick help**: quick help block displays all possible commands for user input block.
 * **Tree input**: tree input block allows to move in the file system.
 * **Current directory**: current directory block displays the current directory.
-* **File system**: file system block displays files and directories of the current directory.
+* **File system**: file system block displays files and directories inserted in user input block of the current directory.
 * **Percentages**: percentages block displays the percentages of some groups of char over the total.
 * **Help message/Table presentation**: this block display the help message or the table that contains the count
 
@@ -40,6 +40,8 @@ User input block is populated after a key is pressed. When line feed is pressed 
 * **punteg.**: highlight only punctuation letters on the table
 * **cifre**: highlight only digits on the table
 * **tutto**: highlight all ASCII letters on the table
+
+The path written by the user can be relative or absolute and supports . and .. but.
 
 ### Tree input
 Tree input block is populated after a key is pressed only if the tree command was typed on the user input. The tree input has four different types of input:
