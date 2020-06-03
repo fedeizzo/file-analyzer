@@ -28,7 +28,7 @@ typedef struct sharedResourcesAnalyzer {
   char *cwd;
   char *path;
   char *processCwd;
-  char *toRetrive;
+  char *toRetrieve;
   int *nManager;
   int *nWorker;
   int sendChanges;

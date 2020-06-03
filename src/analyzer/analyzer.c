@@ -508,7 +508,7 @@ int writeBashProcess(int *fd, char *argv[]);
 int readBashLines(int *fd, char *dst, int childPid);
 
 /**
- * Function that sets up a bash call in order to retrive the type of the path
+ * Function that sets up a bash call in order to retrieve the type of the path
  * passed in input (if it's a file, a folder or it doesn't exist in that
  * particular scope or at all)
  *
@@ -2649,13 +2649,13 @@ void *readFromFIFOLoop(void *ptr) {
             // fprintf(stderr, "unlock lettura richieste RFIFO\n");
             pthread_mutex_unlock(&(sharedResources->mutex));
           } else if (strcmp(dst, "tree") == 0) {
-            char *toRetrive = front(dire);
-            printf("voglio i figli di : %s\n", toRetrive);
-            if (toRetrive != NULL) {
+            char *toRetrieve = front(dire);
+            printf("voglio i figli di : %s\n", toRetrieve);
+            if (toRetrieve != NULL) {
               // fprintf(stderr, "lock lettura cartella RFIFO\n");
               pthread_mutex_lock(&(sharedResources->mutex));
               // fprintf(stderr, "OTTENGO lock lettura cartella RFIFO\n");
-              sharedResources->toRetrive = toRetrive;
+              sharedResources->toRetrieve = toRetrieve;
               // fprintf(stderr, "unlock lettura cartella RFIFO\n");
               pthread_mutex_unlock(&(sharedResources->mutex));
               pop(dire);
@@ -2838,13 +2838,13 @@ void *writeOnFIFOLoop(void *ptr) {
     // fprintf(stderr, "lock scrittura figli WFIFO\n");
     pthread_mutex_lock(&(sharedResources->mutex));
     // fprintf(stderr, "OTTENGO lock scrittura figli WFIFO\n");
-    if (sharedResources->toRetrive != NULL) {
+    if (sharedResources->toRetrieve != NULL) {
       if (fd > 0) {
-        if (strcmp(sharedResources->toRetrive, "/") == 0) {
+        if (strcmp(sharedResources->toRetrieve, "/") == 0) {
           requested = getRoot(sharedResources->fs);
         } else {
           requested =
-              performInsert(sharedResources->toRetrive, NULL,
+              performInsert(sharedResources->toRetrieve, NULL,
                             getRoot(sharedResources->fs), DIRECTORY, &msg);
         }
         if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
@@ -2853,10 +2853,10 @@ void *writeOnFIFOLoop(void *ptr) {
           //! check if this causes any error
           sharedResources->cwd[0] = '/';
           sharedResources->cwd[1] = 0;
-          strcat(sharedResources->cwd, sharedResources->toRetrive);
+          strcat(sharedResources->cwd, sharedResources->toRetrieve);
           // printf("NUOVO CWD: %s\n", sharedResources->cwd);
           // chdir(sharedResources->cwd);
-          // strcpy(sharedResources->cwd, sharedResources->toRetrive);
+          // strcpy(sharedResources->cwd, sharedResources->toRetrieve);
           rc_ctr = sendChildToReporter(requested, fd, toSend);
           if (rc_ctr != SUCCESS) {
             rc_t = errorHandler(rc_ctr);
@@ -2867,8 +2867,8 @@ void *writeOnFIFOLoop(void *ptr) {
         }
       }
       //! MAY BREAK SMTH
-      free(sharedResources->toRetrive);
-      sharedResources->toRetrive = NULL;
+      free(sharedResources->toRetrieve);
+      sharedResources->toRetrieve = NULL;
     }
     // fprintf(stderr, "unlock scrittura figli WFIFO\n");
     pthread_mutex_unlock(&(sharedResources->mutex));
@@ -3222,7 +3222,7 @@ int main() {
     sharedResources.nWorker = &defaultWorkers;
     sharedResources.path = path;
     sharedResources.candidateNode = candidateNode;
-    sharedResources.toRetrive = NULL;
+    sharedResources.toRetrieve = NULL;
     sharedResources.requestedFilesTable = requestedFilesTable;
     sharedResources.sendChanges = -1;
     pthread_t reads;
