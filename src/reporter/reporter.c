@@ -354,7 +354,13 @@ void *userInputLoop(void *ptr) {
       } else if (strcmp(dst, "requ") == 0) {
         printf("%s\n", requMsg);
         pthread_mutex_lock(&(input->mutex));
-        readResult(input->userInput->results, input->cwd);
+        destroyList(input->userInput->results, free);
+        input->userInput->results = newList();
+        int i = 0;
+        for (i = 0; i < NCHAR_TABLE; i++)
+          input->userInput->table[i] = 0;
+        if (input->userInput->results != NULL)
+          readResult(input->userInput->results, input->cwd);
         pthread_mutex_unlock(&(input->mutex));
         clear();
         moveCursor(0, 0);
@@ -795,17 +801,20 @@ int readResult(List pathResults, char *cwd) {
       endFlag = 0;
     } else if (path[0] != '\0' && rc_t == SUCCESS) {
       char *newResult = malloc(PATH_MAX * sizeof(char));
+      char *rlPath = malloc(PATH_MAX * sizeof(char));
       int rc_al = checkAllocationError(newResult);
-      if (rc_al == SUCCESS) {
+      int rc_al2 = checkAllocationError(rlPath);
+      if (rc_al == SUCCESS && rc_al2 == SUCCESS) {
         if (path[0] != '/') {
           strcat(newResult, cwd);
           strcat(newResult, "/");
           strcat(newResult, path);
+          realpath(newResult, rlPath);
         } else {
-          strcpy(newResult, path);
+          strcpy(rlPath, path);
         }
         free(path);
-        rc_t = enqueue(pathResults, newResult);
+        rc_t = enqueue(pathResults, rlPath);
       } else {
         rc_t = MALLOC_FAILURE;
       }
