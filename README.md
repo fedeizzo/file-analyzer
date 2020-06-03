@@ -13,7 +13,7 @@ Obs: With a small amount of work is possible to change the lowest component of t
 The goal of this project is to learn most of C system calls and to take confident with GNU/Linux environment.
 
 ## Team
-![Federico Izzo](./teamAsciiArt/FedericoIzzo.png)
-![Simone Alghisi](./teamAsciiArt/SimoneAlghisi.png)
-![Federico Izzo](./teamAsciiArt/FedericoIzzo.png)
-![Simone Alghisi](./teamAsciiArt/SimoneAlghisi.png)
+![Federico Izzo](./team/FedericoIzzo.png)
+![Simone Alghisi](./team/SimoneAlghisi.png)
+![Federico Izzo](./team/FedericoIzzo.png)
+![Simone Alghisi](./team/SimoneAlghisi.png)
