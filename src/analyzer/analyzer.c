@@ -266,7 +266,6 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
  */
 void *readDirectivesLoop(void *ptr);
 
-// TODO... check the returning value of this function cause it's always SUCCESS
 /**
  * Function that waits (in a non blocking way) for user's input (or reporter
  * comunication) for 3 parameters and then casts two of them to integer
@@ -489,7 +488,6 @@ int callBashProcess(char *dst, char *argv[]);
  */
 int writeBashProcess(int *fd, char *argv[]);
 
-// TODO... remember to fix this return code
 /**
  * Function that reads the informations writed by the child on a non blocking
  * pipe
@@ -503,7 +501,7 @@ int writeBashProcess(int *fd, char *argv[]);
  * be stucked in the non blocking pipe
  *
  * returns
- *    SUCCESS and only success at the moment
+ *    SUCCESS or a negative number which must be handled
  */
 int readBashLines(int *fd, char *dst, int childPid);
 
@@ -882,7 +880,6 @@ FileInfo initFileInfoRoot(int *msg) {
     if (strcpy(rootName, "/") != NULL)
       rootData = newFileInfo((void *)rootName, DIRECTORY, NULL, &rc_nc);
   }
-  // Error checking
   if (rc_ca != SUCCESS || rc_nc != SUCCESS) {
     *msg = MALLOC_FAILURE;
   }
@@ -943,7 +940,6 @@ void destroyFileInfo(void *toDestroy) {
 int checkStrcpy(char *dst, char *src) {
   int rc_cp = SUCCESS;
   if (strcpy(dst, src) == NULL) {
-    // DAI, SIAMO SERI?
     rc_cp = FAILURE;
   }
   return rc_cp;
@@ -987,7 +983,7 @@ TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
         tmpCounter = 0;
       }
     }
-    if (found == 0) { // The new Element wasn't a children of mine then i need
+    if (found == 0) { // The new Element wasn't a children of mine so I need
                       // to add it to my children
       if (toExamine ==
           NULL) { // I need to attach the children to the Starting Point
@@ -1133,9 +1129,6 @@ TreeNode createNewTreeElement(FileInfo dataToInsert, TreeNode toInsert,
   toInsert = newTreeNode(whereToInsert, (void *)dataToInsert, &rc_tc);
   if (rc_nc == SUCCESS && rc_tc == SUCCESS) {
     rc_link = linkChild(whereToInsert, toInsert);
-    /*printf("inserisco %s tra i figli di %s\n",
-       ((FileInfo)toInsert->data)->name,
-           ((FileInfo)whereToInsert->data)->name);*/
     if (rc_link != SUCCESS) {
       if (rc_link != NULL_POINTER) {
         *msg = MALLOC_FAILURE;
@@ -1157,6 +1150,7 @@ void *readDirectivesLoop(void *ptr) {
   TreeNodeCandidate toAnalyze;
   int rc_t = SUCCESS;
   int rc_cma = SUCCESS;
+  int rc_rm = SUCCESS;
   int rc_ct = SUCCESS;
   int rc_an = SUCCESS;
   int rc_pu = SUCCESS;
@@ -1186,11 +1180,8 @@ void *readDirectivesLoop(void *ptr) {
       rc_al4 != SUCCESS) {
     rc_t = MALLOC_FAILURE;
   } else {
-    // fprintf(stderr, "lock cwd RD\n");
     pthread_mutex_lock(&(sharedResources->mutex));
-    // fprintf(stderr, "OTTENGO lock cwd RD\n");
     strcpy(tmpCwd, sharedResources->cwd);
-    // fprintf(stderr, "unlock cwd RD\n");
     pthread_mutex_unlock(&(sharedResources->mutex));
   }
 
@@ -1209,60 +1200,45 @@ void *readDirectivesLoop(void *ptr) {
     }
 
     if (rc_ct != CAST_FAILURE) {
-      // fprintf(stderr, "lock inserimento direttive RD\n");
       pthread_mutex_lock(&(sharedResources->mutex));
-      // fprintf(stderr, "OTTENGO lock inserimento direttive RD\n");
-      *(sharedResources->nWorker) = newNWorker;
       strcpy(sharedResources->path, newPath);
-      // fprintf(stderr, "controllo numero manager RD\n");
       if ((*(sharedResources->nManager)) != newNManager) {
-        // fprintf(stderr, "PRIMA di cambiare numero manager RD\n");
         rc_cma = changeManagersAmount(sharedResources->managers,
                                       *(sharedResources->nManager), newNManager,
                                       sharedResources->fileToAssign);
-        // fprintf(stderr, "DOPO aver cambiato numero manager RD\n");
+        printf("Manager's number has been changed to %d\n", newNManager);
         if (rc_cma != SUCCESS) {
           rc_t = errorHandler(rc_cma);
         }
         (*(sharedResources->nManager)) = newNManager;
       }
-      // fprintf(stderr, "unlock inserimento direttive RD\n");
-      pthread_mutex_unlock(&(sharedResources->mutex));
-    } else {
-      rc_t = errorHandler(INVALID_SYNTAX_ERROR);
-    }
 
-    if (rc_ct == SUCCESS) {
-      if (strcmp(newPath, "///") == 0) {
-        // fprintf(stderr, "lock cambio worker RD\n");
-        pthread_mutex_lock(&(sharedResources->mutex));
-        // fprintf(stderr, "OTTENGO lock cambio worker RD\n");
-        // TODO check return code
-        removeManagers(sharedResources->managers, 0,
+      if((*(sharedResources->nWorker)) != newNWorker){
+        (*(sharedResources->nWorker)) = newNWorker;
+        printf("Worker's number has been changed to %d\n", newNWorker);
+        rc_rm = removeManagers(sharedResources->managers, 0,
                        sharedResources->fileToAssign);
         rc_cwa = changeWorkerAmount(sharedResources->managers,
                                     *(sharedResources->nWorker));
         if (rc_cwa != SUCCESS) {
           rc_t = errorHandler(rc_cwa);
         }
-        // fprintf(stderr, "unlock cambio worker RD\n");
-        pthread_mutex_unlock(&(sharedResources->mutex));
-      } else {
-        // fprintf(stderr, "lock copia cwd RFIFO\n");
+        if(rc_t == SUCCESS && rc_rm != SUCCESS){
+          rc_t = errorHandler(rc_rm);
+        }
+      }
+      pthread_mutex_unlock(&(sharedResources->mutex));
+    } else {
+      rc_t = errorHandler(INVALID_SYNTAX_ERROR);
+    }
+
+    if (rc_ct == SUCCESS) {
+      if (strcmp(newPath, "///") != 0) {
         pthread_mutex_lock(&(sharedResources->mutex));
-        // fprintf(stderr, "OTTENGO lock copia cwd RFIFO\n");
-        // TODO... check strcpy errors with the special function created just
-        // for
         strcpy(tmpCwd, sharedResources->cwd);
-        // fprintf(stderr, "PRIMA di precompute analyzer input RD\n");
-        // printf("PROCESS CWD: %s, SHARED CWD: %s, TMPCWD: %s\n",
-        // sharedResources->processCwd, sharedResources->cwd, tmpCwd);
         type = precomputeAnalyzerInput(tmpCwd, sharedResources->processCwd,
                                        newPath, &rc_an);
-        // fprintf(stderr, "DOPO precompute analyzer input RD, TYPE: %d\n",
-        // type);
         pthread_mutex_unlock(&(sharedResources->mutex));
-        // fprintf(stderr, "unlock copia cwd RFIFO\n");
         if (rc_an != SUCCESS) {
           rc_t = errorHandler(rc_an);
         } else {
@@ -1272,15 +1248,10 @@ void *readDirectivesLoop(void *ptr) {
           if (type == DIRECTORY || type == IS_FILE) {
             toSkip = 0;
             startingNode = NULL;
-            // fprintf(stderr, "lock precompute startng directory RD\n");
             pthread_mutex_lock(&(sharedResources->mutex));
-            // fprintf(stderr, "OTTENGO lock precompute startng directory
-            // RD\n");
             startingNode = precomputeStartingDirectory(
                 sharedResources->fs, sharedResources->currentDirectory, newPath,
                 &toSkip);
-            // printf("starting directory: %s, newPath: %s, toSkip: %d\n",
-            // ((FileInfo)(startingNode->data))->name, newPath, toSkip);
             rc_ntnc = SUCCESS;
             toAnalyze = newTreeNodeCandidate(startingNode, type, newPath,
                                              toSkip, &rc_ntnc);
@@ -1295,7 +1266,6 @@ void *readDirectivesLoop(void *ptr) {
             } else {
               rc_t = errorHandler(MALLOC_FAILURE);
             }
-            // fprintf(stderr, "unlock precompute startng directory RD\n");
             pthread_mutex_unlock(&(sharedResources->mutex));
           } else {
             if (type == NOT_EXISTING) {
@@ -1317,12 +1287,10 @@ void *readDirectivesLoop(void *ptr) {
     }
     usleep(500);
   }
-  // TODO... debug only
   free(newPath);
   free(nWorker);
   free(nManager);
   free(tmpCwd);
-  printf("SONO MORTO readDirectivesLoop %d\n", rc_t);
   kill(getpid(), SIGKILL);
 }
 
@@ -1532,9 +1500,6 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
   if (rc_sw != SUCCESS) {
     rc_t = errorHandler(UNEXPECTED_PRIORITY_QUEUE_FAILURE);
   }
-  printf("Dopo aver rimodulato i manager la lista di file da riassegnare e' di "
-         "%d\n",
-         fileToAssign->size);
   return rc_t;
 }
 
@@ -1573,8 +1538,8 @@ int informManager(Manager manager) {
   int *fd = manager->pipe;
   char *stopMsg = malloc(sizeof(char) * (CONTROL_WORD_LEN * 2));
   int rc_al = checkAllocationError(stopMsg);
-  int rc_ss = sprintf(stopMsg, "%s\n%s", CONTROL_STOP, CONTROL_STOP);
   if (rc_al == SUCCESS) {
+    int rc_ss = sprintf(stopMsg, "%s\n%s", CONTROL_STOP, CONTROL_STOP);
     if (fd != NULL) {
       if (rc_ss >= 0) {
         int rc_wr = writeDescriptor(fd[WRITE_CHANNEL], stopMsg);
@@ -1604,14 +1569,11 @@ int precomputeAnalyzerInput(char *cwd, char *processCwd, char *path, int *msg) {
     if (path[0] == '/') {
       isAbsolutePath = ABSOLUTE;
     }
-    // printf("PRIMA CP: path %s, cwd %s\n", path, cwd);
     *msg = compactPath(path, cwd, processCwd, isAbsolutePath);
-    // printf("DOPO CP: path %s, cwd %s\n", path, cwd);
     if (*msg == SUCCESS) {
       type = checkFileType(path);
     }
   }
-  // fprintf(stderr, "codice ritorno PAI %d\n", *msg);
   return type;
 }
 
@@ -1627,10 +1589,8 @@ int compactPath(char *path, char *cwd, char *processCwd, int isAbsolute) {
     if (rc_al == SUCCESS) {
       rc_t = callBashProcess(tmpPath, argv);
       if (rc_t == SUCCESS) {
-        // printf("Percorso da aggiungere al path pari a %s\n", tmpPath);
         strcat(tmpPath, "/");
         strcat(tmpPath, path);
-        // printf("Path complessivo da usare %s\n", tmpPath);
         argv[3] = processCwd;
         argv[4] = tmpPath;
         rc_t = callBashProcess(path, argv);
@@ -1682,14 +1642,7 @@ int writeBashProcess(int *fd, char *argv[]) {
   }
   int rc_ex = execvp(argv[0], argv);
   if (rc_t == SUCCESS && rc_ex != SUCCESS) {
-    char *msgErr = (char *)malloc(sizeof(char) * 1000);
-    int rc_ca = checkAllocationError(msgErr);
-    if (rc_ca < 0) {
-      rc_t = errorHandler(MALLOC_FAILURE);
-    } else {
-      rc_t = errorHandler(BASH_FAILURE);
-      free(msgErr);
-    }
+    rc_t = errorHandler(BASH_FAILURE);
     kill(getpid(), SIGKILL);
   }
   return rc_t;
@@ -1839,7 +1792,6 @@ TreeNodeCandidate newTreeNodeCandidate(TreeNode startingNode, int typeOfFile,
     if (rc_al2 == SUCCESS) {
       candidate->startingNode = startingNode;
       candidate->type = typeOfFile;
-      // TODO... handle with strcpy function for any errors
       strcpy(candidate->path, path);
       candidate->toSkip = characterToSkip;
     } else {
@@ -1938,9 +1890,7 @@ void *fileManageLoop(void *ptr) {
 
   while (rc_t == SUCCESS) {
     if (readFlag != SUCCESS) {
-      // fprintf(stderr, "lock estrazione tree node candidate FM\n");
       pthread_mutex_lock(&(sharedResources->mutex));
-      // fprintf(stderr, "OTTENGO lock estrazione tree node candidate FM\n");
       if (isEmptyList(sharedResources->candidateNode) == NOT_EMPTY) {
         candidate = (TreeNodeCandidate)front(sharedResources->candidateNode);
         int rt_po = pop(sharedResources->candidateNode);
@@ -1950,17 +1900,13 @@ void *fileManageLoop(void *ptr) {
           insertFlag = SUCCESS;
         }
       }
-      // fprintf(stderr, "unlock estrazione tree node candidate FM\n");
       pthread_mutex_unlock(&(sharedResources->mutex));
     } else {
       insertFlag = FAILURE;
     }
-
-    // Parte di inserimento
     if (insertFlag == SUCCESS) {
       childPid = 0;
       if (candidate->type == DIRECTORY) {
-        // printCandidateNode((void *)candidate);
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
         readFlag = 1;
         if (rc_find != SUCCESS) {
@@ -1970,21 +1916,15 @@ void *fileManageLoop(void *ptr) {
         }
       } else {
         skipPath(candidate->path, relativePath, candidate->toSkip);
-        // fprintf(stderr, "lock inserimento nel tree FM\n");
         pthread_mutex_lock(&(sharedResources->mutex));
-        // fprintf(stderr, "OTTENGO lock inserimento nel tree FM\n");
-        //! Changed this code with the function created for that specific case
-        //! so need to check if I didn't break anything
         rc_ia = insertAndSchedule(candidate->startingNode,
                                   sharedResources->fileToAssign, relativePath,
                                   candidate->path);
-        // fprintf(stderr, "unlock inserimento nel tree FM\n");
         pthread_mutex_unlock(&(sharedResources->mutex));
         insertFlag = FAILURE;
       }
     }
 
-    // Parte di lettura
     if (readFlag == SUCCESS) {
       bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
       if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
@@ -1995,17 +1935,11 @@ void *fileManageLoop(void *ptr) {
               relativePath[counter] = '\0';
               candidate->path[counter + skipped] = '\0';
               if (counter > 0) {
-                // fprintf(stderr, "lock inserimento file a fileToAssign FM\n");
                 pthread_mutex_lock(&(sharedResources->mutex));
-                // fprintf(stderr, "OTTENGO lock inserimento file a fileToAssign
-                // FM\n"); printf("relative path: %s, candidate path: %s\n",
-                // relativePath, candidate->path);
                 rc_ia = insertAndSchedule(candidate->startingNode,
                                           sharedResources->fileToAssign,
                                           relativePath, candidate->path);
                 pthread_mutex_unlock(&(sharedResources->mutex));
-                // fprintf(stderr, "unlock inserimento file a fileToAssign
-                // FM\n");
                 if (rc_ia != SUCCESS) {
                   rc_t = errorHandler(rc_ia);
                 }
@@ -2026,11 +1960,8 @@ void *fileManageLoop(void *ptr) {
           rc_t = errorHandler(PIPE_FAILURE);
         }
         readFlag = FAILURE;
-        // fprintf(stderr, "lock distruzione candidate node FM\n");
         pthread_mutex_lock(&(sharedResources->mutex));
-        // fprintf(stderr, "OTTENGO lock distruzione candidate node FM\n");
         destroyTreeNodeCandidate(candidate);
-        // fprintf(stderr, "unlock distruzione candidate node FM\n");
         pthread_mutex_unlock(&(sharedResources->mutex));
       }
     }
@@ -2138,8 +2069,7 @@ void *sendFileLoop(void *ptr) {
   int numbersToRead = NCHAR_TABLE;
   int bytesRead = 1;
   int insertCounter = 0;
-  // TODO... DEBUG ONLY
-  int counterFiles = 0;
+  long long unsigned counterFiles = 0;
   int rc_ca = checkAllocationError(path);
   int rc_ca2 = checkAllocationError(number);
   int rc_ca3 = checkAllocationError(controlWord);
@@ -2148,15 +2078,10 @@ void *sendFileLoop(void *ptr) {
     rc_t = errorHandler(MALLOC_FAILURE);
   }
   while (rc_t == SUCCESS) {
-    // fprintf(stderr, "lock lettura manager SF\n");
     pthread_mutex_lock(&(sharedResources->mutex));
-    // fprintf(stderr, "OTTENGO lock lettura manager SF\n");
     nManager = (*(sharedResources->nManager));
-    // printf("OTTENGO lock lettura manager SF con SIZE: %d\n",
-    // *(sharedResources->nManager));
     while (nManager > 0 && rc_t == SUCCESS) {
       manager = popPriorityQueue(sharedResources->managers);
-      // printf("controllo il manager %d\n", manager->m_pid);
       if (manager != NULL) {
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
@@ -2171,7 +2096,6 @@ void *sendFileLoop(void *ptr) {
               bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
             }
             path[counter] = 0;
-            // printf("nome file ottenuto da %d\n", manager->m_pid);
             node = manager->filesInExecution->head;
             found = 0;
             while (node != NULL && found == 0 && rc_t == SUCCESS) {
@@ -2224,7 +2148,6 @@ void *sendFileLoop(void *ptr) {
                 number[0] = 0;
                 numbersToRead--;
               }
-              // printf("risultati ottenuti da %d\n", manager->m_pid);
               counter = 0;
               int stopRead = 0;
               if (isManagerAlive(manager) == SUCCESS) {
@@ -2235,9 +2158,8 @@ void *sendFileLoop(void *ptr) {
                   if (bytesRead > 0) {
                     if (strcmp(controlWord, CONTROL_DONE) == 0) {
                       if (found == 1) {
-                        // TODO... these two lines are for debug only
                         counterFiles++;
-                        printf("path: %s, size: %d\n", path, counterFiles);
+                        printf("File analyzed: %s, total analyzed files: %llu\n", path, counterFiles);
                         rc_dn =
                             detachNodeFromList(manager->filesInExecution, node);
                         if (info->isRequested == SUCCESS) {
@@ -2308,7 +2230,6 @@ void *sendFileLoop(void *ptr) {
         errorHandler(rc_mfs);
       }
     }
-    // fprintf(stderr, "unlock lettura manager SF\n");
     pthread_mutex_unlock(&(sharedResources->mutex));
     usleep(500);
   }
@@ -2425,6 +2346,7 @@ void *readFromFIFOLoop(void *ptr) {
   int rc_en = SUCCESS;
   int rc_st = SUCCESS;
   int rc_cwa = SUCCESS;
+  int rc_rm = SUCCESS;
   int rc_cma = SUCCESS;
   int rc_an = SUCCESS;
   int rc_al = SUCCESS;
@@ -2433,7 +2355,6 @@ void *readFromFIFOLoop(void *ptr) {
   int rc_rqf = SUCCESS;
   int rc_pu = SUCCESS;
   int rc_pi = SUCCESS;
-  int rc_cl = SUCCESS;
   int rc_po = SUCCESS;
   int rc_po2 = SUCCESS;
   int rc_po3 = SUCCESS;
@@ -2448,12 +2369,9 @@ void *readFromFIFOLoop(void *ptr) {
   if (dire == NULL) {
     rc_al2 = MALLOC_FAILURE;
   }
-
   if (rc_al != SUCCESS || rc_al2 != SUCCESS) {
     rc_t = MALLOC_FAILURE;
   }
-
-  // TODO... add checks, ovviamente vanno fixati
   while (rc_t == SUCCESS) {
     if (access(readFifo, F_OK) == 0) {
       int fd = open(readFifo, O_RDONLY);
@@ -2468,13 +2386,10 @@ void *readFromFIFOLoop(void *ptr) {
           readString(fd, dst);
           if (strcmp(dst, "dire") == 0) {
             char *newPath = front(dire);
-            printf("path: %s\n", newPath);
             rc_po = pop(dire);
             char *nManager = front(dire);
-            printf("manager: %s\n", nManager);
             rc_po2 = pop(dire);
             char *nWorker = front(dire);
-            printf("worker: %s\n", nWorker);
             rc_po3 = pop(dire);
             if (rc_po != SUCCESS || rc_po2 != SUCCESS || rc_po3 != SUCCESS) {
               rc_t = errorHandler(UNEXPECTED_LIST_ERROR);
@@ -2493,53 +2408,44 @@ void *readFromFIFOLoop(void *ptr) {
             }
 
             if (rc_t == SUCCESS) {
-              // fprintf(stderr, "lock inserimento direttive RFIFO\n");
               pthread_mutex_lock(&(sharedResources->mutex));
-              // fprintf(stderr, "OTTENGO lock inserimento direttive RFIFO\n");
-              (*(sharedResources->nWorker)) = newNWorker;
-              // TODO... handle with strcpy wrapper function
               strcpy(sharedResources->path, newPath);
-              // fprintf(stderr, "controllo numero manager RFIFO\n");
               if ((*(sharedResources->nManager)) != newNManager) {
-                // fprintf(stderr, "PRIMA di cambiare numero manager RFIFO\n");
-                rc_cma = changeManagersAmount(
-                    sharedResources->managers, *(sharedResources->nManager),
-                    newNManager, sharedResources->fileToAssign);
-                // fprintf(stderr, "DOPO aver cambiato numero manager RFIFO\n");
+                rc_cma = changeManagersAmount(sharedResources->managers,
+                                              *(sharedResources->nManager), newNManager,
+                                              sharedResources->fileToAssign);
+                printf("Manager's number has been changed to %d\n", newNManager);
                 if (rc_cma != SUCCESS) {
                   rc_t = errorHandler(rc_cma);
                 }
                 (*(sharedResources->nManager)) = newNManager;
               }
-              // fprintf(stderr, "unlock inserimento direttive RFIFO\n");
+              //TODO... sposta changeworkeramount qui e usa newNWorker come numero per l'invio
+              //! poi nell'if lascia soltanto la remove manager in modo da raccogliere i file se il
+              //! numero di worker è cambiato e riassegnarglieli 
+              if((*(sharedResources->nWorker)) != newNWorker){
+                (*(sharedResources->nWorker)) = newNWorker;
+                printf("Worker's number has been changed to %d\n", newNWorker);
+                rc_rm = removeManagers(sharedResources->managers, 0,
+                              sharedResources->fileToAssign);
+                rc_cwa = changeWorkerAmount(sharedResources->managers,
+                                            *(sharedResources->nWorker));
+                if (rc_cwa != SUCCESS) {
+                  rc_t = errorHandler(rc_cwa);
+                }
+                if(rc_t == SUCCESS && rc_rm != SUCCESS){
+                  rc_t = errorHandler(rc_rm);
+                }
+              }
               pthread_mutex_unlock(&(sharedResources->mutex));
             } else {
               rc_t = errorHandler(INVALID_SYNTAX_ERROR);
             }
 
             if (rc_t == SUCCESS) {
-              if (strcmp(newPath, "///") == 0) {
-                // fprintf(stderr, "lock cambio numero worker RFIFO\n");
+              if (strcmp(newPath, "///") != 0) {
                 pthread_mutex_lock(&(sharedResources->mutex));
-                // fprintf(stderr, "OTTENGO lock cambio numero worker RFIFO\n");
-                // TODO check return code
-                removeManagers(sharedResources->managers, 0,
-                               sharedResources->fileToAssign);
-                rc_cwa = changeWorkerAmount(sharedResources->managers,
-                                            *(sharedResources->nWorker));
-                if (rc_cwa != SUCCESS) {
-                  rc_t = errorHandler(rc_cwa);
-                }
-                // fprintf(stderr, "unlock cambio numero worker RFIFO\n");
-                pthread_mutex_unlock(&(sharedResources->mutex));
-              } else {
-                // fprintf(stderr, "lock copia cwd RFIFO\n");
-                pthread_mutex_lock(&(sharedResources->mutex));
-                // fprintf(stderr, "OTTENGO lock copia cwd RFIFO\n");
-                // TODO... check strcpy errors with the special function created
-                // just for
                 strcpy(tmpCwd, sharedResources->cwd);
-                // fprintf(stderr, "unlock copia cwd RFIFO\n");
                 type = precomputeAnalyzerInput(
                     tmpCwd, sharedResources->processCwd, newPath, &rc_an);
                 pthread_mutex_unlock(&(sharedResources->mutex));
@@ -2552,10 +2458,7 @@ void *readFromFIFOLoop(void *ptr) {
                   if (type == DIRECTORY || type == IS_FILE) {
                     toSkip = 0;
                     startingNode = NULL;
-                    // fprintf(stderr, "lock precompute starting node RFIFO\n");
                     pthread_mutex_lock(&(sharedResources->mutex));
-                    // fprintf(stderr, "OTTENGO lock precompute starting node
-                    // RFIFO\n");
                     startingNode = precomputeStartingDirectory(
                         sharedResources->fs, sharedResources->currentDirectory,
                         newPath, &toSkip);
@@ -2572,8 +2475,6 @@ void *readFromFIFOLoop(void *ptr) {
                     } else {
                       rc_t = errorHandler(MALLOC_FAILURE);
                     }
-                    // fprintf(stderr, "unlock precompute starting node
-                    // RFIFO\n");
                     pthread_mutex_unlock(&(sharedResources->mutex));
                   } else {
                     if (type == NOT_EXISTING) {
@@ -2594,15 +2495,11 @@ void *readFromFIFOLoop(void *ptr) {
                 }
               }
             }
-            //! possible breaking point
             free(nManager);
             free(nWorker);
             free(newPath);
           } else if (strcmp(dst, "//") == 0) {
-            printf("entro in requ\n");
-            // fprintf(stderr, "lock lettura richieste RFIFO\n");
             pthread_mutex_lock(&(sharedResources->mutex));
-            // fprintf(stderr, "OTTENGO lock lettura richieste RFIFO\n");
             rc_rqf = resetRequestedFile(sharedResources->requestedFiles,
                                         sharedResources->requestedFilesTable);
             if (rc_rqf != SUCCESS) {
@@ -2614,7 +2511,6 @@ void *readFromFIFOLoop(void *ptr) {
                 requested = performInsert(requestedPath, NULL,
                                           getRoot(sharedResources->fs),
                                           DIRECTORY, &rc_pi);
-                // TODO... handle with error handler
                 if (rc_pi == SUCCESS ||
                     rc_pi == ALREADY_INSERTED && requested != NULL) {
                   requestedFile = (FileInfo)requested->data;
@@ -2640,23 +2536,16 @@ void *readFromFIFOLoop(void *ptr) {
               } else {
                 rc_t = errorHandler(NULL_POINTER);
               }
-              printf("file: %s\n", requestedPath);
               pop(dire);
-              //! Possible breaking point
               free(requestedPath);
             }
             sharedResources->sendChanges = SUCCESS;
-            // fprintf(stderr, "unlock lettura richieste RFIFO\n");
             pthread_mutex_unlock(&(sharedResources->mutex));
           } else if (strcmp(dst, "tree") == 0) {
             char *toRetrieve = front(dire);
-            printf("voglio i figli di : %s\n", toRetrieve);
             if (toRetrieve != NULL) {
-              // fprintf(stderr, "lock lettura cartella RFIFO\n");
               pthread_mutex_lock(&(sharedResources->mutex));
-              // fprintf(stderr, "OTTENGO lock lettura cartella RFIFO\n");
               sharedResources->toRetrieve = toRetrieve;
-              // fprintf(stderr, "unlock lettura cartella RFIFO\n");
               pthread_mutex_unlock(&(sharedResources->mutex));
               pop(dire);
             } else {
@@ -2667,7 +2556,6 @@ void *readFromFIFOLoop(void *ptr) {
             if (rc_en != SUCCESS) {
               rc_t = errorHandler(MALLOC_FAILURE);
             }
-            printf("ho encodato %s, newSize %d\n", dst, dire->size);
           } else {
             free(dst);
             readFromFifo = FAILURE;
@@ -2675,15 +2563,10 @@ void *readFromFIFOLoop(void *ptr) {
           usleep(500);
         }
       }
-      rc_cl = close(fd);
-      if (rc_cl != SUCCESS) {
-        // rc_t = errorHandler(FIFO_FAILURE);
-      }
-      printf("chiudo\n");
+      close(fd);
       usleep(500);
     }
   }
-  printf("readFromFIFOLoop DIED: %d\n", rc_t);
   kill(getpid(), SIGKILL);
 }
 
@@ -2716,7 +2599,6 @@ int changeWorkerAmount(PriorityQueue managers, const int amount) {
   if (tmpManagers == NULL || rc_al < SUCCESS) {
     rc_t = MALLOC_FAILURE;
   } else {
-    // TODO... maybe use a define
     rc_ss = sprintf(stopMsg, "%s\n%d", "///", amount);
     if (rc_ss < 0) {
       rc_t = SPRINTF_FAILURE;
@@ -2737,7 +2619,6 @@ int changeWorkerAmount(PriorityQueue managers, const int amount) {
           rc_t = SEND_FAILURE;
         }
       } else {
-        // TODO... handle the error
         if (fd == NULL) {
           rc_t = errorHandler(PIPE_FAILURE);
         }
@@ -2777,7 +2658,7 @@ int resetRequestedFile(List requestedFiles,
       if (requested != NULL && rc_po == SUCCESS) {
         file = (FileInfo)requested->data;
         if (file != NULL) {
-          file->isRequested = -1;
+          file->isRequested = FAILURE;
         } else {
           rc_t = NULL_POINTER;
         }
@@ -2831,13 +2712,11 @@ void *writeOnFIFOLoop(void *ptr) {
   int rc_wd = SUCCESS;
   int rc_ctr = SUCCESS;
   char *writeFifo =
-      "/tmp/analyzerToReporter"; // Non sarebbe meglio una costante? Lol
+      "/tmp/analyzerToReporter";
   int rc_fi = mkfifo(writeFifo, 0666);
   int fd = open(writeFifo, O_WRONLY);
   while (rc_t == SUCCESS) {
-    // fprintf(stderr, "lock scrittura figli WFIFO\n");
     pthread_mutex_lock(&(sharedResources->mutex));
-    // fprintf(stderr, "OTTENGO lock scrittura figli WFIFO\n");
     if (sharedResources->toRetrieve != NULL) {
       if (fd > 0) {
         if (strcmp(sharedResources->toRetrieve, "/") == 0) {
@@ -2848,15 +2727,9 @@ void *writeOnFIFOLoop(void *ptr) {
                             getRoot(sharedResources->fs), DIRECTORY, &msg);
         }
         if (msg == SUCCESS || (msg == ALREADY_INSERTED && requested != NULL)) {
-          // sharedResources->currentDirectory = requested;
-          // TODO... handle strcpy with wrapper function
-          //! check if this causes any error
           sharedResources->cwd[0] = '/';
           sharedResources->cwd[1] = 0;
           strcat(sharedResources->cwd, sharedResources->toRetrieve);
-          // printf("NUOVO CWD: %s\n", sharedResources->cwd);
-          // chdir(sharedResources->cwd);
-          // strcpy(sharedResources->cwd, sharedResources->toRetrieve);
           rc_ctr = sendChildToReporter(requested, fd, toSend);
           if (rc_ctr != SUCCESS) {
             rc_t = errorHandler(rc_ctr);
@@ -2866,16 +2739,12 @@ void *writeOnFIFOLoop(void *ptr) {
           rc_wd = writeDescriptor(fd, "0");
         }
       }
-      //! MAY BREAK SMTH
       free(sharedResources->toRetrieve);
       sharedResources->toRetrieve = NULL;
     }
-    // fprintf(stderr, "unlock scrittura figli WFIFO\n");
     pthread_mutex_unlock(&(sharedResources->mutex));
 
-    // fprintf(stderr, "lock invio tabelle WFIFO\n");
     pthread_mutex_lock(&(sharedResources->mutex));
-    // fprintf(stderr, "OTTENGO lock invio tabelle WFIFO\n");
     if (sharedResources->sendChanges == SUCCESS) {
       if (fd > 0) {
         rc_wd = writeDescriptor(fd, "tabl");
@@ -2889,7 +2758,6 @@ void *writeOnFIFOLoop(void *ptr) {
       }
       sharedResources->sendChanges = -1;
     }
-    // fprintf(stderr, "unlock invio tabelle WFIFO\n");
     pthread_mutex_unlock(&(sharedResources->mutex));
     usleep(500);
   }
@@ -2904,14 +2772,10 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
   FileInfo file = NULL;
   int rc_t = SUCCESS;
   int rc_wd = writeDescriptor(fd, "tree");
-  fprintf(stdout, "Hai richiesto che ti sia inviato il signor: %s\n",
-          ((FileInfo)requested->data)->name);
   if (requested->children != NULL && rc_wd >= SUCCESS) {
-    fprintf(stdout, "La cosa che hai chiesto ha size: %d\n",
-            requested->children->size);
     int rc_ss = sprintf(toSend, "%d", requested->children->size);
     if (rc_ss < 0) {
-      rc_t = errorHandler(SPRINTF_FAILURE);
+      rc_t = SPRINTF_FAILURE;
     } else {
       rc_wd = writeDescriptor(fd, toSend);
       if (rc_wd >= SUCCESS) {
@@ -2921,8 +2785,6 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
           if (child != NULL) {
             file = (FileInfo)child->data;
             if (file != NULL) {
-              fprintf(stdout, "Invio il figlio di nome %s che ha tipo %d\n",
-                      file->name, file->isDirectory);
               rc_wd = writeDescriptor(fd, file->name);
               if (rc_wd > 0) {
                 if (file->isDirectory == DIRECTORY) {
@@ -2931,10 +2793,10 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
                   rc_wd = writeDescriptor(fd, "f");
                 }
                 if (rc_wd < 0) {
-                  // TODO... not sure what to do
+                  rc_t = SEND_FAILURE;
                 }
               } else {
-                // TODO... not sure what to do, vedremo lmao
+                rc_t = SEND_FAILURE;
               }
             } else {
               rc_t = NULL_POINTER;
@@ -2945,12 +2807,16 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
           currentChild = currentChild->next;
         }
       } else {
-        // TODO... to handle???
+        rc_t = SEND_FAILURE;
         writeDescriptor(fd, "0");
       }
     }
   } else {
-    // TODO... to handle???
+    if(requested->children != NULL){
+      rc_t = SEND_FAILURE;
+    } else {
+      rc_t = MALLOC_FAILURE;
+    }
     writeDescriptor(fd, "0");
   }
   return rc_t;
@@ -2987,7 +2853,6 @@ int sendTableToReporter(int fd, long long unsigned *requestedFilesTable) {
 
 int errorHandler(int errorCode) {
   int rc_t = SUCCESS;
-  // printf("LO STRACAZZO DI ERRORE E' %d\n", errorCode);
   switch (errorCode) {
   case READ_FAILURE:
     rc_t = SUCCESS;
@@ -3126,7 +2991,6 @@ int errorHandler(int errorCode) {
     rc_t = HARAKIRI;
     break;
   default:
-    printf("MUOIO PERCHÈ: %d\n", errorCode);
     printError("unknown error");
     rc_t = HARAKIRI;
     break;
