@@ -378,6 +378,7 @@ void *userInputLoop(void *ptr) {
     }
     usleep(50000);
   }
+  kill(getpid(), SIGKILL);
 }
 
 void writeStats(unsigned long long *table) {
@@ -477,10 +478,14 @@ void *writeFifoLoop(void *ptr) {
     pthread_mutex_lock(&(input->mutex));
     strcpy(fifoPath, input->writeFifo);
     pthread_mutex_unlock(&(input->mutex));
-    fd = open(fifoPath, O_WRONLY);
-    pthread_mutex_lock(&(input->mutex));
-    rc_t = sendTree(fd, input->cwd);
-    pthread_mutex_unlock(&(input->mutex));
+    if (access(fifoPath, F_OK) == 0) {
+      fd = open(fifoPath, O_WRONLY);
+      pthread_mutex_lock(&(input->mutex));
+      rc_t = sendTree(fd, input->cwd);
+      pthread_mutex_unlock(&(input->mutex));
+    } else {
+      rc_t = FIFO_FAILURE;
+    }
   }
 
   while (rc_t == SUCCESS) {
@@ -561,6 +566,7 @@ void *writeFifoLoop(void *ptr) {
   }
   close(fd);
   free(fifoPath);
+  kill(getpid(), SIGKILL);
 }
 
 void readString(int fd, char *dst) {
