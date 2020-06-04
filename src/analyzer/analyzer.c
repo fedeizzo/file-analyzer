@@ -1212,14 +1212,11 @@ void *readDirectivesLoop(void *ptr) {
         }
         (*(sharedResources->nManager)) = newNManager;
       }
-
+      rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
       if((*(sharedResources->nWorker)) != newNWorker){
         (*(sharedResources->nWorker)) = newNWorker;
-        printf("Worker's number has been changed to %d\n", newNWorker);
         rc_rm = removeManagers(sharedResources->managers, 0,
-                       sharedResources->fileToAssign);
-        rc_cwa = changeWorkerAmount(sharedResources->managers,
-                                    *(sharedResources->nWorker));
+                      sharedResources->fileToAssign);
         if (rc_cwa != SUCCESS) {
           rc_t = errorHandler(rc_cwa);
         }
@@ -2420,16 +2417,11 @@ void *readFromFIFOLoop(void *ptr) {
                 }
                 (*(sharedResources->nManager)) = newNManager;
               }
-              //TODO... sposta changeworkeramount qui e usa newNWorker come numero per l'invio
-              //! poi nell'if lascia soltanto la remove manager in modo da raccogliere i file se il
-              //! numero di worker è cambiato e riassegnarglieli 
+              rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
               if((*(sharedResources->nWorker)) != newNWorker){
                 (*(sharedResources->nWorker)) = newNWorker;
-                printf("Worker's number has been changed to %d\n", newNWorker);
                 rc_rm = removeManagers(sharedResources->managers, 0,
                               sharedResources->fileToAssign);
-                rc_cwa = changeWorkerAmount(sharedResources->managers,
-                                            *(sharedResources->nWorker));
                 if (rc_cwa != SUCCESS) {
                   rc_t = errorHandler(rc_cwa);
                 }

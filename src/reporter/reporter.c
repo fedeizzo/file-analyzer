@@ -685,12 +685,16 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
     if (newPath[strlen(newPath) - 1] == '\n') {
       newPath[strlen(newPath) - 1] = '\0';
     }
+
     counter = 0;
     do {
       int rc = readChar(READ_CHANNEL, readBuffer);
       nManager[counter++] = readBuffer[0];
     } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
     nManager[counter] = '\0';
+    if (nManager[strlen(nManager) - 1] == '\n') {
+      nManager[strlen(nManager) - 1] = '\0';
+    }
 
     int rc_sc = sscanf(nManager, "%d", &numberManager);
     if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") != 0)) {
@@ -703,6 +707,9 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
       nWorker[counter++] = readBuffer[0];
     } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
     nWorker[counter] = '\0';
+    if (nWorker[strlen(nWorker) - 1] == '\n') {
+      nWorker[strlen(nWorker) - 1] = '\0';
+    }
 
     int rc_sc2 = sscanf(nWorker, "%d", &numberWorker);
     if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") != 0)) {
@@ -779,9 +786,6 @@ int sendDirectives(int fd, char *path, int *numManager, int *numWorker) {
 
   if (fd < SUCCESS)
     rc_t = SEND_FAILURE;
-  else {
-    /* closeDescriptor(fd); */
-  }
 
   return rc_t;
 }

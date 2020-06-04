@@ -380,8 +380,7 @@ void *workLoop(void *ptr) {
     }
     pthread_mutex_lock(&(sharedRes->mutex));
 
-    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0) {
-
+    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0 || sharedRes->directive->currentWorkers != sharedRes->directive->newNWorker) {
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
         rc_wc = changeWorkersAmount(sharedRes->workers,
@@ -881,6 +880,10 @@ void *readDirectives(void *ptr) {
         nWorker[counter++] = readBuffer[0];
       } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
       nWorker[counter] = '\0';
+      if (nWorker[strlen(nWorker) - 1] == '\n') {
+        nWorker[strlen(nWorker) - 1] = '\0';
+      }
+
       if (strncmp(nWorker, "stop", 4) == 0 && stopFlag == 1)
         stopFlag = 1;
       else
