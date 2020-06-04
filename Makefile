@@ -125,3 +125,32 @@ cleanObj:
 
 buildMinimal: build \
 	cleanObj
+
+speed: buildMinimal
+	echo "i'm speeding up"
+	gcc $(FLAGS) $(FLAGS_THREAD) -D SLEEP_FLAG \
+		./src/analyzer/analyzer.c \
+		./src/priorityQueue/priorityQueue.c \
+		./src/table/table.c \
+		./src/tree/tree.c \
+		./src/list/list.c \
+		./src/wrapping/wrapping.c \
+		-o $(BIN_FOLDER)analyzer
+	gcc $(FLAGS) $(FLAGS_THREAD) -D SLEEP_FLAG \
+		./src/reporter/reporter.c \
+		./src/tui/tui.c \
+		./src/list/list.c \
+		./src/wrapping/wrapping.c \
+		-o $(BIN_FOLDER)reporter
+	gcc $(FLAGS) $(FLAGS_THREAD) -D SLEEP_FLAG \
+		./src/worker/worker.c \
+		./src/wrapping/wrapping.c \
+		-o $(BIN_FOLDER)worker
+	gcc $(FLAGS) $(FLAGS_THREAD) -D SLEEP_FLAG \
+		./src/manager/manager.c \
+		./src/table/table.c \
+		./src/list/list.c \
+		./src/wrapping/wrapping.c \
+		./src/work/work.c \
+		-o $(BIN_FOLDER)manager
+	echo "done"

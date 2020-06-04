@@ -15,6 +15,10 @@
 #include "../worker/worker.h"
 #include "../wrapping/wrapping.h"
 
+#ifndef SLEEP_FLAG
+#define SLEEP_FLAG 0
+#endif
+
 Worker newWorker() {
   int rc_al = SUCCESS;
   int rc_al2 = SUCCESS;
@@ -373,14 +377,17 @@ void *workLoop(void *ptr) {
       pthread_mutex_lock(&(sharedRes->mutex));
       directives = sharedRes->directive->directiveStatus;
       pthread_mutex_unlock(&(sharedRes->mutex));
-      usleep(5000);
+      if (SLEEP_FLAG == SUCCESS)
+        usleep(5000);
     }
     if (kill(getppid(), 0) != 0) {
       kill(getpid(), SIGKILL);
     }
     pthread_mutex_lock(&(sharedRes->mutex));
 
-    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0 || sharedRes->directive->currentWorkers != sharedRes->directive->newNWorker) {
+    if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0 ||
+        sharedRes->directive->currentWorkers !=
+            sharedRes->directive->newNWorker) {
       if (sharedRes->directive->currentWorkers !=
           sharedRes->directive->newNWorker) {
         rc_wc = changeWorkersAmount(sharedRes->workers,
@@ -424,7 +431,8 @@ void *workLoop(void *ptr) {
       if (rc_work < SUCCESS)
         rc_work = errorHandler(rc_work);
     }
-    usleep(1);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(1);
   }
 
   kill(getpid(), SIGKILL);
@@ -897,8 +905,10 @@ void *readDirectives(void *ptr) {
       } else
         sharedRes->directive->newNWorker = castPlaceHolder;
 
-      if (stopFlag != 1 && strcmp(newPath, "///") != 0)
+      if (stopFlag != 1 && strcmp(newPath, "///") != 0) {
         enqueue(sharedRes->directive->paths, newPath);
+        fprintf(stderr, "\tho ricevuto %s\n", newPath);
+      }
 
       if (newPath[0] == '\0' || nWorker[0] == '\0') {
         char *msgErr = (char *)malloc(300);
@@ -930,7 +940,8 @@ void *readDirectives(void *ptr) {
         rc_t = errorHandler(rc_t);
       }
       pthread_mutex_unlock(&(sharedRes->mutex));
-      usleep(5);
+      if (SLEEP_FLAG == SUCCESS)
+        usleep(5);
     }
   }
   kill(getpid(), SIGKILL);

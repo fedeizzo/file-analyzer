@@ -15,6 +15,10 @@
 #include "../wrapping/wrapping.h"
 #include "./reporter.h"
 
+#ifndef SLEEP_FLAG
+#define SLEEP_FLAG 0
+#endif
+
 const char *helpMsgV2 =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
     "OPTIONS:\n"
@@ -376,7 +380,8 @@ void *userInputLoop(void *ptr) {
         exit(0);
       }
     }
-    usleep(50000);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(50000);
   }
   kill(getpid(), SIGKILL);
 }
@@ -562,7 +567,8 @@ void *writeFifoLoop(void *ptr) {
       }
       pthread_mutex_unlock(&(input->mutex));
     }
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   close(fd);
   free(fifoPath);
@@ -653,11 +659,13 @@ void *readFifoLoop(void *ptr) {
             rc_t = FAILURE;
           }
         }
-        usleep(500);
+        if (SLEEP_FLAG == SUCCESS)
+          usleep(500);
       }
       close(fd);
     }
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   free(fifoPath);
 }

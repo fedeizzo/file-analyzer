@@ -105,12 +105,6 @@ int readDescriptor(const int fd, char dst[], const int len) {
 
 int writeDescriptor(const int fd, const char msg[]) {
   int code = write(fd, msg, strlen(msg) + 1);
-  if (code == -1) {
-    code = -1;
-    char *msgErr = (char *)malloc(MAXLEN_ERR);
-    sprintf(msgErr, "during writing descriptor: %d", fd);
-    /* printError(msgErr); */
-  }
   return code;
 }
 

@@ -1,9 +1,3 @@
-#include "./analyzer.h"
-#include "../config/config.h"
-#include "../manager/manager.h"
-#include "../priorityQueue/priorityQueue.h"
-#include "../table/table.h"
-#include "../tree/tree.h"
 #include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
@@ -13,6 +7,17 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "../config/config.h"
+#include "../manager/manager.h"
+#include "../priorityQueue/priorityQueue.h"
+#include "../table/table.h"
+#include "../tree/tree.h"
+#include "./analyzer.h"
+
+#ifndef SLEEP_FLAG
+#define SLEEP_FLAG 0
+#endif
 
 /**
  * Wrapper function that handle the possibile errors of the getcwd() c function
@@ -1213,14 +1218,14 @@ void *readDirectivesLoop(void *ptr) {
         (*(sharedResources->nManager)) = newNManager;
       }
       rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
-      if((*(sharedResources->nWorker)) != newNWorker){
+      if ((*(sharedResources->nWorker)) != newNWorker) {
         (*(sharedResources->nWorker)) = newNWorker;
         rc_rm = removeManagers(sharedResources->managers, 0,
-                      sharedResources->fileToAssign);
+                               sharedResources->fileToAssign);
         if (rc_cwa != SUCCESS) {
           rc_t = errorHandler(rc_cwa);
         }
-        if(rc_t == SUCCESS && rc_rm != SUCCESS){
+        if (rc_t == SUCCESS && rc_rm != SUCCESS) {
           rc_t = errorHandler(rc_rm);
         }
       }
@@ -1282,7 +1287,8 @@ void *readDirectivesLoop(void *ptr) {
         }
       }
     }
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   free(newPath);
   free(nWorker);
@@ -1917,7 +1923,8 @@ void *fileManageLoop(void *ptr) {
         pthread_mutex_unlock(&(sharedResources->mutex));
       }
     }
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   free(relativePath);
   kill(getpid(), SIGKILL);
@@ -1958,8 +1965,8 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid) {
       rc_cds_1 = closeDescriptor(fd[READ_CHANNEL]);
       rc_cdp = createDup(fd[WRITE_CHANNEL], 1);
       rc_cds_2 = closeDescriptor(fd[WRITE_CHANNEL]);
-      rc_exlp = execlp("find", "find", compactedPath, "-mindepth", "1",
-                       "-readable", "-type", "f", NULL);
+      rc_exlp = execlp("find", "find", compactedPath, "-mindepth", "1", "-perm",
+                       "444", "-type", "f", NULL);
       if (rc_cds_1 != SUCCESS || rc_cdp != SUCCESS || rc_cds_2 != SUCCESS) {
         rc_t = errorHandler(PIPE_FAILURE);
       } else if (rc_exlp != SUCCESS) {
@@ -2111,7 +2118,9 @@ void *sendFileLoop(void *ptr) {
                     if (strcmp(controlWord, CONTROL_DONE) == 0) {
                       if (found == 1) {
                         counterFiles++;
-                        printf("File analyzed: %s, total analyzed files: %llu\n", path, counterFiles);
+                        printf(
+                            "File analyzed: %s, total analyzed files: %llu\n",
+                            path, counterFiles);
                         rc_dn =
                             detachNodeFromList(manager->filesInExecution, node);
                         if (info->isRequested == SUCCESS) {
@@ -2183,7 +2192,8 @@ void *sendFileLoop(void *ptr) {
       }
     }
     pthread_mutex_unlock(&(sharedResources->mutex));
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   kill(getpid(), SIGKILL);
 }
@@ -2363,24 +2373,26 @@ void *readFromFIFOLoop(void *ptr) {
               pthread_mutex_lock(&(sharedResources->mutex));
               strcpy(sharedResources->path, newPath);
               if ((*(sharedResources->nManager)) != newNManager) {
-                rc_cma = changeManagersAmount(sharedResources->managers,
-                                              *(sharedResources->nManager), newNManager,
-                                              sharedResources->fileToAssign);
-                printf("Manager's number has been changed to %d\n", newNManager);
+                rc_cma = changeManagersAmount(
+                    sharedResources->managers, *(sharedResources->nManager),
+                    newNManager, sharedResources->fileToAssign);
+                printf("Manager's number has been changed to %d\n",
+                       newNManager);
                 if (rc_cma != SUCCESS) {
                   rc_t = errorHandler(rc_cma);
                 }
                 (*(sharedResources->nManager)) = newNManager;
               }
-              rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
-              if((*(sharedResources->nWorker)) != newNWorker){
+              rc_cwa =
+                  changeWorkerAmount(sharedResources->managers, newNWorker);
+              if ((*(sharedResources->nWorker)) != newNWorker) {
                 (*(sharedResources->nWorker)) = newNWorker;
                 rc_rm = removeManagers(sharedResources->managers, 0,
-                              sharedResources->fileToAssign);
+                                       sharedResources->fileToAssign);
                 if (rc_cwa != SUCCESS) {
                   rc_t = errorHandler(rc_cwa);
                 }
-                if(rc_t == SUCCESS && rc_rm != SUCCESS){
+                if (rc_t == SUCCESS && rc_rm != SUCCESS) {
                   rc_t = errorHandler(rc_rm);
                 }
               }
@@ -2507,11 +2519,13 @@ void *readFromFIFOLoop(void *ptr) {
             free(dst);
             readFromFifo = FAILURE;
           }
-          usleep(500);
+          if (SLEEP_FLAG == SUCCESS)
+            usleep(500);
         }
       }
       close(fd);
-      usleep(500);
+      if (SLEEP_FLAG == SUCCESS)
+        usleep(500);
     }
   }
   kill(getpid(), SIGKILL);
@@ -2658,8 +2672,7 @@ void *writeOnFIFOLoop(void *ptr) {
   int msg = SUCCESS;
   int rc_wd = SUCCESS;
   int rc_ctr = SUCCESS;
-  char *writeFifo =
-      "/tmp/analyzerToReporter";
+  char *writeFifo = "/tmp/analyzerToReporter";
   int rc_fi = mkfifo(writeFifo, 0666);
   int fd = open(writeFifo, O_WRONLY);
   while (rc_t == SUCCESS) {
@@ -2706,7 +2719,8 @@ void *writeOnFIFOLoop(void *ptr) {
       sharedResources->sendChanges = -1;
     }
     pthread_mutex_unlock(&(sharedResources->mutex));
-    usleep(500);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(500);
   }
   free(toSend);
   close(fd);
@@ -2759,7 +2773,7 @@ int sendChildToReporter(TreeNode requested, int fd, char *toSend) {
       }
     }
   } else {
-    if(requested->children != NULL){
+    if (requested->children != NULL) {
       rc_t = SEND_FAILURE;
     } else {
       rc_t = MALLOC_FAILURE;

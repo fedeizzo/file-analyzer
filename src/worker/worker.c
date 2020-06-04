@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,7 +8,10 @@
 #include "../config/config.h"
 #include "../wrapping/wrapping.h"
 #include "worker.h"
-#include <limits.h>
+
+#ifndef SLEEP_FLAG
+#define SLEEP_FLAG 0
+#endif
 
 /**
  * Inits worker
@@ -154,10 +158,12 @@ int initWork(unsigned long long *start, unsigned long long *end,
 
   if (*stopFlag == 0) {
     int rc_sc = sscanf(bufferStart, "%llu", start);
+    if ((rc_sc == 0 || (*start == 9 && strcmp(bufferStart, "9") != 0))) {
+      rc_t = CAST_FAILURE;
+    }
     int rc_sc2 = sscanf(bufferEnd, "%llu", end);
-
-    if (path[strlen(path) - 1] == '\n') {
-      path[strlen(path) - 1] = '\0';
+    if ((rc_sc2 == 0 || (*end == 9 && strcmp(bufferEnd, "9") != 0))) {
+      rc_t = CAST_FAILURE;
     }
 
     int fd = openFile(path, O_RDONLY);
@@ -183,6 +189,9 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     path[counter++] = readBuffer[0];
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   path[counter] = '\0';
+  if (path[strlen(path) - 1] == '\n') {
+    path[strlen(path) - 1] = '\0';
+  }
 
   if (strncmp(path, "stop", 4) == 0)
     *stopFlag = 1;
@@ -193,6 +202,9 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     bufferStart[counter++] = readBuffer[0];
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   bufferStart[counter] = '\0';
+  if (bufferStart[strlen(bufferStart) - 1] == '\n') {
+    bufferStart[strlen(bufferStart) - 1] = '\0';
+  }
 
   if (strncmp(bufferStart, "stop", 4) == 0 && *stopFlag == 1)
     *stopFlag = 1;
@@ -205,6 +217,9 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     bufferEnd[counter++] = readBuffer[0];
   } while (readBuffer[0] != '\0' && readBuffer[0] != '\n');
   bufferEnd[counter] = '\0';
+  if (bufferEnd[strlen(bufferEnd) - 1] == '\n') {
+    bufferEnd[strlen(bufferEnd) - 1] = '\0';
+  }
 
   if (strncmp(bufferEnd, "stop", 4) == 0 && *stopFlag == 1)
     *stopFlag = 1;
@@ -292,7 +307,8 @@ int executeWork(const int fd, const unsigned long long start,
   unsigned long long availableMem = 0;
   while (availableMem == 0) {
     availableMem = getAvailableMemory();
-    usleep(100);
+    if (SLEEP_FLAG == SUCCESS)
+      usleep(100);
   }
 
   unsigned long long step = workAmount + 2;
