@@ -923,6 +923,8 @@ void *readDirectives(void *ptr) {
           stopFlag = 0;
         } else
           sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
+      } else {
+        rc_t = errorHandler(rc_t);
       }
       pthread_mutex_unlock(&(sharedRes->mutex));
       usleep(5);
