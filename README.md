@@ -16,4 +16,4 @@ The goal of this project is to learn most of C system calls and to take confiden
 ![Federico Izzo](./team/FedericoIzzo.png)
 ![Simone Alghisi](./team/SimoneAlghisi.png)
 ![Emanuele Beozzo](./team/EmanueleBeozzo.png)
-![Simone Alghisi](./team/SimoneAlghisi.png)
+![Samuele Bortolotti](./team/SamueleBortolotti.png)
