@@ -14,8 +14,8 @@
  *
  * args:
  *    ungisned long long *start: contains buffer start
- *    unisgned long long *end: contains buffer end
- *    int *stopFlag: flags that indicates if the worker must stop
+ *    unisgned long long *end  : contains buffer end
+ *    int *stopFlag            : flags that indicates if the worker must stop
  *
  * returns:
  *    positive (file descriptor) in case of success, otherwise negative
@@ -26,10 +26,10 @@ int initWork(unsigned long long *start, unsigned long long *end, int *stopFlag);
  * Read directives from pipe
  *
  * args:
- *    char *path: path of the file
+ *    char *path       : path of the file
  *    char *bufferStart: contains buffer start in chars type
- *    char *bufferEnd: contains buffer end in chars type
- *    int *stopFlag: flags that indicates if the worker must stop
+ *    char *bufferEnd  : contains buffer end in chars type
+ *    int *stopFlag    : flags that indicates if the worker must stop
  *
  * returns:
  *    0 in case of success, otherwise negative
@@ -60,9 +60,9 @@ unsigned long long getAvailableMemory();
  * Runs work
  *
  * args:
- *    const int fd: file descriptor
+ *    const int fd                  : file descriptor
  *    const unsigned long long start: start position
- *    const unsigned long long end: end position
+ *    const unsigned long long end  : end position
  *
  * returns:
  *    0 in case of success, otherwise negative
@@ -84,7 +84,7 @@ int sendAcknowledgment();
  * returning -1
  *
  * arga:
- *    const int fd: file descriptor
+ *    const int fd                : file descriptor
  *    const unsigned long long end: file buffer end
  *
  * returns:

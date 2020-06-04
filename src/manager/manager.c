@@ -89,10 +89,10 @@ void destroyDirective(Directive directive) {
  * Inits manager
  *
  * args:
- *    List workers: workers list
+ *    List workers      : workers list
  *    const int nWorkers: number of workers
- *    List tables: tables list
- *    List todo: todo works list
+ *    List tables       : tables list
+ *    List todo         : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -104,8 +104,8 @@ int initManager(List workers, const int nWorkers, List tables, List todo);
  *
  * args:
  *    List workers: workers list
- *    List tables: tables list
- *    List todo: todo works list
+ *    List tables : tables list
+ *    List todo   : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -116,11 +116,11 @@ void deinitManager(List workers, List tables, List todo);
  * Changes workers amount under manager control
  *
  * args:
- *    List workers: workers list
+ *    List workers            : workers list
  *    const int currentWorkers: number of current workers
- *    const int newWorkers: number of new workers
- *    List tables: tables list
- *    List todo: todo works list
+ *    const int newWorkers    : number of new workers
+ *    List tables             : tables list
+ *    List todo               : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -133,7 +133,7 @@ int changeWorkersAmount(List workers, const int currentWorkers,
  *
  * args:
  *    List workers: workers list
- *    int amount: worker amount
+ *    int amount  : worker amount
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -145,9 +145,9 @@ int addWorkers(List workers, const int amount);
  *
  * args:
  *    List workers: workers list
- *    int amount: workeer amount
- *    List tables: tables list
- *    List todo: todo works list
+ *    int amount  : workeer amount
+ *    List tables : tables list
+ *    List todo   : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -159,22 +159,21 @@ int removeWorkers(List workers, int amount, List tables, List todo);
  *
  * args:
  *    List workers: workers list
- *    List tables: tables list
- *    List todo: todo works list
- *    int *summaryFlag: summary flag used to trigger sendSummary function
+ *    List tables : tables list
+ *    List todo   : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
  */
-int executeWork(List workers, List tables, List todo, int *summaryFlag);
+int executeWork(List workers, List tables, List todo);
 
 /**
  * Assigns work to worker
  *
  * args:
  *    Worker worker: the worker that recives the work
- *    Work work: the work that is assigned
- *    List todo: todo works list
+ *    Work work    : the work that is assigned
+ *    List todo    : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
@@ -186,31 +185,19 @@ int assignWork(Worker worker, Work work, List todo);
  *
  * args:
  *    List workers: workers list
- *    List tables: tables list
- *    List todo: todo works list
- *    int *summaryFlag: summary flag used to trigger sendSummary function
+ *    List tables : tables list
+ *    List todo   : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
  */
-int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag);
-
-/**
- * Checks if a work is done. If so sends summary is called
- *
- * args:
- *    int *summaryFlag: flag that indicate if a work is done
- *
- * returns:
- *    0 in case there are new work in done list, -1 otherwise
- */
-int checkUpdate(int *summaryFlag);
+int getWorkerWork(Worker w, List tables, List todo);
 
 /**
  * Updates manger table
  *
  * args:
- *    int *table: the table associated with a file
+ *    int *table      : the table associated with a file
  *    int *workerTable: the worker table for the udpate operation
  */
 void updateTable(unsigned long long *table, unsigned long long *workerTable);
@@ -219,17 +206,15 @@ void updateTable(unsigned long long *table, unsigned long long *workerTable);
  * Ends a worker's work
  *
  * args:
- *    Worker worker: the worker which has ended work
- *    List tables: tables list
+ *    Worker worker : the worker which has ended work
+ *    List tables   : tables list
  *    int typeEnding: the ending type
- *    List todo: todo works list
- *    int *summaryFlag: summary flag used to trigger sendSummary function
+ *    List todo     : todo works list
  *
  * returns
  *    0 in case of success, negative number otherwise
  */
-int endWork(Worker worker, List tables, int typeEnding, List todo,
-            int *summaryFlag);
+int endWork(Worker worker, List tables, int typeEnding, List todo);
 
 /**
  * Reads all infos from pipe
@@ -243,9 +228,9 @@ void *readDirectives(void *ptr);
  * Adds directives in todo list
  *
  * args:
- *    List tables: tables list
- *    List todo: todo works list
- *    const char *path: path to file
+ *    List tables      : tables list
+ *    List todo        : todo works list
+ *    const char *path : path to file
  *    const int nWorker: number of workers used to creates works
  *
  * returns
@@ -257,7 +242,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker);
  * Inits worker's pipes
  *
  * args:
- *    const int readPipe[]: read pipe
+ *    const int readPipe[] : read pipe
  *    const int writePipe[]: write pipe
  *
  * returns
@@ -269,7 +254,7 @@ int workerInitPipe(const int readPipe[], const int writePipe[]);
  * Inits manger's pipe
  *
  * args:
- *    const int readPipe[]: read pipe
+ *    const int readPipe[] : read pipe
  *    const int writePipe[]: write pipe
  *
  * returns
@@ -277,11 +262,11 @@ int workerInitPipe(const int readPipe[], const int writePipe[]);
  */
 int parentInitExecPipe(const int readPipe[], const int writePipe[]);
 
-// TODO update doc and remove summary flag
 /**
  * Sends summary to STDOUT
  *
  * args:
+ *    Table t    : table to send
  *    List tables: tables list
  *
  * returns
@@ -315,8 +300,8 @@ void *workLoop(void *ptr);
  *
  * args:
  *    List workers: workers list
- *    List todo: the todo work list
- *    List tables: the tables of the file
+ *    List todo   : the todo work list
+ *    List tables : the tables of the file
  *
  * returns:
  *    0 in case of success, otherwise negative
@@ -328,9 +313,9 @@ int clearWorkersWork(List workers, List todo, List tables);
  * ensure that all work is balanced between all workers
  *
  * args:
- *    List todo: the todo work list
+ *    List todo   : the todo work list
  *    List workers: workers list
- *    List tables: the tables of the file
+ *    List tables : the tables of the file
  *
  * returns:
  *    0 in case of success, otherwise negative
@@ -356,7 +341,6 @@ int main(int argc, char *argv[]) {
   sharedResourses.todo = todo;
   sharedResourses.workers = workers;
   sharedResourses.tables = tables;
-  sharedResourses.summaryFlag = 0;
 
   if (rc_work == SUCCESS) {
     iret1 = pthread_create(&directives, NULL, readDirectives,
@@ -394,12 +378,6 @@ void *workLoop(void *ptr) {
     if (kill(getppid(), 0) != 0) {
       kill(getpid(), SIGKILL);
     }
-    pthread_mutex_lock(&(sharedRes->mutex));
-    // TODO remove this if
-    // if (checkUpdate(&sharedRes->summaryFlag) == SUMMARY) {
-    // sendSummary(sharedRes->tables);
-    //}
-    pthread_mutex_unlock(&(sharedRes->mutex));
     pthread_mutex_lock(&(sharedRes->mutex));
 
     if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0) {
@@ -441,8 +419,8 @@ void *workLoop(void *ptr) {
     pthread_mutex_unlock(&(sharedRes->mutex));
     if (rc_work == SUCCESS) {
       pthread_mutex_lock(&(sharedRes->mutex));
-      rc_work = executeWork(sharedRes->workers, sharedRes->tables,
-                            sharedRes->todo, &sharedRes->summaryFlag);
+      rc_work =
+          executeWork(sharedRes->workers, sharedRes->tables, sharedRes->todo);
       pthread_mutex_unlock(&(sharedRes->mutex));
       if (rc_work < SUCCESS)
         rc_work = errorHandler(rc_work);
@@ -538,7 +516,7 @@ int removeWorkers(List workers, int amount, List tables, List todo) {
     Worker w = front(workers);
     if (w != NULL) {
       int rc_po = pop(workers);
-      endWork(w, tables, BAD_ENDING, todo, NULL);
+      endWork(w, tables, BAD_ENDING, todo);
       kill(w->pid, SIGKILL);
       destroyWorker(w);
       if (rc_po == -1)
@@ -561,7 +539,7 @@ int isAlive(Worker w) {
   return rc_t;
 }
 
-int executeWork(List workers, List tables, List todo, int *summaryFlag) {
+int executeWork(List workers, List tables, List todo) {
   int rc_t = SUCCESS;
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
@@ -582,7 +560,7 @@ int executeWork(List workers, List tables, List todo, int *summaryFlag) {
           rc_t = NEW_WORKER_FAILURE;
         else {
           if (w->doing != NULL) {
-            rc_ww = getWorkerWork(w, tables, todo, summaryFlag);
+            rc_ww = getWorkerWork(w, tables, todo);
             if (rc_ww < SUCCESS)
               rc_t = WORK_FAILURE;
           } else {
@@ -672,11 +650,10 @@ int assignWork(Worker worker, Work work, List todo) {
   return rc_t;
 }
 
-int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
+int getWorkerWork(Worker w, List tables, List todo) {
   int rc_t = SUCCESS;
   int readFromWorker = w->pipe[READ_CHANNEL];
   unsigned long long bytesSent = w->bytesSent;
-  // char *charSent = malloc(w->workAmount * sizeof(char));
   char *charSent = malloc(1048576 * sizeof(char));
   int rc_al = checkAllocationError(charSent);
   if (rc_al < SUCCESS)
@@ -689,9 +666,9 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
       } else {
         charSent[rc_rd] = '\0';
         if (strncmp(charSent, "done", 4) == 0) {
-          endWork(w, tables, GOOD_ENDING, todo, summaryFlag);
+          endWork(w, tables, GOOD_ENDING, todo);
         } else {
-          endWork(w, tables, BAD_ENDING, todo, NULL);
+          endWork(w, tables, BAD_ENDING, todo);
           rc_t = WORK_FAILURE;
         }
       }
@@ -729,23 +706,13 @@ int getWorkerWork(Worker w, List tables, List todo, int *summaryFlag) {
   return rc_t;
 }
 
-int checkUpdate(int *summaryFlag) {
-  int rc_t = -1;
-  if (*summaryFlag == 1) {
-    *summaryFlag = 0;
-    rc_t = SUMMARY;
-  }
-  return rc_t;
-}
-
 void updateTable(unsigned long long *table, unsigned long long *workerTable) {
   int i = 0;
   for (i = 0; i < NCHAR_TABLE; i++)
     table[i] += workerTable[i];
 }
 
-int endWork(Worker worker, List tables, int typeEnding, List todo,
-            int *summaryFlag) {
+int endWork(Worker worker, List tables, int typeEnding, List todo) {
   int rc_t = SUCCESS;
   int rc_ca = SUCCESS;
   Work work = worker->doing;
@@ -754,7 +721,6 @@ int endWork(Worker worker, List tables, int typeEnding, List todo,
   if (typeEnding == GOOD_ENDING) {
     updateTable(work->tablePointer->table, workerTable);
     work->tablePointer->workAssociated--;
-    *summaryFlag = 1;
     sendSummary(work->tablePointer, tables);
     destroyWork(work);
   } else {
@@ -792,7 +758,6 @@ int clearWorkersWork(List workers, List todo, List tables) {
   while (list != NULL && rc_t != MALLOC_FAILURE) {
     Worker worker = list->data;
     if (worker != NULL && worker->doing != NULL) {
-      /* char *charSent = malloc(worker->workAmount * sizeof(char)); */
       char *charSent = malloc(1048576 * sizeof(char));
       int rc_al = checkAllocationError(charSent);
       if (rc_al == SUCCESS) {
@@ -810,11 +775,10 @@ int clearWorkersWork(List workers, List todo, List tables) {
         while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
           rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
           if (rc_rd == 5) {
-            // TODO think an else that remove the worker and insert it again
             if (strncmp(charSent, "done", 4) == 0) {
-              endWork(worker, tables, BAD_ENDING, todo, NULL);
+              endWork(worker, tables, BAD_ENDING, todo);
             } else if (strncmp(charSent, "erro", 4) == 0) {
-              endWork(worker, tables, BAD_ENDING, todo, NULL);
+              endWork(worker, tables, BAD_ENDING, todo);
             }
           }
         }
@@ -925,7 +889,7 @@ void *readDirectives(void *ptr) {
       pthread_mutex_lock(&(sharedRes->mutex));
       int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
       if (stopFlag != 1 &&
-          (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") == 0))) {
+          (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") != 0))) {
         rc_t = CAST_FAILURE;
       } else
         sharedRes->directive->newNWorker = castPlaceHolder;
@@ -959,6 +923,8 @@ void *readDirectives(void *ptr) {
           stopFlag = 0;
         } else
           sharedRes->directive->directiveStatus = NEW_DIRECTIVES;
+      } else {
+        rc_t = errorHandler(rc_t);
       }
       pthread_mutex_unlock(&(sharedRes->mutex));
       usleep(5);

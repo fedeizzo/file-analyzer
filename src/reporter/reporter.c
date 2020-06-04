@@ -354,7 +354,13 @@ void *userInputLoop(void *ptr) {
       } else if (strcmp(dst, "requ") == 0) {
         printf("%s\n", requMsg);
         pthread_mutex_lock(&(input->mutex));
-        readResult(input->userInput->results, input->cwd);
+        destroyList(input->userInput->results, free);
+        input->userInput->results = newList();
+        int i = 0;
+        for (i = 0; i < NCHAR_TABLE; i++)
+          input->userInput->table[i] = 0;
+        if (input->userInput->results != NULL)
+          readResult(input->userInput->results, input->cwd);
         pthread_mutex_unlock(&(input->mutex));
         clear();
         moveCursor(0, 0);
@@ -372,6 +378,7 @@ void *userInputLoop(void *ptr) {
     }
     usleep(50000);
   }
+  kill(getpid(), SIGKILL);
 }
 
 void writeStats(unsigned long long *table) {
@@ -471,10 +478,14 @@ void *writeFifoLoop(void *ptr) {
     pthread_mutex_lock(&(input->mutex));
     strcpy(fifoPath, input->writeFifo);
     pthread_mutex_unlock(&(input->mutex));
-    fd = open(fifoPath, O_WRONLY);
-    pthread_mutex_lock(&(input->mutex));
-    rc_t = sendTree(fd, input->cwd);
-    pthread_mutex_unlock(&(input->mutex));
+    if (access(fifoPath, F_OK) == 0) {
+      fd = open(fifoPath, O_WRONLY);
+      pthread_mutex_lock(&(input->mutex));
+      rc_t = sendTree(fd, input->cwd);
+      pthread_mutex_unlock(&(input->mutex));
+    } else {
+      rc_t = FIFO_FAILURE;
+    }
   }
 
   while (rc_t == SUCCESS) {
@@ -555,6 +566,7 @@ void *writeFifoLoop(void *ptr) {
   }
   close(fd);
   free(fifoPath);
+  kill(getpid(), SIGKILL);
 }
 
 void readString(int fd, char *dst) {
@@ -681,7 +693,7 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
     nManager[counter] = '\0';
 
     int rc_sc = sscanf(nManager, "%d", &numberManager);
-    if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") == 0)) {
+    if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") != 0)) {
       rc_t = CAST_FAILURE;
     }
 
@@ -693,7 +705,7 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
     nWorker[counter] = '\0';
 
     int rc_sc2 = sscanf(nWorker, "%d", &numberWorker);
-    if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") == 0)) {
+    if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") != 0)) {
       rc_t = CAST_FAILURE;
     }
 
@@ -795,17 +807,20 @@ int readResult(List pathResults, char *cwd) {
       endFlag = 0;
     } else if (path[0] != '\0' && rc_t == SUCCESS) {
       char *newResult = malloc(PATH_MAX * sizeof(char));
+      char *rlPath = malloc(PATH_MAX * sizeof(char));
       int rc_al = checkAllocationError(newResult);
-      if (rc_al == SUCCESS) {
+      int rc_al2 = checkAllocationError(rlPath);
+      if (rc_al == SUCCESS && rc_al2 == SUCCESS) {
         if (path[0] != '/') {
           strcat(newResult, cwd);
           strcat(newResult, "/");
           strcat(newResult, path);
+          realpath(newResult, rlPath);
         } else {
-          strcpy(newResult, path);
+          strcpy(rlPath, path);
         }
         free(path);
-        rc_t = enqueue(pathResults, newResult);
+        rc_t = enqueue(pathResults, rlPath);
       } else {
         rc_t = MALLOC_FAILURE;
       }

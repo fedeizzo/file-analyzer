@@ -795,8 +795,8 @@ void selectNode(Screen screen, UserInput userInput, char *realCwd, char *tree) {
  *    UserInput userInput: user input
  *    char *cwd          : the current location in file system tree
  *    char *cmd          : the user input
- *    int *row            : the row where the cursor is moved after the update
- *    int *column         : the column where the cursor is moved after update
+ *    int *row           : the row where the cursor is moved after the update
+ *    int *column        : the column where the cursor is moved after update
  */
 void askComputation(Screen screen, UserInput userInput, char *cwd, char *cmd,
                     int *row, int *column) {
@@ -998,7 +998,7 @@ void *inputLoop(void *ptr) {
       } else if (key == 127) {
         isTreeLastMode = 0;
         if (treeMode && counterTreeInput > 0) {
-          int i = 16;
+          int i = 17;
           while (i > 1) {
             int j = i - 1;
             if (i == 2)
