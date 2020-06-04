@@ -693,7 +693,7 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
     nManager[counter] = '\0';
 
     int rc_sc = sscanf(nManager, "%d", &numberManager);
-    if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") == 0)) {
+    if (rc_sc == 0 || (numberManager == 9 && strcmp(nManager, "9") != 0)) {
       rc_t = CAST_FAILURE;
     }
 
@@ -705,7 +705,7 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
     nWorker[counter] = '\0';
 
     int rc_sc2 = sscanf(nWorker, "%d", &numberWorker);
-    if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") == 0)) {
+    if (rc_sc2 == 0 || (numberWorker == 9 && strcmp(nWorker, "9") != 0)) {
       rc_t = CAST_FAILURE;
     }
 

@@ -889,7 +889,7 @@ void *readDirectives(void *ptr) {
       pthread_mutex_lock(&(sharedRes->mutex));
       int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
       if (stopFlag != 1 &&
-          (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") == 0))) {
+          (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") != 0))) {
         rc_t = CAST_FAILURE;
       } else
         sharedRes->directive->newNWorker = castPlaceHolder;
