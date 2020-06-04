@@ -1809,51 +1809,6 @@ void destroyTreeNodeCandidate(void *data) {
   free(candidate);
 }
 
-// TODO... debug only, does it really need a comment?
-void printCandidateNode(void *data) {
-  TreeNodeCandidate candidate = (TreeNodeCandidate)data;
-  printf("Starting node: %p, path: %s, tof: %d, toSkipper: %d\n",
-         candidate->startingNode, candidate->path, candidate->type,
-         candidate->toSkip);
-}
-
-// TODO... debug only, does it really need a comment?
-void toStringTable(long long unsigned int *table) {
-  int i;
-  for (i = 0; i < NCHAR_TABLE; i++) {
-    printf("%llu ", table[i]);
-  }
-  printf("\n");
-}
-
-// TODO... debug only, does it really need a comment?
-void pasta(void *data) {
-  fprintf(stderr, "File : %s name %s isFolder %d\n",
-          ((FileInfo)((TreeNode)data)->data)->path,
-          ((FileInfo)((TreeNode)data)->data)->name,
-          ((FileInfo)((TreeNode)data)->data)->isDirectory);
-}
-
-// TODO... debug only, does it really need a comment?
-void pasta2(void *data) {
-  printf("File : %s name %s isFolder %d\n", ((FileInfo)data)->path,
-         ((FileInfo)data)->name, ((FileInfo)data)->isDirectory);
-}
-
-// TODO... debug only, does it really need a comment?
-void printRequestedNodes(void *data) {
-  TreeNode node = (TreeNode)data;
-  FileInfo reqFile = (FileInfo)node->data;
-  pasta2(reqFile);
-}
-
-// TODO... debug only, does it really need a comment?
-void toStringManager(void *data) {
-  Manager manager = (Manager)data;
-  printf("size: %d\n", manager->filesInExecution->size);
-  printList(manager->filesInExecution, pasta);
-}
-
 void *fileManageLoop(void *ptr) {
   sharedResourcesAnalyzer_t *sharedResources = (sharedResourcesAnalyzer_t *)ptr;
   TreeNode startingNode = NULL;
@@ -3106,17 +3061,3 @@ int main() {
   destroyPriorityQueue(managers, destroyManager);
   return rc_t;
 }
-/*
-
-
-                /
-               /
-  |||||| °°°  |
-              |
-              |
-  ||||||      |
-               \
-                \
-
-
-*/
