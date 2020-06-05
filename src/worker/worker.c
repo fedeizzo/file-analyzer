@@ -166,6 +166,7 @@ int initWork(unsigned long long *start, unsigned long long *end,
       rc_t = CAST_FAILURE;
     }
 
+    fprintf(stderr, "ho letto path %s %llu %llu\n", path, *start, *end);
     int fd = openFile(path, O_RDONLY);
     rc_t = fd;
 

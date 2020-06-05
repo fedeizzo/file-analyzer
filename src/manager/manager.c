@@ -619,6 +619,8 @@ int executeWork(List workers, List tables, List todo) {
 }
 
 int assignWork(Worker worker, Work work, List todo) {
+  fprintf(stderr, "Prima dell assegnametno %s %llu %llu\n",
+          work->tablePointer->name, work->bufferStart, work->bufferEnd);
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
   if (rc_po != -1) {
@@ -654,6 +656,7 @@ int assignWork(Worker worker, Work work, List todo) {
   } else
     rc_t = ASSIGNWORK_MEMORY_FAILURE;
 
+  fprintf(stderr, "Dopo dell assegnametno \n");
   return rc_t;
 }
 
@@ -661,7 +664,7 @@ int getWorkerWork(Worker w, List tables, List todo) {
   int rc_t = SUCCESS;
   int readFromWorker = w->pipe[READ_CHANNEL];
   unsigned long long bytesSent = w->bytesSent;
-  char *charSent = malloc(1048576 * sizeof(char));
+  char *charSent = malloc(1048577 * sizeof(char));
   int rc_al = checkAllocationError(charSent);
   if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
@@ -734,7 +737,16 @@ int endWork(Worker worker, List tables, int typeEnding, List todo) {
     if (work != NULL) {
       int fd = openFile(work->tablePointer->name, O_RDONLY);
       if (fd > 0) {
-        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+        int charsRead = 0;
+        long long fileDimension = 0;
+        do {
+          char *trash = malloc(1000000 * sizeof(char));
+          charsRead = read(fd, trash, 1000000);
+          if (charsRead > 0) {
+            fileDimension += charsRead;
+          }
+          free(trash);
+        } while (charsRead != 0);
         if (work->bufferStart < fileDimension &&
             work->bufferEnd < fileDimension) {
           int rc_pu = push(todo, work);
@@ -907,7 +919,7 @@ void *readDirectives(void *ptr) {
 
       if (stopFlag != 1 && strcmp(newPath, "///") != 0) {
         enqueue(sharedRes->directive->paths, newPath);
-        fprintf(stderr, "\tho ricevuto %s\n", newPath);
+        fprintf(stderr, "ATTENZONE: ho ricevuto il file %s\n", newPath);
       }
 
       if (newPath[0] == '\0' || nWorker[0] == '\0') {
@@ -961,7 +973,8 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
       int rc_pu = push(tables, t);
       if (rc_pu == 0) {
         int fd = openFile(path, O_RDONLY);
-        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+        /* long long fileDimension = moveCursorFile(fd, 0, SEEK_END); */
+        long long fileDimension = lseek(fd, 0, SEEK_END);
 
         if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
           Work w = newWork(t, 0, fileDimension - 1);
@@ -1077,8 +1090,10 @@ int sendSummary(Table t, List tables) {
         rc_t = CAST_FAILURE;
       else {
         int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
-        if (rc_wr == -1)
+        if (rc_wr == -1) {
           rc_t = SUMMARY_FAILURE;
+          fprintf(stderr, "BUG:ho scritto -1\n");
+        }
       }
     }
     if (t->workAssociated == 0) {
