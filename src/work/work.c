@@ -16,6 +16,7 @@ Work newWork(Table table, const unsigned long long bufferStart,
 
     work->bufferStart = bufferStart;
     work->bufferEnd = bufferEnd;
+    work->executionTry = 0;
   }
 
   if (rc_al == -1)

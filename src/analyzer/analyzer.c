@@ -2086,7 +2086,10 @@ void *sendFileLoop(void *ptr) {
   }
   while (rc_t == SUCCESS) {
     pthread_mutex_lock(&(sharedResources->mutex));
-    nManager = (*(sharedResources->nManager));
+    /* nManager = (*(sharedResources->nManager)); */
+    nManager = sharedResources->managers->len;
+    printf("ATTESO: %d REALE: %d\n", *sharedResources->nManager,
+           sharedResources->managers->len);
     while (nManager > 0 && rc_t == SUCCESS) {
       manager = popPriorityQueue(sharedResources->managers);
       if (manager != NULL) {
@@ -2095,7 +2098,7 @@ void *sendFileLoop(void *ptr) {
           pipe = manager->pipe;
           bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
           if (bytesRead > 0) {
-            fprintf(stdout, "sto provando a leggere da %d\n", bytesRead);
+            /* fprintf(stdout, "sto provando a leggere da %d\n", bytesRead); */
             while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
               if (bytesRead > 0) {
                 path[counter] = charRead;
@@ -2350,7 +2353,7 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
     if (rc_sp > 0) {
       int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], toSend);
       if (rc_wr < SUCCESS) {
-        printf("SONOIO: pipe piena\n");
+        /* printf("SONOIO: pipe piena\n"); */
         rc_t = SEND_FAILURE;
       } else {
         int rc_po = pop(filesToAssign);

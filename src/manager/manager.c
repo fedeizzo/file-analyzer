@@ -381,6 +381,7 @@ void *workLoop(void *ptr) {
         usleep(5000);
     }
     if (kill(getppid(), 0) != 0) {
+      fprintf(stderr, "MORTO: if strano\n");
       kill(getpid(), SIGKILL);
     }
     pthread_mutex_lock(&(sharedRes->mutex));
@@ -435,6 +436,7 @@ void *workLoop(void *ptr) {
       usleep(1);
   }
 
+  fprintf(stderr, "MORTO: work loop\n");
   kill(getpid(), SIGKILL);
 }
 
@@ -619,8 +621,8 @@ int executeWork(List workers, List tables, List todo) {
 }
 
 int assignWork(Worker worker, Work work, List todo) {
-  fprintf(stderr, "Prima dell assegnametno %s %llu %llu\n",
-          work->tablePointer->name, work->bufferStart, work->bufferEnd);
+  /* fprintf(stderr, "Prima dell assegnametno %s %llu %llu\n", */
+  /* work->tablePointer->name, work->bufferStart, work->bufferEnd); */
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
   if (rc_po != -1) {
@@ -656,7 +658,7 @@ int assignWork(Worker worker, Work work, List todo) {
   } else
     rc_t = ASSIGNWORK_MEMORY_FAILURE;
 
-  fprintf(stderr, "Dopo dell assegnametno \n");
+  /* fprintf(stderr, "Dopo dell assegnametno \n"); */
   return rc_t;
 }
 
@@ -749,12 +751,22 @@ int endWork(Worker worker, List tables, int typeEnding, List todo) {
         } while (charsRead != 0);
         if (work->bufferStart < fileDimension &&
             work->bufferEnd < fileDimension) {
-          int rc_pu = push(todo, work);
-          if (rc_pu == -1)
-            rc_t = END_WORK_FAILURE;
+          if (work->executionTry < 100) {
+            int rc_pu = push(todo, work);
+            work->executionTry++;
+            if (rc_pu == -1)
+              rc_t = END_WORK_FAILURE;
+          } else {
+            work->tablePointer->workAssociated--;
+            sendSummary(work->tablePointer, tables);
+            kill(worker->pid, SIGKILL);
+          }
+        } else {
+          work->tablePointer->workAssociated--;
+          sendSummary(work->tablePointer, tables);
         }
-        closeDescriptor(fd);
       }
+      closeDescriptor(fd);
     }
   }
 
@@ -919,7 +931,7 @@ void *readDirectives(void *ptr) {
 
       if (stopFlag != 1 && strcmp(newPath, "///") != 0) {
         enqueue(sharedRes->directive->paths, newPath);
-        fprintf(stderr, "ATTENZONE: ho ricevuto il file %s\n", newPath);
+        /* fprintf(stderr, "ATTENZONE: ho ricevuto il file %s\n", newPath); */
       }
 
       if (newPath[0] == '\0' || nWorker[0] == '\0') {
@@ -956,6 +968,7 @@ void *readDirectives(void *ptr) {
         usleep(5);
     }
   }
+  fprintf(stderr, "MORTO: read directives\n");
   kill(getpid(), SIGKILL);
 }
 
@@ -973,8 +986,7 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
       int rc_pu = push(tables, t);
       if (rc_pu == 0) {
         int fd = openFile(path, O_RDONLY);
-        /* long long fileDimension = moveCursorFile(fd, 0, SEEK_END); */
-        long long fileDimension = lseek(fd, 0, SEEK_END);
+        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
 
         if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
           Work w = newWork(t, 0, fileDimension - 1);

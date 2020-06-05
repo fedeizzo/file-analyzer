@@ -20,6 +20,7 @@ typedef struct WorkStr {
   Table tablePointer;
   unsigned long long bufferStart;
   unsigned long long bufferEnd;
+  int executionTry;
 } * Work;
 
 /**
