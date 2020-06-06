@@ -2088,8 +2088,8 @@ void *sendFileLoop(void *ptr) {
     pthread_mutex_lock(&(sharedResources->mutex));
     /* nManager = (*(sharedResources->nManager)); */
     nManager = sharedResources->managers->len;
-    printf("ATTESO: %d REALE: %d\n", *sharedResources->nManager,
-           sharedResources->managers->len);
+    /* printf("ATTESO: %d REALE: %d\n", *sharedResources->nManager, */
+    /*        sharedResources->managers->len); */
     while (nManager > 0 && rc_t == SUCCESS) {
       manager = popPriorityQueue(sharedResources->managers);
       if (manager != NULL) {

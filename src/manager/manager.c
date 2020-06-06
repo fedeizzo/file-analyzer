@@ -29,12 +29,12 @@ Worker newWorker() {
     worker->table = calloc(NCHAR_TABLE, sizeof(unsigned long long));
     rc_al2 = checkAllocationError(worker->table);
     worker->pipe = malloc(2 * sizeof(int));
-    rc_al3 = checkAllocationError(worker->table);
+    rc_al3 = checkAllocationError(worker->pipe);
     worker->bytesSent = 0;
     worker->doing = NULL;
   }
 
-  if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
+  if (rc_al != SUCCESS || rc_al2 != SUCCESS || rc_al3 != SUCCESS)
     worker = NULL;
   return worker;
 }
@@ -52,12 +52,12 @@ void destroyWorker(void *data) {
 }
 
 int compareWorker(void *w1, void *w2) {
-  int rc_t = -1;
+  int rc_t = FAILURE;
   Worker work1 = (Worker)w1;
   Worker work2 = (Worker)w2;
 
   if (work1->pid == work2->pid) {
-    rc_t = 0;
+    rc_t = SUCCESS;
   }
 
   return rc_t;
@@ -66,7 +66,6 @@ int compareWorker(void *w1, void *w2) {
 Directive newDirective() {
   int rc_al = SUCCESS;
   int rc_al2 = SUCCESS;
-  int rc_al3 = SUCCESS;
   Directive directive = malloc(sizeof(struct DirectivesStruct));
   rc_al = checkAllocationError(directive);
 
@@ -78,7 +77,7 @@ Directive newDirective() {
     directive->directiveStatus = START_NEW_MANAGER;
   }
 
-  if (rc_al < 0 || rc_al2 < 0 || rc_al3 < 0)
+  if (rc_al != SUCCESS || rc_al2 != SUCCESS)
     directive = NULL;
 
   return directive;
@@ -333,30 +332,34 @@ int main(int argc, char *argv[]) {
   List workers = newList();
   List tables = newList();
   List todo = newList();
+  Directive dir = newDirective();
 
-  int currentWorkers = 4;
-  int newNWorker;
+  int rc_work = FAILURE;
+  if (workers != NULL && tables != NULL && todo != NULL && dir != NULL) {
+    int currentWorkers = 4;
+    int newNWorker;
 
-  int rc_work = initManager(workers, currentWorkers, tables, todo);
+    rc_work = initManager(workers, currentWorkers, tables, todo);
 
-  sharedResources_t sharedResourses;
-  sharedResourses.directive = newDirective();
-  pthread_mutex_init(&sharedResourses.mutex, NULL);
-  sharedResourses.todo = todo;
-  sharedResourses.workers = workers;
-  sharedResourses.tables = tables;
+    sharedResources_t sharedResourses;
+    sharedResourses.directive = dir;
+    pthread_mutex_init(&sharedResourses.mutex, NULL);
+    sharedResourses.todo = todo;
+    sharedResourses.workers = workers;
+    sharedResourses.tables = tables;
 
-  if (rc_work == SUCCESS) {
-    iret1 = pthread_create(&directives, NULL, readDirectives,
-                           (void *)&sharedResourses);
-    iret2 = pthread_create(&work, NULL, workLoop, (void *)&sharedResourses);
+    if (rc_work == SUCCESS) {
+      iret1 = pthread_create(&directives, NULL, readDirectives,
+                             (void *)&sharedResourses);
+      iret2 = pthread_create(&work, NULL, workLoop, (void *)&sharedResourses);
 
-    pthread_join(directives, NULL);
-    pthread_join(work, NULL);
+      pthread_join(directives, NULL);
+      pthread_join(work, NULL);
+    }
+
+    deinitManager(workers, tables, todo);
+    destroyDirective(dir);
   }
-
-  deinitManager(workers, tables, todo);
-  destroyDirective(sharedResourses.directive);
   return rc_work;
 }
 
@@ -368,6 +371,7 @@ void *workLoop(void *ptr) {
   int rc_wc = SUCCESS;
   int directives;
   int workDone = 0;
+  int analzyerPid = getppid();
 
   while (rc_work == SUCCESS) {
     pthread_mutex_lock(&(sharedRes->mutex));
@@ -380,12 +384,11 @@ void *workLoop(void *ptr) {
       if (SLEEP_FLAG == SUCCESS)
         usleep(5000);
     }
-    if (kill(getppid(), 0) != 0) {
-      fprintf(stderr, "MORTO: if strano\n");
+    if (kill(analzyerPid, 0) != 0) {
       kill(getpid(), SIGKILL);
     }
-    pthread_mutex_lock(&(sharedRes->mutex));
 
+    pthread_mutex_lock(&(sharedRes->mutex));
     if (directives == NEW_DIRECTIVES || sharedRes->directive->paths->size > 0 ||
         sharedRes->directive->currentWorkers !=
             sharedRes->directive->newNWorker) {
@@ -406,6 +409,8 @@ void *workLoop(void *ptr) {
           pop(sharedRes->directive->paths);
           rc_nd = addDirectives(sharedRes->tables, sharedRes->todo, path,
                                 sharedRes->directive->currentWorkers);
+        } else {
+          rc_work = MALLOC_FAILURE;
         }
         free(path);
       }
@@ -424,6 +429,7 @@ void *workLoop(void *ptr) {
       rc_work = errorHandler(directives);
     }
     pthread_mutex_unlock(&(sharedRes->mutex));
+
     if (rc_work == SUCCESS) {
       pthread_mutex_lock(&(sharedRes->mutex));
       rc_work =
@@ -436,7 +442,6 @@ void *workLoop(void *ptr) {
       usleep(1);
   }
 
-  fprintf(stderr, "MORTO: work loop\n");
   kill(getpid(), SIGKILL);
 }
 
@@ -444,10 +449,7 @@ int initManager(List workers, const int nWorkers, List tables, List todo) {
   int rc_t = SUCCESS;
 
   if (workers != NULL && tables != NULL && todo != NULL) {
-    int i = 0;
-    for (i = 0; i < nWorkers && rc_t == SUCCESS; i++) {
-      rc_t = addWorkers(workers, 1);
-    }
+    rc_t = addWorkers(workers, nWorkers);
   } else {
     rc_t = INIT_FAILURE;
   }
@@ -488,23 +490,23 @@ int addWorkers(List workers, const int amount) {
       rc_t = NEW_WORKER_FAILURE;
     else {
       rc_en = push(workers, worker);
-      if (rc_en == -1)
+      if (rc_en != SUCCESS)
         rc_t = NEW_WORKER_FAILURE;
       else {
         int toParent[2];
         int toChild[2];
         createUnidirPipe(toParent);
         createUnidirPipe(toChild);
-        fcntl(toParent[0], F_SETFL, O_NONBLOCK);
+        fcntl(toParent[READ_CHANNEL], F_SETFL, O_NONBLOCK);
         int workerPid = fork();
         if (workerPid > 0) {
           int rc_pp = parentInitExecPipe(toParent, toChild);
-          if (rc_pp == -1)
+          if (rc_pp == FAILURE)
             rc_t = PIPE_FAILURE;
           else {
             worker->pid = workerPid;
-            worker->pipe[0] = toParent[READ_CHANNEL];
-            worker->pipe[1] = toChild[WRITE_CHANNEL];
+            worker->pipe[READ_CHANNEL] = toParent[READ_CHANNEL];
+            worker->pipe[WRITE_CHANNEL] = toChild[WRITE_CHANNEL];
           }
         } else {
           workerInitPipe(toParent, toChild);
@@ -528,7 +530,7 @@ int removeWorkers(List workers, int amount, List tables, List todo) {
       endWork(w, tables, BAD_ENDING, todo);
       kill(w->pid, SIGKILL);
       destroyWorker(w);
-      if (rc_po == -1)
+      if (rc_po == FAILURE)
         rc_t = REMOVE_WORK_FAILURE;
       amount--;
     } else {
@@ -558,14 +560,14 @@ int executeWork(List workers, List tables, List todo) {
   List newWorkers = newList();
 
   int i = 0;
-  for (i = 0; i < workerSize; i++) {
+  for (i = 0; i < workerSize && newWorkers != NULL; i++) {
     Worker w;
     w = front(workers);
     if (w != NULL) {
       isWorkerAlive = isAlive(w);
       rc_po = pop(workers);
       if (isWorkerAlive == SUCCESS) {
-        if (rc_po == -1)
+        if (rc_po == FAILURE)
           rc_t = NEW_WORKER_FAILURE;
         else {
           if (w->doing != NULL) {
@@ -584,12 +586,12 @@ int executeWork(List workers, List tables, List todo) {
           }
         }
         rc_pu = enqueue(workers, w);
-        if (rc_pu == -1)
+        if (rc_pu == FAILURE)
           rc_t = NEW_WORKER_FAILURE;
       } else {
         if (w->doing != NULL) {
           int rc_pu = SUCCESS;
-          if (access(w->doing->tablePointer->name, R_OK) == 0)
+          if (access(w->doing->tablePointer->name, R_OK) == SUCCESS)
             rc_pu = push(todo, w->doing);
           if (rc_pu < SUCCESS)
             rc_t = MALLOC_FAILURE;
@@ -604,6 +606,8 @@ int executeWork(List workers, List tables, List todo) {
           rc_t = DEAD_PROCESS;
         }
       }
+    } else {
+      rc_t = MALLOC_FAILURE;
     }
   }
   if (newWorkers->size > 0 && workers->size > 0) {
@@ -621,11 +625,9 @@ int executeWork(List workers, List tables, List todo) {
 }
 
 int assignWork(Worker worker, Work work, List todo) {
-  /* fprintf(stderr, "Prima dell assegnametno %s %llu %llu\n", */
-  /* work->tablePointer->name, work->bufferStart, work->bufferEnd); */
   int rc_t = SUCCESS;
   int rc_po = pop(todo);
-  if (rc_po != -1) {
+  if (rc_po != FAILURE) {
     worker->doing = work;
     worker->workAmount = work->bufferEnd - work->bufferStart + 1;
     int *pipe = worker->pipe;
@@ -658,7 +660,6 @@ int assignWork(Worker worker, Work work, List todo) {
   } else
     rc_t = ASSIGNWORK_MEMORY_FAILURE;
 
-  /* fprintf(stderr, "Dopo dell assegnametno \n"); */
   return rc_t;
 }
 
@@ -668,8 +669,10 @@ int getWorkerWork(Worker w, List tables, List todo) {
   unsigned long long bytesSent = w->bytesSent;
   char *charSent = malloc(1048577 * sizeof(char));
   int rc_al = checkAllocationError(charSent);
+
   if (rc_al < SUCCESS)
     rc_t = MALLOC_FAILURE;
+
   if (rc_t == SUCCESS) {
     if (bytesSent >= w->workAmount) {
       int rc_rd = read(readFromWorker, charSent, 5);
@@ -677,10 +680,14 @@ int getWorkerWork(Worker w, List tables, List todo) {
         rc_t = READ_FAILURE;
       } else {
         charSent[rc_rd] = '\0';
-        if (strncmp(charSent, "done", 4) == 0) {
+        if (strcmp(charSent, "done") == 0) {
           endWork(w, tables, GOOD_ENDING, todo);
+        } else if (strcmp(charSent, "erro") == 0) {
+          endWork(w, tables, BAD_ENDING, todo);
+          rc_t = WORK_FAILURE;
         } else {
           endWork(w, tables, BAD_ENDING, todo);
+          kill(w->pid, SIGKILL);
           rc_t = WORK_FAILURE;
         }
       }
@@ -754,7 +761,7 @@ int endWork(Worker worker, List tables, int typeEnding, List todo) {
           if (work->executionTry < 100) {
             int rc_pu = push(todo, work);
             work->executionTry++;
-            if (rc_pu == -1)
+            if (rc_pu == FAILURE)
               rc_t = END_WORK_FAILURE;
           } else {
             work->tablePointer->workAssociated--;
@@ -806,10 +813,13 @@ int clearWorkersWork(List workers, List todo, List tables) {
         while (rc_rd == -1 && isAlive(worker) == SUCCESS) {
           rc_rd = read(worker->pipe[READ_CHANNEL], charSent, 5);
           if (rc_rd == 5) {
-            if (strncmp(charSent, "done", 4) == 0) {
+            if (strcmp(charSent, "done") == 0) {
               endWork(worker, tables, BAD_ENDING, todo);
-            } else if (strncmp(charSent, "erro", 4) == 0) {
+            } else if (strcmp(charSent, "erro") == 0) {
               endWork(worker, tables, BAD_ENDING, todo);
+            } else {
+              endWork(worker, tables, BAD_ENDING, todo);
+              kill(worker->pid, SIGKILL);
             }
           }
         }
@@ -853,13 +863,19 @@ int remoduleWorks(List todo, List workers, List tables) {
           for (j = 0; j < nWorkers - 1 && rc_pu2 == SUCCESS; j++) {
             Work w = newWork(work->tablePointer, step * j + work->bufferStart,
                              step * (j + 1) + work->bufferStart - 1);
-            rc_pu2 = enqueue(todo, w);
+            if (w == NULL)
+              rc_t = MALLOC_FAILURE;
+            else
+              rc_pu2 = enqueue(todo, w);
           }
           if (rc_pu2 == SUCCESS) {
             Work w = newWork(
                 work->tablePointer, step * (nWorkers - 1) + work->bufferStart,
                 step * nWorkers + remainder + work->bufferStart - 1);
-            rc_pu2 = enqueue(todo, w);
+            if (w == NULL)
+              rc_t = MALLOC_FAILURE;
+            else
+              rc_pu2 = enqueue(todo, w);
           } else {
             rc_t = NEW_DIRECTIVES_FAILURE;
           }
@@ -873,6 +889,8 @@ int remoduleWorks(List todo, List workers, List tables) {
         }
       } else
         rc_t = 0;
+    } else {
+      rc_t = MALLOC_FAILURE;
     }
   }
 
@@ -891,7 +909,7 @@ void *readDirectives(void *ptr) {
   while (rc_t == SUCCESS) {
     char *newPath = malloc(PATH_MAX * sizeof(char));
     int rc_al = checkAllocationError(newPath);
-    if (rc_al < SUCCESS) {
+    if (rc_al != SUCCESS) {
       rc_t = MALLOC_FAILURE;
     } else {
       counter = 0;
@@ -903,7 +921,7 @@ void *readDirectives(void *ptr) {
       if (newPath[strlen(newPath) - 1] == '\n') {
         newPath[strlen(newPath) - 1] = '\0';
       }
-      if (strncmp(newPath, "stop", 4) == 0)
+      if (strcmp(newPath, "stop") == 0)
         stopFlag = 1;
 
       counter = 0;
@@ -916,7 +934,7 @@ void *readDirectives(void *ptr) {
         nWorker[strlen(nWorker) - 1] = '\0';
       }
 
-      if (strncmp(nWorker, "stop", 4) == 0 && stopFlag == 1)
+      if (strcmp(nWorker, "stop") == 0 && stopFlag == 1)
         stopFlag = 1;
       else
         stopFlag = 0;
@@ -924,26 +942,19 @@ void *readDirectives(void *ptr) {
       pthread_mutex_lock(&(sharedRes->mutex));
       int rc_sc = sscanf(nWorker, "%d", &castPlaceHolder);
       if (stopFlag != 1 &&
-          (rc_sc == 0 || (castPlaceHolder == 9 && strcmp(nWorker, "9") != 0))) {
+          (rc_sc == 0 || nWorker[0] == '\0' ||
+           (castPlaceHolder == 9 && strcmp(nWorker, "9") != 0))) {
         rc_t = CAST_FAILURE;
       } else
         sharedRes->directive->newNWorker = castPlaceHolder;
 
-      if (stopFlag != 1 && strcmp(newPath, "///") != 0) {
+      if (stopFlag != 1 && strcmp(newPath, "///") != 0 &&
+          strcmp(newPath, "") != 0) {
         enqueue(sharedRes->directive->paths, newPath);
-        /* fprintf(stderr, "ATTENZONE: ho ricevuto il file %s\n", newPath); */
       }
 
       if (newPath[0] == '\0' || nWorker[0] == '\0') {
-        char *msgErr = (char *)malloc(300);
-        int rc_ca = checkAllocationError(msgErr);
-        if (rc_ca < 0) {
-          printError("I can't allocate memory");
-        } else {
-          /* sprintf(msgErr, "inside manager with pid: %d", getpid()); */
-          /* printError(msgErr); */
-          free(msgErr);
-        }
+        printInfo("directive empty (no fatal)");
       } else if (rc_t == SUCCESS) {
         if (stopFlag == 1) {
           clearWorkersWork(sharedRes->workers, sharedRes->todo,
@@ -968,7 +979,6 @@ void *readDirectives(void *ptr) {
         usleep(5);
     }
   }
-  fprintf(stderr, "MORTO: read directives\n");
   kill(getpid(), SIGKILL);
 }
 
@@ -979,64 +989,70 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
   List todoTmp = newList();
   int rc_al2 = checkAllocationError(todoTmp);
 
-  if (rc_al == -1 || rc_al2 == -1)
+  if (rc_al == FAILURE || rc_al2 == FAILURE)
     rc_t = TABLE_FAILURE;
   else {
-    if (access(path, R_OK) != -1) {
-      int rc_pu = push(tables, t);
-      if (rc_pu == 0) {
-        int fd = openFile(path, O_RDONLY);
-        long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
+    int rc_pu = push(tables, t);
+    if (rc_pu != SUCCESS)
+      rc_t = NEW_DIRECTIVES_FAILURE;
+    if (access(path, R_OK) != FAILURE && rc_t == SUCCESS) {
+      int fd = openFile(path, O_RDONLY);
+      long long fileDimension = moveCursorFile(fd, 0, SEEK_END);
 
-        if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
-          Work w = newWork(t, 0, fileDimension - 1);
-          if (w != NULL) {
-            int rc_pu = push(todoTmp, w);
-            if (rc_pu == SUCCESS)
-              t->workAssociated = 1;
-            else
-              rc_t = rc_pu;
-          }
-        } else if (fileDimension > 0 && nWorker > 0) {
-          unsigned long long step = (unsigned long long)fileDimension / nWorker;
-          unsigned long long remainder = fileDimension % nWorker;
-          int rc_pu2 = SUCCESS;
+      if (fileDimension > 0 && nWorker > 0 && fileDimension < nWorker) {
+        Work w = newWork(t, 0, fileDimension - 1);
+        if (w != NULL) {
+          int rc_pu = push(todoTmp, w);
+          if (rc_pu == SUCCESS)
+            t->workAssociated = 1;
+          else
+            rc_t = rc_pu;
+        }
+      } else if (fileDimension > 0 && nWorker > 0) {
+        unsigned long long step = (unsigned long long)fileDimension / nWorker;
+        unsigned long long remainder = fileDimension % nWorker;
+        int rc_pu2 = SUCCESS;
 
-          int i = 0;
-          for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
-            Work w = newWork(t, step * i, step * (i + 1) - 1);
+        int i = 0;
+        for (i = 0; i < nWorker - 1 && rc_pu2 == SUCCESS; i++) {
+          Work w = newWork(t, step * i, step * (i + 1) - 1);
+          if (w == NULL)
+            rc_pu2 = FAILURE;
+          else
             rc_pu2 = push(todoTmp, w);
-          }
-
-          if (rc_pu2 == SUCCESS) {
-            Work w = newWork(t, step * (nWorker - 1),
-                             step * nWorker + remainder - 1);
-            rc_pu2 = push(todoTmp, w);
-          } else {
-            rc_t = NEW_DIRECTIVES_FAILURE;
-          }
-          t->workAssociated = nWorker;
-        } else if (fileDimension > 0 && nWorker == 0) {
-          Work w = newWork(t, 0, fileDimension - 1);
-          if (w != NULL) {
-            int rc_pu = push(todoTmp, w);
-            if (rc_pu == SUCCESS)
-              t->workAssociated = 1;
-            else
-              rc_t = rc_pu;
-          }
-        } else {
-          t->workAssociated = 0;
-          sendSummary(t, tables);
         }
 
-        int rc_cl = closeDescriptor(fd);
-
-        if (fd == -1 || rc_cl == -1)
-          rc_t = DESCRIPTOR_FAILURE;
+        if (rc_pu2 == SUCCESS) {
+          Work w =
+              newWork(t, step * (nWorker - 1), step * nWorker + remainder - 1);
+          if (w == NULL)
+            rc_t = MALLOC_FAILURE;
+          rc_pu2 = push(todoTmp, w);
+        } else {
+          rc_t = NEW_DIRECTIVES_FAILURE;
+        }
+        t->workAssociated = nWorker;
+      } else if (fileDimension > 0 && nWorker == 0) {
+        Work w = newWork(t, 0, fileDimension - 1);
+        if (w != NULL) {
+          int rc_pu = push(todoTmp, w);
+          if (rc_pu == SUCCESS)
+            t->workAssociated = 1;
+          else
+            rc_t = rc_pu;
+        }
       } else {
-        rc_t = NEW_DIRECTIVES_FAILURE;
+        t->workAssociated = 0;
+        sendSummary(t, tables);
       }
+
+      int rc_cl = closeDescriptor(fd);
+
+      if (fd == -1 || rc_cl == -1)
+        rc_t = DESCRIPTOR_FAILURE;
+    } else {
+      t->workAssociated = 0;
+      sendSummary(t, tables);
     }
   }
 
@@ -1058,15 +1074,15 @@ int addDirectives(List tables, List todo, const char *path, const int nWorker) {
 }
 
 int workerInitPipe(const int toParent[], const int toChild[]) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   int rc_cl = closeDescriptor(toChild[WRITE_CHANNEL]);
   int rc_cl2 = closeDescriptor(toParent[READ_CHANNEL]);
   int rc_du = createDup(toChild[READ_CHANNEL], 0);
   int rc_du2 = createDup(toParent[WRITE_CHANNEL], 1);
   int rc_cl3 = closeDescriptor(toChild[READ_CHANNEL]);
   int rc_cl4 = closeDescriptor(toParent[WRITE_CHANNEL]);
-  if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 ||
-      rc_du == -1 || rc_du2 == -1) {
+  if (rc_cl == FAILURE || rc_cl2 == FAILURE || rc_cl3 == FAILURE ||
+      rc_cl4 == FAILURE || rc_du == FAILURE || rc_du2 == FAILURE) {
     rc_t = PIPE_FAILURE;
   }
 
@@ -1074,11 +1090,11 @@ int workerInitPipe(const int toParent[], const int toChild[]) {
 }
 
 int parentInitExecPipe(const int toParent[], const int toChild[]) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
   int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
 
-  if (rc_cl == -1 || rc_cl2 == -1) {
+  if (rc_cl == FAILURE || rc_cl2 == FAILURE) {
     rc_t = PIPE_FAILURE;
   }
   return rc_t;
@@ -1088,7 +1104,6 @@ int sendSummary(Table t, List tables) {
   int rc_t = SUCCESS;
   int rc_po = SUCCESS;
   int rc_pu = SUCCESS;
-  int tablesSize = tables->size;
   int i = 0;
 
   if (t != NULL) {
@@ -1104,16 +1119,13 @@ int sendSummary(Table t, List tables) {
         int rc_wr = writeDescriptor(WRITE_CHANNEL, msg);
         if (rc_wr == -1) {
           rc_t = SUMMARY_FAILURE;
-          fprintf(stderr, "BUG:ho scritto -1\n");
         }
       }
     }
     if (t->workAssociated == 0) {
       deleteNode(tables, t, compareTable, destroyTable);
-      // destroyTable(t);
       writeDescriptor(WRITE_CHANNEL, "done");
     } else {
-      // enqueue(tables, t);
       writeDescriptor(WRITE_CHANNEL, "undo");
     }
   }

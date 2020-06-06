@@ -15,6 +15,7 @@
  *    const char *path: the path of the file
  *    unsigned long long bufferStart: the start position
  *    unsigned long long bufferEnd: the end position
+ *    int executionTry: the amount of try for this work
  */
 typedef struct WorkStr {
   Table tablePointer;

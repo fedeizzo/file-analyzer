@@ -1,11 +1,12 @@
-#include "wrapping.h"
-#include "../config/config.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "../config/config.h"
+#include "wrapping.h"
 
 void printError(const char *msg) {
   fprintf(stderr, "ERROR: %s, pid: %d, parentPid: %d\n", msg, getpid(),
@@ -17,12 +18,11 @@ void printInfo(const char *msg) {
           getpid(), getppid());
 }
 
-// TODO... should return MALLOC_FAILURE
 int checkAllocationError(void *ptr) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   if (ptr == NULL) {
     printError("error during malloc allocation");
-    rc_t = -1;
+    rc_t = FAILURE;
   }
 
   return rc_t;
@@ -30,19 +30,20 @@ int checkAllocationError(void *ptr) {
 
 int openFile(const char *path, const int mode) {
   int code = open(path, mode);
-  if (code == -1) {
+  if (code == FAILURE) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during opening file: %s", path);
     printError(msgErr);
+    free(msgErr);
   }
   return code;
 }
 
 long long moveCursorFile(const int fd, const unsigned long long position,
                          const int absPosition) {
-  long long rc_t = 0;
+  long long rc_t = SUCCESS;
   long long rc_se = lseek(fd, position, absPosition);
-  if (rc_se == -1) {
+  if (rc_se == FAILURE) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during move cursor in descriptor: %d", fd);
     printError(msgErr);
@@ -55,21 +56,17 @@ long long moveCursorFile(const int fd, const unsigned long long position,
 
 int readChar(const int fd, char *dst) {
   int bytesRead = read(fd, dst, 1);
-  if (bytesRead == -1) {
-    /* printError("during readig char from file"); */
-  }
-  // TODO fix this strange thing
-  /* dst[bytesRead] = '\0'; */
 
   return bytesRead;
 }
 
 int closeDescriptor(const int fd) {
   int code = close(fd);
-  if (code == -1) {
+  if (code == FAILURE) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during closing descriptor: %d", fd);
     printError(msgErr);
+    free(msgErr);
   }
   return code;
 }
@@ -77,7 +74,7 @@ int closeDescriptor(const int fd) {
 int createDup(const int writer, const int overwritten) {
   int rc_du = dup2(writer, overwritten);
 
-  if (rc_du == -1) {
+  if (rc_du == FAILURE) {
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during dup creation with descriptors: %d, %d", writer,
             overwritten);
@@ -90,10 +87,8 @@ int createDup(const int writer, const int overwritten) {
 
 int readDescriptor(const int fd, char dst[], const int len) {
   int bytesRead = read(fd, dst, len);
-  /* printf("\tho letto: %d\n", bytesRead); */
   dst[bytesRead] = '\0';
-  // TODO free msg in all functions of this file
-  if (bytesRead == -1) {
+  if (bytesRead == FAILURE) {
     bytesRead = -1;
     char *msgErr = (char *)malloc(MAXLEN_ERR);
     sprintf(msgErr, "during reading descriptor: %d", fd);
@@ -110,42 +105,42 @@ int writeDescriptor(const int fd, const char msg[]) {
 
 int createUnidirPipe(int fd[]) {
   int returnCode = pipe(fd);
-  if (returnCode == -1) {
+  if (returnCode == FAILURE) {
     fprintf(stderr, "%s", "Error: pipe creation gone wrong\n");
   }
   return returnCode;
 }
 
 int parentInitUniPipe(const int fd[]) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   int rc_cl = closeDescriptor(fd[WRITE_UNIDIR]);
 
-  if (rc_cl == -1)
-    rc_t = -1;
+  if (rc_cl == FAILURE)
+    rc_t = FAILURE;
 
   return rc_t;
 }
 
 int childInitUniPipe(const int fd[]) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   int rc_cl = closeDescriptor(fd[READ_UNIDIR]);
 
-  if (rc_cl == -1)
-    rc_t = -1;
+  if (rc_cl == FAILURE)
+    rc_t = FAILURE;
 
   return rc_t;
 }
 
 int childWriteUniPipe(const int fd[], const char *msg) {
-  int rc_tl = 0;
+  int rc_tl = SUCCESS;
   if (strlen(msg) + 1 > MAXLEN_PIPE) {
     printError("parent message too long");
-    rc_tl = -1;
+    rc_tl = FAILURE;
   }
   int rc_wr = writeDescriptor(fd[WRITE_UNIDIR], msg);
 
-  if (rc_wr == -1)
-    rc_tl = -1;
+  if (rc_wr == FAILURE)
+    rc_tl = FAILURE;
   return rc_tl;
 }
 
@@ -216,7 +211,6 @@ int childWriteBidPipe(const int fd[], const char *msg) {
     rc_tl = -1;
   }
   int rc_wr = writeDescriptor(fd[WRITE_CHILD], msg);
-  /* printf("scrivo in: %d", fd[WRITE_CHILD]); */
 
   if (rc_wr == -1)
     rc_tl = -1;
@@ -245,7 +239,6 @@ int childReadBidPipe(const int fd[], char *dst) {
 int parentReadBidPipe(const int fd[], char *dst) {
   int bytesRead = readDescriptor(fd[READ_CHILD], dst, 2);
   dst[bytesRead] = '\0';
-  /* printf("leggo da: %d\n", fd[READ_CHILD]); */
 
   return bytesRead;
 }

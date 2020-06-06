@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,13 +89,14 @@ int sendAcknowledgment();
  * returning -1
  *
  * arga:
- *    const int fd                : file descriptor
- *    const unsigned long long end: file buffer end
+ *    const unsigned long long written: written
+ *    const unsigned long long end    : file buffer end
  *
  * returns:
  *    0 in case of success, otherwise -1
  */
-int errorHandler(const int fd, const unsigned long long end);
+int errorHandler(const unsigned long long written,
+                 const unsigned long long end);
 
 int main(int argc, char *argv[]) {
   unsigned long long start;
@@ -115,7 +117,11 @@ int main(int argc, char *argv[]) {
   }
 
   if (fd < SUCCESS) {
-    int rc_er = errorHandler(fd, end);
+    if (fd == CAST_FAILURE) {
+      printError("I didn't read a number as start and/or end");
+      kill(getpid(), SIGKILL);
+    }
+    int rc_er = errorHandler(0, end);
     if (rc_er < SUCCESS)
       working = NOT_WORKING;
   }
@@ -138,7 +144,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (fd < SUCCESS) {
-      int rc_er = errorHandler(fd, end);
+      if (fd == CAST_FAILURE) {
+        printError("I didn't read a number as start and/or end");
+        kill(getpid(), SIGKILL);
+      }
+      int rc_er = errorHandler(0, end);
       if (rc_er < SUCCESS)
         working = NOT_WORKING;
     }
@@ -149,7 +159,7 @@ int main(int argc, char *argv[]) {
 
 int initWork(unsigned long long *start, unsigned long long *end,
              int *stopFlag) {
-  int rc_t = 0;
+  int rc_t = SUCCESS;
   char path[PATH_MAX];
   char bufferStart[PATH_MAX];
   char bufferEnd[PATH_MAX];
@@ -158,23 +168,25 @@ int initWork(unsigned long long *start, unsigned long long *end,
 
   if (*stopFlag == 0) {
     int rc_sc = sscanf(bufferStart, "%llu", start);
-    if ((rc_sc == 0 || (*start == 9 && strcmp(bufferStart, "9") != 0))) {
+    if ((rc_sc == SUCCESS || bufferStart[0] == '\0' ||
+         (*start == 9 && strcmp(bufferStart, "9") != 0))) {
       rc_t = CAST_FAILURE;
     }
     int rc_sc2 = sscanf(bufferEnd, "%llu", end);
-    if ((rc_sc2 == 0 || (*end == 9 && strcmp(bufferEnd, "9") != 0))) {
+    if ((rc_sc2 == SUCCESS || bufferEnd[0] == '\0' ||
+         (*end == 9 && strcmp(bufferEnd, "9") != 0))) {
       rc_t = CAST_FAILURE;
     }
 
     int fd = openFile(path, O_RDONLY);
-    rc_t = fd;
 
-    if (fd == -1)
+    if (fd == FAILURE && rc_t == SUCCESS)
       rc_t = READ_DIRECTIVES_FAILURE;
-    if (rc_sc == 0 || rc_sc2 == 0)
+    else if (rc_t == SUCCESS)
+      rc_t = fd;
+    else
       rc_t = CAST_FAILURE;
   }
-  /* fprintf(stderr, "ho letto path %s %llu %llu\n", path, *start, *end); */
 
   return rc_t;
 }
@@ -194,7 +206,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     path[strlen(path) - 1] = '\0';
   }
 
-  if (strncmp(path, "stop", 4) == 0)
+  if (strcmp(path, "stop") == 0)
     *stopFlag = 1;
 
   counter = 0;
@@ -207,7 +219,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     bufferStart[strlen(bufferStart) - 1] = '\0';
   }
 
-  if (strncmp(bufferStart, "stop", 4) == 0 && *stopFlag == 1)
+  if (strcmp(bufferStart, "stop") == 0 && *stopFlag == 1)
     *stopFlag = 1;
   else
     *stopFlag = 0;
@@ -222,7 +234,7 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     bufferEnd[strlen(bufferEnd) - 1] = '\0';
   }
 
-  if (strncmp(bufferEnd, "stop", 4) == 0 && *stopFlag == 1)
+  if (strcmp(bufferEnd, "stop") == 0 && *stopFlag == 1)
     *stopFlag = 1;
   else
     *stopFlag = 0;
@@ -235,16 +247,17 @@ void readDirectives(char *path, char *bufferStart, char *bufferEnd,
     } else {
       sprintf(msgErr, "inside worker with pid: %d", getpid());
       printError(msgErr);
-      free(msgErr);
     }
+    free(msgErr);
   }
 }
 
 int isDigit(char c) {
+  int rc_t = FAILURE;
   if (c >= 48 && c <= 57)
-    return SUCCESS;
-  else
-    return FAILURE;
+    rc_t = SUCCESS;
+
+  return rc_t;
 }
 
 unsigned long long getAvailableMemory() {
@@ -300,7 +313,7 @@ int executeWork(const int fd, const unsigned long long start,
                 const unsigned long long end) {
   int rc_t = 0;
   long long rc_se = moveCursorFile(fd, start, SEEK_SET);
-  if (rc_se == -1)
+  if (rc_se == FAILURE)
     rc_t = CURSOR_FAILURE;
 
   unsigned long long bytesRead;
@@ -380,7 +393,8 @@ int sendAcknowledgment() {
   return rc_t;
 }
 
-int errorHandler(const int written, const unsigned long long end) {
+int errorHandler(const unsigned long long written,
+                 const unsigned long long end) {
   int rc_t = 0;
 
   unsigned long long workAmount = end - written + 1;
