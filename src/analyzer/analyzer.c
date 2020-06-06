@@ -2097,128 +2097,144 @@ void *sendFileLoop(void *ptr) {
         isAliveM = isManagerAlive(manager);
         if (isAliveM == SUCCESS) {
           pipe = manager->pipe;
-          bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
-          if (bytesRead > 0) {
-            /* fprintf(stdout, "sto provando a leggere da %d\n", bytesRead); */
-            while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
-              if (bytesRead > 0) {
-                path[counter] = charRead;
-                counter++;
+          if(manager->pipe != NULL){
+            bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
+            if (bytesRead > 0) {
+              /* fprintf(stdout, "sto provando a leggere da %d\n", bytesRead); */
+              while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
+                if (bytesRead > 0) {
+                  path[counter] = charRead;
+                  counter++;
+                }
+                bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
               }
-              bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
-            }
-            path[counter] = 0;
-            node = manager->filesInExecution->head;
-            found = 0;
-            while (node != NULL && found == 0 && rc_t == SUCCESS) {
-              file = (TreeNode)node->data;
-              if (file != NULL) {
-                info = (FileInfo)file->data;
-                if (info != NULL) {
-                  if (strcmp(path, info->path) == 0) {
-                    found = 1;
+              path[counter] = 0;
+              node = manager->filesInExecution->head;
+              found = 0;
+              while (node != NULL && found == 0 && rc_t == SUCCESS) {
+                file = (TreeNode)node->data;
+                if (file != NULL) {
+                  info = (FileInfo)file->data;
+                  if (info != NULL) {
+                    if (strcmp(path, info->path) == 0) {
+                      found = 1;
+                    } else {
+                      node = node->next;
+                    }
                   } else {
-                    node = node->next;
+                    fprintf(stderr, "entro nell'errorHandler in SFL pt 2\n");
+                    rc_t = errorHandler(NON_EXISTING_FILE);
                   }
                 } else {
-                  fprintf(stderr, "entro nell'errorHandler in SFL pt 2\n");
+                  fprintf(stderr, "entro nell'errorHandler in SFL pt 3\n");
                   rc_t = errorHandler(NON_EXISTING_FILE);
                 }
-              } else {
-                fprintf(stderr, "entro nell'errorHandler in SFL pt 3\n");
-                rc_t = errorHandler(NON_EXISTING_FILE);
               }
-            }
-            if (rc_t != SUCCESS) {
-              fprintf(stderr, "entro nell'errorHandler in SFL pt 4\n");
-              rc_t = errorHandler(FILE_NOT_FOUND);
-            } else {
-              insertCounter = 0;
-              numbersToRead = NCHAR_TABLE;
-              while (numbersToRead > 0 && isManagerAlive(manager) == SUCCESS) {
+              if (rc_t != SUCCESS) {
+                fprintf(stderr, "entro nell'errorHandler in SFL pt 4\n");
+                rc_t = errorHandler(FILE_NOT_FOUND);
+              } else {
+                insertCounter = 0;
+                numbersToRead = NCHAR_TABLE;
+                while (numbersToRead > 0 && isManagerAlive(manager) == SUCCESS) {
+                  counter = 0;
+                  charRead = 'a';
+                  while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
+                    bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
+                    if (bytesRead > 0) {
+                      number[counter] = charRead;
+                      counter++;
+                    }
+                  }
+                  number[counter] = 0;
+                  rc_ss = sscanf(number, "%llu", &charCounter);
+                  if (rc_ss > 0) {
+                    if (found == 1) {
+                      if (info->isRequested == SUCCESS) {
+                        sharedResources->requestedFilesTable[insertCounter] -=
+                            info->fileTable[insertCounter];
+                        sharedResources->requestedFilesTable[insertCounter] +=
+                            charCounter;
+                      }
+                      info->fileTable[insertCounter++] = charCounter;
+                    }
+                  } else {
+                    fprintf(stderr, "entro nell'errorHandler in SFL pt 5\n");
+                    rc_t = errorHandler(SSCANF_FAILURE);
+                  }
+                  number[0] = 0;
+                  numbersToRead--;
+                }
                 counter = 0;
-                charRead = 'a';
-                while (charRead != 0 && isManagerAlive(manager) == SUCCESS) {
-                  bytesRead = read(pipe[READ_CHANNEL], &charRead, 1);
-                  if (bytesRead > 0) {
-                    number[counter] = charRead;
-                    counter++;
-                  }
-                }
-                number[counter] = 0;
-                rc_ss = sscanf(number, "%llu", &charCounter);
-                if (rc_ss > 0) {
-                  if (found == 1) {
-                    if (info->isRequested == SUCCESS) {
-                      sharedResources->requestedFilesTable[insertCounter] -=
-                          info->fileTable[insertCounter];
-                      sharedResources->requestedFilesTable[insertCounter] +=
-                          charCounter;
-                    }
-                    info->fileTable[insertCounter++] = charCounter;
-                  }
-                } else {
-                  fprintf(stderr, "entro nell'errorHandler in SFL pt 5\n");
-                  rc_t = errorHandler(SSCANF_FAILURE);
-                }
-                number[0] = 0;
-                numbersToRead--;
-              }
-              counter = 0;
-              int stopRead = 0;
-              if (isManagerAlive(manager) == SUCCESS) {
-                while (isManagerAlive(manager) == SUCCESS && stopRead == 0) {
-                  bytesRead =
-                      read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
-                  int i = 0;
-                  if (bytesRead > 0) {
-                    if (strcmp(controlWord, CONTROL_DONE) == 0) {
-                      if (found == 1) {
-                        counterFiles++;
-                        printf(
-                            "File analyzed: %s, total analyzed files: %llu\n",
-                            path, counterFiles);
-                        rc_dn =
-                            detachNodeFromList(manager->filesInExecution, node);
-                        if (info->isRequested == SUCCESS) {
-                          sharedResources->sendChanges = SUCCESS;
+                int stopRead = 0;
+                if (isManagerAlive(manager) == SUCCESS) {
+                  while (isManagerAlive(manager) == SUCCESS && stopRead == 0) {
+                    bytesRead =
+                        read(pipe[READ_CHANNEL], controlWord, CONTROL_WORD_LEN);
+                    if (bytesRead > 0) {
+                      if (strcmp(controlWord, CONTROL_DONE) == 0) {
+                        if (found == 1) {
+                          counterFiles++;
+                          printf(
+                              "File analyzed: %s, total analyzed files: %llu\n",
+                              path, counterFiles);
+                          rc_dn =
+                              detachNodeFromList(manager->filesInExecution, node);
+                          if (info->isRequested == SUCCESS) {
+                            sharedResources->sendChanges = SUCCESS;
+                          }
+                          if (rc_dn != SUCCESS) {
+                            fprintf(stderr,
+                                    "entro nell'errorHandler in SFL pt 6 con "
+                                    "codice %d\n",
+                                    rc_dn);
+                            rc_t = errorHandler(rc_dn);
+                          }
                         }
-                        if (rc_dn != SUCCESS) {
+                      } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
+                        if (found == 1) {
+                          if (info->isRequested == SUCCESS) {
+                            sharedResources->sendChanges = SUCCESS;
+                          }
+                        }
+                      } else {
+                        fprintf(stderr, "entro nell'errorHandler in SFL pt 7\n");
+                        rc_t = errorHandler(ANALYZER_MANAGER_MISUNDERSTANDING);
+                        kill(manager->m_pid, SIGKILL);
+                        rc_rm = respawnManager(tmpManagers, manager,
+                                        sharedResources->fileToAssign);
+                        alreadyPushed = SUCCESS;
+                        if (rc_rm != SUCCESS) {
                           fprintf(stderr,
-                                  "entro nell'errorHandler in SFL pt 6 con "
-                                  "codice %d\n",
-                                  rc_dn);
-                          rc_t = errorHandler(rc_dn);
+                                  "entro nell'errorHandler in SFL pt 8 con codice %d\n",
+                                  rc_rm);
+                          rc_t = errorHandler(rc_rm);
+                        } else {
+                          fprintf(stderr, "entro nell'errorHandler in SFL pt 9\n");
+                          rc_t = errorHandler(DEAD_PROCESS);
                         }
                       }
-                    } else if (strcmp(controlWord, CONTROL_UNDONE) == 0) {
-                      if (found == 1) {
-                        if (info->isRequested == SUCCESS) {
-                          sharedResources->sendChanges = SUCCESS;
-                        }
-                      }
-                    } else {
-                      fprintf(stderr, "entro nell'errorHandler in SFL pt 7\n");
-                      rc_t = errorHandler(ANALYZER_MANAGER_MISUNDERSTANDING);
+                      stopRead = 1;
                     }
-                    stopRead = 1;
                   }
-                }
-              } else {
-                rc_rm = respawnManager(tmpManagers, manager,
-                                       sharedResources->fileToAssign);
-                alreadyPushed = SUCCESS;
-                if (rc_rm != SUCCESS) {
-                  fprintf(stderr,
-                          "entro nell'errorHandler in SFL pt 8 con codice %d\n",
-                          rc_rm);
-                  rc_t = errorHandler(rc_rm);
                 } else {
-                  fprintf(stderr, "entro nell'errorHandler in SFL pt 9\n");
-                  rc_t = errorHandler(DEAD_PROCESS);
+                  rc_rm = respawnManager(tmpManagers, manager,
+                                        sharedResources->fileToAssign);
+                  alreadyPushed = SUCCESS;
+                  if (rc_rm != SUCCESS) {
+                    fprintf(stderr,
+                            "entro nell'errorHandler in SFL pt 8 con codice %d\n",
+                            rc_rm);
+                    rc_t = errorHandler(rc_rm);
+                  } else {
+                    fprintf(stderr, "entro nell'errorHandler in SFL pt 9\n");
+                    rc_t = errorHandler(DEAD_PROCESS);
+                  }
                 }
               }
             }
+          } else {
+            rc_t = errorHandler(PIPE_FAILURE);
           }
         } else {
           rc_rm = respawnManager(tmpManagers, manager,
@@ -2257,7 +2273,6 @@ void *sendFileLoop(void *ptr) {
     }
     if (isEmptyList(sharedResources->fileToAssign) == NOT_EMPTY) {
       // fprintf(stderr, "entro nell'errorHandler in SFL pt 15\n");
-      rc_t = errorHandler(FILE_NOT_FOUND);
       rc_mfs = manageFileToSend(sharedResources->managers,
                                 *(sharedResources->nWorker),
                                 sharedResources->fileToAssign);
@@ -2354,7 +2369,6 @@ int sendFile(Manager manager, TreeNode file, List filesToAssign,
     if (rc_sp > 0) {
       int rc_wr = writeDescriptor(pipe[WRITE_CHANNEL], toSend);
       if (rc_wr < SUCCESS) {
-        /* printf("SONOIO: pipe piena\n"); */
         rc_t = SEND_FAILURE;
       } else {
         int rc_po = pop(filesToAssign);
@@ -2383,6 +2397,7 @@ void *readFromFIFOLoop(void *ptr) {
   TreeNode requested = NULL;
   FileInfo requestedFile = NULL;
   int rc_t = SUCCESS;
+  int rc_ct = SUCCESS;
   int rc_en = SUCCESS;
   int rc_st = SUCCESS;
   int rc_cwa = SUCCESS;
@@ -2435,126 +2450,127 @@ void *readFromFIFOLoop(void *ptr) {
             if (rc_po != SUCCESS || rc_po2 != SUCCESS || rc_po3 != SUCCESS) {
               fprintf(stderr, "entro nell'errorHandler in RFF pt 2\n");
               rc_t = errorHandler(UNEXPECTED_LIST_ERROR);
-            }
-
-            int rc_sc = sscanf(nManager, "%d", &newNManager);
-            int rc_sc2 = sscanf(nWorker, "%d", &newNWorker);
-            if (rc_sc == 0 ||
-                (newNManager == 9 && strcmp(nManager, "9") != 0) ||
-                nManager[0] == 0) {
-              fprintf(stderr, "entro nell'errorHandler in RFF pt 3\n");
-              rc_t = errorHandler(CAST_FAILURE);
-            }
-            if (rc_sc2 == 0 || (newNWorker == 9 && strcmp(nWorker, "9") != 0) ||
-                nWorker[0] == 0) {
-              fprintf(stderr, "entro nell'errorHandler in RFF pt 4\n");
-              rc_t = errorHandler(CAST_FAILURE);
-            }
-
-            if (rc_t == SUCCESS) {
-              pthread_mutex_lock(&(sharedResources->mutex));
-              strcpy(sharedResources->path, newPath);
-              if ((*(sharedResources->nManager)) != newNManager) {
-                rc_cma = changeManagersAmount(sharedResources->managers,
-                                              *(sharedResources->nManager), newNManager,
-                                              sharedResources->fileToAssign);
-                if (rc_cma != SUCCESS) {
-                  fprintf(stderr, "entro nell'errorHandler in RFF pt 1 con codice %d\n",
-                          rc_cma);
-                  rc_t = errorHandler(rc_cma);
-                } else {
-                  printf("Manager's number has been changed to %d\n", newNManager);
-                  (*(sharedResources->nManager)) = newNManager;
-                }
-              }
-              if(rc_t == SUCCESS){
-                rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
-                if(rc_cwa != SUCCESS){
-                  rc_t = errorHandler(rc_cwa);
-                }
-                if ((*(sharedResources->nWorker)) != newNWorker && rc_t == SUCCESS) {
-                  (*(sharedResources->nWorker)) = newNWorker;
-                  rc_rm = removeManagers(sharedResources->managers, 0,
-                                        sharedResources->fileToAssign);
-                  if (rc_rm != SUCCESS) {
-                    fprintf(stderr, "entro nell'errorHandler in RFF pt 3 con codice %d\n",
-                            rc_rm);
-                    rc_t = errorHandler(rc_rm);
-                  }
-                }
-              }
-              pthread_mutex_unlock(&(sharedResources->mutex));
             } else {
-              fprintf(stderr, "entro nell'errorHandler in RFF pt 8\n");
-              rc_t = errorHandler(INVALID_SYNTAX_ERROR);
-            }
+              int rc_sc = sscanf(nManager, "%d", &newNManager);
+              int rc_sc2 = sscanf(nWorker, "%d", &newNWorker);
+              if (rc_sc == 0 ||
+                  (newNManager == 9 && strcmp(nManager, "9") != 0) ||
+                  nManager[0] == 0) {
+                fprintf(stderr, "entro nell'errorHandler in RFF pt 3\n");
+                rc_ct = CAST_FAILURE;
+              }
+              if (rc_sc2 == 0 || (newNWorker == 9 && strcmp(nWorker, "9") != 0) ||
+                  nWorker[0] == 0) {
+                fprintf(stderr, "entro nell'errorHandler in RFF pt 4\n");
+                rc_ct = CAST_FAILURE;
+              }
 
-            if (rc_t == SUCCESS) {
-              if (strcmp(newPath, "///") != 0) {
+              if (rc_ct == SUCCESS) {
                 pthread_mutex_lock(&(sharedResources->mutex));
-                strcpy(tmpCwd, sharedResources->cwd);
-                type = precomputeAnalyzerInput(
-                    tmpCwd, sharedResources->processCwd, newPath, &rc_an);
-                pthread_mutex_unlock(&(sharedResources->mutex));
-                if (rc_an != SUCCESS) {
-                  fprintf(stderr,
-                          "entro nell'errorHandler in RFF pt 9 con codice %d\n",
-                          rc_an);
-                  rc_t = errorHandler(rc_an);
-                } else {
-                  if (type == DIRECTORY) {
-                    addForwardSlash(newPath);
-                  }
-                  if (type == DIRECTORY || type == IS_FILE) {
-                    toSkip = 0;
-                    startingNode = NULL;
-                    pthread_mutex_lock(&(sharedResources->mutex));
-                    startingNode = precomputeStartingDirectory(
-                        sharedResources->fs, sharedResources->currentDirectory,
-                        newPath, &toSkip);
-                    toAnalyze = newTreeNodeCandidate(startingNode, type,
-                                                     newPath, toSkip, &rc_ntnc);
-                    if (rc_ntnc != SUCCESS) {
-                      fprintf(stderr,
-                              "entro nell'errorHandler in RFF pt 10 con codice "
-                              "%d\n",
-                              rc_ntnc);
-                      rc_t = errorHandler(rc_ntnc);
-                    }
-                    if (toAnalyze != NULL) {
-                      rc_pu = push(sharedResources->candidateNode, toAnalyze);
-                      if (rc_pu != SUCCESS) {
-                        fprintf(stderr,
-                                "entro nell'errorHandler in RFF pt 11\n");
-                        rc_t = errorHandler(MALLOC_FAILURE);
-                      }
-                    } else {
-                      fprintf(stderr, "entro nell'errorHandler in RFF pt 12\n");
-                      rc_t = errorHandler(MALLOC_FAILURE);
-                    }
-                    pthread_mutex_unlock(&(sharedResources->mutex));
+                strcpy(sharedResources->path, newPath);
+                if ((*(sharedResources->nManager)) != newNManager) {
+                  rc_cma = changeManagersAmount(sharedResources->managers,
+                                                *(sharedResources->nManager), newNManager,
+                                                sharedResources->fileToAssign);
+                  if (rc_cma != SUCCESS) {
+                    fprintf(stderr, "entro nell'errorHandler in RFF pt 1 con codice %d\n",
+                            rc_cma);
+                    rc_t = errorHandler(rc_cma);
                   } else {
-                    if (type == NOT_EXISTING) {
-                      char *msgInfo =
-                          (char *)malloc(sizeof(char) * (PATH_MAX + 300));
-                      rc_al2 = checkAllocationError(msgInfo);
-                      if (rc_al2 < SUCCESS) {
+                    printf("Manager's number has been changed to %d\n", newNManager);
+                    (*(sharedResources->nManager)) = newNManager;
+                  }
+                }
+                if(rc_t == SUCCESS){
+                  rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
+                  if(rc_cwa != SUCCESS){
+                    rc_t = errorHandler(rc_cwa);
+                  }
+                  if ((*(sharedResources->nWorker)) != newNWorker && rc_t == SUCCESS) {
+                    (*(sharedResources->nWorker)) = newNWorker;
+                    rc_rm = removeManagers(sharedResources->managers, 0,
+                                          sharedResources->fileToAssign);
+                    if (rc_rm != SUCCESS) {
+                      fprintf(stderr, "entro nell'errorHandler in RFF pt 3 con codice %d\n",
+                              rc_rm);
+                      rc_t = errorHandler(rc_rm);
+                    }
+                  }
+                }
+                pthread_mutex_unlock(&(sharedResources->mutex));
+              } else {
+                fprintf(stderr, "entro nell'errorHandler in RFF pt 8\n");
+                rc_t = errorHandler(INVALID_SYNTAX_ERROR);
+              }
+
+              if (rc_t == SUCCESS && rc_ct == SUCCESS) {
+                if (strcmp(newPath, "///") != 0) {
+                  pthread_mutex_lock(&(sharedResources->mutex));
+                  strcpy(tmpCwd, sharedResources->cwd);
+                  type = precomputeAnalyzerInput(
+                      tmpCwd, sharedResources->processCwd, newPath, &rc_an);
+                  pthread_mutex_unlock(&(sharedResources->mutex));
+                  if (rc_an != SUCCESS) {
+                    fprintf(stderr,
+                            "entro nell'errorHandler in RFF pt 9 con codice %d\n",
+                            rc_an);
+                    rc_t = errorHandler(rc_an);
+                  } else {
+                    if (type == DIRECTORY) {
+                      addForwardSlash(newPath);
+                    }
+                    if (type == DIRECTORY || type == IS_FILE) {
+                      toSkip = 0;
+                      startingNode = NULL;
+                      pthread_mutex_lock(&(sharedResources->mutex));
+                      startingNode = precomputeStartingDirectory(
+                          sharedResources->fs, sharedResources->currentDirectory,
+                          newPath, &toSkip);
+                      toAnalyze = newTreeNodeCandidate(startingNode, type,
+                                                      newPath, toSkip, &rc_ntnc);
+                      if (rc_ntnc != SUCCESS) {
                         fprintf(stderr,
-                                "entro nell'errorHandler in RFF pt 13\n");
-                        rc_t = errorHandler(MALLOC_FAILURE);
-                      } else {
-                        sprintf(msgInfo, "The File %s doesn't exist", newPath);
-                        printInfo(msgInfo);
-                        free(msgInfo);
+                                "entro nell'errorHandler in RFF pt 10 con codice "
+                                "%d\n",
+                                rc_ntnc);
+                        rc_t = errorHandler(rc_ntnc);
                       }
+                      if (toAnalyze != NULL) {
+                        rc_pu = push(sharedResources->candidateNode, toAnalyze);
+                        if (rc_pu != SUCCESS) {
+                          fprintf(stderr,
+                                  "entro nell'errorHandler in RFF pt 11\n");
+                          rc_t = errorHandler(MALLOC_FAILURE);
+                        }
+                      } else {
+                        fprintf(stderr, "entro nell'errorHandler in RFF pt 12\n");
+                        rc_t = errorHandler(MALLOC_FAILURE);
+                      }
+                      pthread_mutex_unlock(&(sharedResources->mutex));
                     } else {
-                      fprintf(stderr, "entro nell'errorHandler in RFF pt 14\n");
-                      rc_t = errorHandler(FILE_TYPE_NOT_RECOGNIZED);
+                      if (type == NOT_EXISTING) {
+                        char *msgInfo =
+                            (char *)malloc(sizeof(char) * (PATH_MAX + 300));
+                        rc_al2 = checkAllocationError(msgInfo);
+                        if (rc_al2 < SUCCESS) {
+                          fprintf(stderr,
+                                  "entro nell'errorHandler in RFF pt 13\n");
+                          rc_t = errorHandler(MALLOC_FAILURE);
+                        } else {
+                          sprintf(msgInfo, "The File %s doesn't exist", newPath);
+                          printInfo(msgInfo);
+                        }
+                        free(msgInfo);
+                      } else {
+                        fprintf(stderr, "entro nell'errorHandler in RFF pt 14\n");
+                        rc_t = errorHandler(FILE_TYPE_NOT_RECOGNIZED);
+                      }
                     }
                   }
                 }
               }
             }
+            rc_ct = SUCCESS;
             free(nManager);
             free(nWorker);
             free(newPath);
@@ -2574,6 +2590,7 @@ void *readFromFIFOLoop(void *ptr) {
                 requested = performInsert(requestedPath, NULL,
                                           getRoot(sharedResources->fs),
                                           DIRECTORY, &rc_pi);
+                // TODO... change performInsert into a search with no Insert
                 if (rc_pi == SUCCESS ||
                     rc_pi == ALREADY_INSERTED && requested != NULL) {
                   requestedFile = (FileInfo)requested->data;
