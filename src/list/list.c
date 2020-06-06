@@ -23,7 +23,7 @@ int isEmptyList(const List list) {
 }
 
 int enqueue(List list, void *data) {
-  int ret = 0;
+  int ret = SUCCESS;
   Node nodo = (Node)malloc(sizeof(struct Node));
   ret = checkAllocationError(nodo);
   if (ret == SUCCESS) {
@@ -42,7 +42,7 @@ int enqueue(List list, void *data) {
 }
 
 int push(List list, void *data) {
-  int ret = 0;
+  int ret = SUCCESS;
   Node nodo = (Node)malloc(sizeof(struct Node));
   ret = checkAllocationError(nodo);
   if (ret == SUCCESS) {
@@ -101,54 +101,25 @@ void destroyList(List list, void deleteData(void *)) {
 }
 
 int pop(List list) {
-  //fprintf(stderr, "DENTOR LA POP INIZIO\n");
   int ret = SUCCESS;
   if(list != NULL){
-    Node tmp = list->head;
-    //fprintf(stderr, "HEAD %p\n", tmp);
-    //fprintf(stderr, "SIZE: %d\n", list->size);
-    //fprintf(stderr, "TAIL %p\n", list->tail);
-    int lvl = 0;
-    while(tmp != NULL){
-      //fprintf(stderr, "LVL: %d\n", lvl);
-      //fprintf(stderr, "%p %p\n", tmp->data, tmp->next);
-      lvl++;
-      tmp = tmp->next; 
-    }
-    //fprintf(stderr, "RIGA1\n");
     Node nodo;
-    //fprintf(stderr, "RIGA2\n");
     if (isEmptyList(list) == EMPTY) {
-      //fprintf(stderr, "RIGA3\n");
       ret = FAILURE;
-      //fprintf(stderr, "RIGA4\n");
     } else {
-      //fprintf(stderr, "RIGA5\n");
       nodo = list->head;
-      //fprintf(stderr, "RIGA6\n");
       list->head = nodo->next;
-      //fprintf(stderr, "RIGA7\n");
       list->size--;
-      //fprintf(stderr, "RIGA8\n");
-      if (list->size == 0) {
-        //fprintf(stderr, "RIGA9\n");
+      if (isEmptyList(list) == EMPTY) {
         list->tail = NULL;
-        //fprintf(stderr, "RIGA10\n");
       } else {
-        //fprintf(stderr, "RIGA11\n");
         list->head->prev = NULL;
-        //fprintf(stderr, "RIGA12\n");
       }
-      //fprintf(stderr, "RIGA13\n");
       free(nodo);
-      //fprintf(stderr, "RIGA14\n");
     }
-    //fprintf(stderr, "RIGA15\n");
   }else{
-    //fprintf(stderr, "HO LA LISTA MORTA\n");
     ret = FAILURE;
   }
-  //fprintf(stderr, "DENTOR LA POP FINE\n");
   return ret;
 }
 
@@ -248,8 +219,6 @@ int deleteAtIndex(List list, const int index, void deleteData(void *)) {
   }
   return deleted;
 }
-
-// TODO... METTERE SURGERY ANCHE IN REMOVE NODE E DELETE NODE
 
 int removeNode(const List list, void *data, int isEqual(void *, void *)) {
   int deleted = FAILURE;
