@@ -868,6 +868,58 @@ int sendTableToReporter(int fd, long long unsigned *requestedFilesTable);
  */
 int errorHandler(int errorCode);
 
+/**
+ * Function that search for a path inside a tree 
+ *
+ * args:
+ *    char *path: a compacted path to a file which is read from the reporterToAnalyzer
+ *    TreeNode startingPoint: the TreeNode (aka the directory) from where it will be started a search for the least common ancestor 
+ *    int isDirectory: parameter to specify if the last element in the complete path is a directory or a file 
+ *    int *msg: message used to check error in the performInsert function
+ *
+ * returns
+ *    A TreeNode that points to the searched path
+ */
+TreeNode searchIntoFs(char *path, char *completePath, TreeNode startingPoint,
+                       int isDirectory, int *msg);
+
+TreeNode searchIntoFs(char *path, char *completePath, TreeNode startingPoint,
+                       int isDirectory, int *msg) {
+  Node actualNode = NULL;
+  TreeNode toRtn = NULL;
+  TreeNode toExamine = NULL;
+  FileInfo dataToExamine = NULL;
+  int found = 0;
+  int match = 0;
+  int counter = 0;
+  int tmpCounter = 0;
+  int resetCounter = 0;
+  if (startingPoint != NULL && path != NULL) {
+    if (isEmptyList(startingPoint->children) == NOT_EMPTY) {
+      actualNode = startingPoint->children->head;
+      while (found == 0 && actualNode != NULL) {
+        match = 0;
+        toExamine = (TreeNode)actualNode->data;
+        if (toExamine != NULL) {
+          dataToExamine = (FileInfo)toExamine->data;
+          actualNode = getNodeWhereToInsert(
+              toExamine, dataToExamine, actualNode, path, &found, &match,
+              &counter, &resetCounter, &tmpCounter);
+        }
+        tmpCounter = 0;
+      }
+    }
+    //Perfect match
+    if (found == -1) {
+      toRtn = toExamine;
+      *msg = ALREADY_INSERTED;
+    }
+  } else {
+    *msg = NULL_POINTER;
+  }
+  return toRtn;
+}
+
 int getCwd(char *dst) {
   int rc_cwd = SUCCESS;
   if (getcwd(dst, PATH_MAX) == NULL) {
@@ -2587,12 +2639,11 @@ void *readFromFIFOLoop(void *ptr) {
             while (dire->size != 0) {
               char *requestedPath = front(dire);
               if (requestedPath != NULL) {
-                requested = performInsert(requestedPath, NULL,
+                requested = searchIntoFs(requestedPath, NULL,
                                           getRoot(sharedResources->fs),
                                           DIRECTORY, &rc_pi);
-                // TODO... change performInsert into a search with no Insert
-                if (rc_pi == SUCCESS ||
-                    rc_pi == ALREADY_INSERTED && requested != NULL) {
+                if ((rc_pi == SUCCESS ||
+                    rc_pi == ALREADY_INSERTED) && requested != NULL) {
                   requestedFile = (FileInfo)requested->data;
                   if (requestedFile != NULL) {
                     requestedFile->isRequested = SUCCESS;
@@ -2616,7 +2667,7 @@ void *readFromFIFOLoop(void *ptr) {
                     fprintf(stderr, "entro nell'errorHandler in RFF pt 18\n");
                     rc_t = errorHandler(MALLOC_FAILURE);
                   }
-                } else {
+                } else if(rc_pi != SUCCESS){
                   fprintf(
                       stderr,
                       "entro nell'errorHandler in RFF pt 19 con codice %d\n",
@@ -2672,6 +2723,7 @@ void readString(int fd, char *dst) {
 
   while (byteRead != 0 && charRead != '\0') {
     byteRead = readChar(fd, &charRead);
+    //TODO QUESTA ROBA VA CAMBIATA
     if (byteRead != 0) {
       dst[index++] = charRead;
     }
@@ -2853,6 +2905,7 @@ void *writeOnFIFOLoop(void *ptr) {
         if (rc_wd > 0) {
           int rc_st =
               sendTableToReporter(fd, sharedResources->requestedFilesTable);
+          printf("Ho mandanto la tabella\n");
           if (rc_st != SUCCESS) {
             fprintf(stderr,
                     "entro nell'errorHandler in WFL pt 3 con codice %d\n",
@@ -2976,7 +3029,7 @@ int errorHandler(int errorCode) {
     printError(
         "I could not allocate enough memory to run the program correctly");
     rc_t = HARAKIRI;
-  case CWD_ACCESS_DENIED:
+  case CWD_FAILURE:
     printError("For some reasons that I do not know I could not access the "
                "current working directory");
     rc_t = HARAKIRI;

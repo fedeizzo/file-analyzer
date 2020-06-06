@@ -1143,7 +1143,7 @@ int optionsHandler(List args, const char *cwd, const int argc, char **argv,
       int rc_al = checkAllocationError(newAbsolutePath);
       if (rc_al == SUCCESS) {
         if (argv[i][0] != '/') {
-          strcat(newAbsolutePath, cwd);
+          strcpy(newAbsolutePath, cwd);
           strcat(newAbsolutePath, "/");
           strcat(newAbsolutePath, argv[i]);
         } else {

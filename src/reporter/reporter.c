@@ -363,8 +363,10 @@ void *userInputLoop(void *ptr) {
         int i = 0;
         for (i = 0; i < NCHAR_TABLE; i++)
           input->userInput->table[i] = 0;
-        if (input->userInput->results != NULL)
+        if (input->userInput->results != NULL) {
+          input->userInput->toggledChanged = 1;
           readResult(input->userInput->results, input->cwd);
+        }
         pthread_mutex_unlock(&(input->mutex));
         clear();
         moveCursor(0, 0);
@@ -739,7 +741,7 @@ int readDirectives(List paths, int *numManager, int *numWorker, char *cwd) {
       int rc_al = checkAllocationError(newAbsolutePath);
       if (rc_al == SUCCESS) {
         if (newPath[0] != '/') {
-          strcat(newAbsolutePath, cwd);
+          strcpy(newAbsolutePath, cwd);
           strcat(newAbsolutePath, "/");
           strcat(newAbsolutePath, newPath);
         } else {
@@ -824,7 +826,7 @@ int readResult(List pathResults, char *cwd) {
       int rc_al2 = checkAllocationError(rlPath);
       if (rc_al == SUCCESS && rc_al2 == SUCCESS) {
         if (path[0] != '/') {
-          strcat(newResult, cwd);
+          strcpy(newResult, cwd);
           strcat(newResult, "/");
           strcat(newResult, path);
           realpath(newResult, rlPath);
@@ -832,6 +834,7 @@ int readResult(List pathResults, char *cwd) {
           strcpy(rlPath, path);
         }
         free(path);
+        trim(rlPath);
         rc_t = enqueue(pathResults, rlPath);
       } else {
         rc_t = MALLOC_FAILURE;
@@ -863,6 +866,7 @@ int sendResult(int fd, List pathResults) {
           if (index < PATH_MAX)
             tmpPath[old] = path[index];
         }
+        tmpPath[index] = '\0';
         int rc_wr = writeDescriptor(fd, tmpPath);
         if (rc_wr < SUCCESS)
           rc_t = -1;
