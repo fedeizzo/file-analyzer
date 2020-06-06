@@ -1289,14 +1289,14 @@ void *readDirectivesLoop(void *ptr) {
             if (type == NOT_EXISTING) {
               char *msgInfo = (char *)malloc(sizeof(char) * (PATH_MAX + 300));
               rc_al5 = checkAllocationError(msgInfo);
-              if (rc_al5 < 0) {
+              if (rc_al5 == FAILURE) {
                 fprintf(stderr, "entro nell'errorHandler in RDL pt 9\n");
                 rc_t = errorHandler(MALLOC_FAILURE);
               } else {
                 sprintf(msgInfo, "The File %s doesn't exist", newPath);
                 printInfo(msgInfo);
-                free(msgInfo);
               }
+              free(msgInfo);
             } else {
               fprintf(stderr, "entro nell'errorHandler in RDL pt 10\n");
               rc_t = errorHandler(FILE_TYPE_NOT_RECOGNIZED);
@@ -1673,8 +1673,8 @@ int writeBashProcess(int *fd, char *argv[]) {
   if (rc_t == SUCCESS && rc_ex != SUCCESS) {
     fprintf(stderr, "entro nell'errorHandler in WBP\n");
     rc_t = errorHandler(BASH_FAILURE);
-    kill(getpid(), SIGKILL);
   }
+  kill(getpid(), SIGKILL);
   return rc_t;
 }
 
@@ -1859,6 +1859,7 @@ void *fileManageLoop(void *ptr) {
   int rc_pi = SUCCESS;
   int rc_cd = SUCCESS;
 
+  int firstCycleAfterDeath = 1;
   char charRead = 'a';
   int skipped = 0;
   int bytesRead = 1;
@@ -1899,12 +1900,12 @@ void *fileManageLoop(void *ptr) {
       childPid = 0;
       if (candidate->type == DIRECTORY) {
         rc_find = spawnFindProcess(candidate->path, fd, &childPid);
-        readFlag = 1;
         if (rc_find != SUCCESS) {
           fprintf(stderr, "entro nell'errorHandler in FML pt 3 con codice %d\n",
                   rc_find);
           rc_t = errorHandler(rc_find);
         } else {
+          firstCycleAfterDeath = 1;
           readFlag = SUCCESS;
         }
       } else {
@@ -1920,7 +1921,8 @@ void *fileManageLoop(void *ptr) {
 
     if (readFlag == SUCCESS) {
       bytesRead = read(fd[READ_CHANNEL], &charRead, 1);
-      if (bytesRead > 0 || (kill(childPid, 0) == 0)) {
+      if (bytesRead > 0 || (kill(childPid, 0) == 0) ||
+         firstCycleAfterDeath >= 0) {
         if (bytesRead > 0) {
           candidate->path[counter + skipped] = charRead;
           if (skipped >= candidate->toSkip) {
@@ -1951,6 +1953,8 @@ void *fileManageLoop(void *ptr) {
             skipped++;
           }
         }
+        if (kill(childPid, 0) != 0)
+          firstCycleAfterDeath--;
       } else {
         rc_cd = closeDescriptor(fd[READ_CHANNEL]);
         if (rc_cd != SUCCESS) {
@@ -1994,7 +1998,7 @@ int spawnFindProcess(char *compactedPath, int *fd, int *childPid) {
   int rc_exlp = SUCCESS;
   int rc_fd = createUnidirPipe(fd);
   int rc_fc = fcntl(fd[READ_CHANNEL], F_SETFL, O_NONBLOCK);
-  if (rc_fd == SUCCESS && rc_fc != -1) {
+  if (rc_fd == SUCCESS && rc_fc != FAILURE) {
     int f = fork();
     if (f > 0) {
       rc_cds_1 = closeDescriptor(fd[WRITE_CHANNEL]);
