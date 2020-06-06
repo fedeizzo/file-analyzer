@@ -30,6 +30,17 @@ The only component that checks the amount of free memory is the worker. Before r
 
 The files were empty and all inside the same folder but we think that, also with different configurations, the memory usage is similar.
 
+### Thread
+We decided to use thread in all components in order to improve the user experience. Like Operative System make several processes to seem run concurrently for the user we want the same feeling inside our program. Every part of a component seems always running, but in reality there are a lot of context switching between several threads.
+
+## Known issues
+Here are listed some known issues:
+
+* if / are given as path the program interrupt itself in some random moment. This is caused by some strange file inside system folder. We try to "make a rule" in order to handle them but there are too much cases. Here are listed some that we handle (only for information):
+    * there are files that have a specific amount of space on the disk (4095 bytes) but inside the file there is only one char (i.e. /sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages). Inside manager we first use lseek to compute the dimension but if a worker fails we try to compute the dimension reading all file and take only the read chars. This is against the Professor's directives but is the only way to handle it (i.e. we saw wc unix command source code and also wc use this techniques).
+    * there are files that have multiple EOF or other special chars that block the read from pipe before the real amount is read
+* if analyzer and reporter are opened in two different terminals there is the possibility to close one and open it again. The two components keep the communication up but if reporter is closed and open again several times very quickly there is the possibility that the analyzer will die without any error message (we spread a lot of error messages inside all the code, but we didn't get the problem)
+
 ## Team
 ![Federico Izzo](./team/FedericoIzzo.png)
 ![Simone Alghisi](./team/SimoneAlghisi.png)
