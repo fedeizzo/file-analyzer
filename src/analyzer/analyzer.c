@@ -962,7 +962,6 @@ Tree initializeAnalyzerTree(FileInfo data, int *msg, void destroyer(void *)) {
 TreeNode performInsert(char *path, char *completePath, TreeNode startingPoint,
                        int isDirectory, int *msg) {
   Node actualNode = NULL;
-  Node tmp = NULL;
   TreeNode toRtn = NULL;
   TreeNode toExamine = NULL;
   TreeNode whereToInsert = NULL;
@@ -1211,28 +1210,29 @@ void *readDirectivesLoop(void *ptr) {
         rc_cma = changeManagersAmount(sharedResources->managers,
                                       *(sharedResources->nManager), newNManager,
                                       sharedResources->fileToAssign);
-        printf("Manager's number has been changed to %d\n", newNManager);
         if (rc_cma != SUCCESS) {
           fprintf(stderr, "entro nell'errorHandler in RDL pt 1 con codice %d\n",
                   rc_cma);
           rc_t = errorHandler(rc_cma);
+        } else {
+          printf("Manager's number has been changed to %d\n", newNManager);
+          (*(sharedResources->nManager)) = newNManager;
         }
-        (*(sharedResources->nManager)) = newNManager;
       }
-      rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
-      if ((*(sharedResources->nWorker)) != newNWorker) {
-        (*(sharedResources->nWorker)) = newNWorker;
-        rc_rm = removeManagers(sharedResources->managers, 0,
-                               sharedResources->fileToAssign);
-        if (rc_cwa != SUCCESS) {
-          fprintf(stderr, "entro nell'errorHandler in RDL pt 2 con codice %d\n",
-                  rc_cwa);
+      if(rc_t == SUCCESS){
+        rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
+        if(rc_cwa != SUCCESS){
           rc_t = errorHandler(rc_cwa);
         }
-        if (rc_t == SUCCESS && rc_rm != SUCCESS) {
-          fprintf(stderr, "entro nell'errorHandler in RDL pt 3 con codice %d\n",
-                  rc_rm);
-          rc_t = errorHandler(rc_rm);
+        if ((*(sharedResources->nWorker)) != newNWorker && rc_t == SUCCESS) {
+          (*(sharedResources->nWorker)) = newNWorker;
+          rc_rm = removeManagers(sharedResources->managers, 0,
+                                sharedResources->fileToAssign);
+          if (rc_rm != SUCCESS) {
+            fprintf(stderr, "entro nell'errorHandler in RDL pt 3 con codice %d\n",
+                    rc_rm);
+            rc_t = errorHandler(rc_rm);
+          }
         }
       }
       pthread_mutex_unlock(&(sharedResources->mutex));
@@ -1393,21 +1393,16 @@ int addManagers(PriorityQueue managers, int amount) {
               int rc_pp = parentInitExecPipe(toParent, toChild);
               int rc_fc = fcntl(toParent[READ_CHANNEL], F_SETFL, O_NONBLOCK);
               int rc_fc2 = fcntl(toChild[WRITE_CHANNEL], F_SETFL, O_NONBLOCK);
-              if (rc_pp == -1 || rc_fc == -1 || rc_fc2 == -1)
+              if (rc_pp == FAILURE || rc_fc == FAILURE || rc_fc2 == FAILURE)
                 rc_t = PIPE_FAILURE;
               else {
                 manager->m_pid = managerPid;
-                manager->pipe[0] = toParent[READ_CHANNEL];
-                manager->pipe[1] = toChild[WRITE_CHANNEL];
+                manager->pipe[READ_CHANNEL] = toParent[READ_CHANNEL];
+                manager->pipe[WRITE_CHANNEL] = toChild[WRITE_CHANNEL];
               }
             } else {
               managerInitPipe(toParent, toChild);
-              rc_nm = execlp("./manager", "./manager", NULL);
-              if (rc_nm != SUCCESS) {
-                fprintf(stderr, "entro nell'errorHandler in AM con codice %d\n",
-                        rc_nm);
-                rc_t = errorHandler(rc_nm);
-              }
+              execlp("./manager", "./manager", NULL);
               kill(getpid(), SIGKILL);
             }
           }
@@ -1425,7 +1420,7 @@ int parentInitExecPipe(const int toParent[], const int toChild[]) {
   int rc_cl = closeDescriptor(toParent[WRITE_CHANNEL]);
   int rc_cl2 = closeDescriptor(toChild[READ_CHANNEL]);
 
-  if (rc_cl == -1 || rc_cl2 == -1) {
+  if (rc_cl == FAILURE || rc_cl2 == FAILURE) {
     rc_t = PIPE_FAILURE;
   }
   return rc_t;
@@ -1440,8 +1435,8 @@ int managerInitPipe(const int toParent[], const int toChild[]) {
   int rc_cl3 = closeDescriptor(toChild[READ_CHANNEL]);
   int rc_cl4 = closeDescriptor(toParent[WRITE_CHANNEL]);
 
-  if (rc_cl == -1 || rc_cl2 == -1 || rc_cl3 == -1 || rc_cl4 == -1 ||
-      rc_du == -1 || rc_du2 == -1) {
+  if (rc_cl == FAILURE || rc_cl2 == FAILURE || rc_cl3 == FAILURE || rc_cl4 == FAILURE ||
+      rc_du == FAILURE || rc_du2 == FAILURE) {
     rc_t = PIPE_FAILURE;
   }
 
@@ -1468,6 +1463,8 @@ Manager newManager(int *msg) {
         manager = NULL;
       }
     }
+  } else {
+    *msg = MALLOC_FAILURE;
   }
   return manager;
 }
@@ -1516,7 +1513,7 @@ int removeManagers(PriorityQueue managers, int amount, List fileToAssign) {
         }
         rc_pu = pushPriorityQueue(tmpManagers, m->filesInExecution->size,
                                   (void *)m);
-        if (rc_t == SUCCESS && rc_im != rc_pu) {
+        if (rc_t == SUCCESS && rc_pu != SUCCESS) {
           fprintf(stderr, "entro nell'errorHandler in RM pt 4\n");
           rc_t = errorHandler(MALLOC_FAILURE);
         }
@@ -2454,36 +2451,32 @@ void *readFromFIFOLoop(void *ptr) {
               pthread_mutex_lock(&(sharedResources->mutex));
               strcpy(sharedResources->path, newPath);
               if ((*(sharedResources->nManager)) != newNManager) {
-                rc_cma = changeManagersAmount(
-                    sharedResources->managers, *(sharedResources->nManager),
-                    newNManager, sharedResources->fileToAssign);
-                printf("Manager's number has been changed to %d\n",
-                       newNManager);
+                rc_cma = changeManagersAmount(sharedResources->managers,
+                                              *(sharedResources->nManager), newNManager,
+                                              sharedResources->fileToAssign);
                 if (rc_cma != SUCCESS) {
-                  fprintf(stderr,
-                          "entro nell'errorHandler in RFF pt 5 con codice %d\n",
+                  fprintf(stderr, "entro nell'errorHandler in RFF pt 1 con codice %d\n",
                           rc_cma);
                   rc_t = errorHandler(rc_cma);
+                } else {
+                  printf("Manager's number has been changed to %d\n", newNManager);
+                  (*(sharedResources->nManager)) = newNManager;
                 }
-                (*(sharedResources->nManager)) = newNManager;
               }
-              rc_cwa =
-                  changeWorkerAmount(sharedResources->managers, newNWorker);
-              if ((*(sharedResources->nWorker)) != newNWorker) {
-                (*(sharedResources->nWorker)) = newNWorker;
-                rc_rm = removeManagers(sharedResources->managers, 0,
-                                       sharedResources->fileToAssign);
-                if (rc_cwa != SUCCESS) {
-                  fprintf(stderr,
-                          "entro nell'errorHandler in RFF pt 6 con coice %d\n",
-                          rc_cwa);
+              if(rc_t == SUCCESS){
+                rc_cwa = changeWorkerAmount(sharedResources->managers, newNWorker);
+                if(rc_cwa != SUCCESS){
                   rc_t = errorHandler(rc_cwa);
                 }
-                if (rc_t == SUCCESS && rc_rm != SUCCESS) {
-                  fprintf(stderr,
-                          "entro nell'errorHandler in RFF pt 7 con coice %d\n",
-                          rc_rm);
-                  rc_t = errorHandler(rc_rm);
+                if ((*(sharedResources->nWorker)) != newNWorker && rc_t == SUCCESS) {
+                  (*(sharedResources->nWorker)) = newNWorker;
+                  rc_rm = removeManagers(sharedResources->managers, 0,
+                                        sharedResources->fileToAssign);
+                  if (rc_rm != SUCCESS) {
+                    fprintf(stderr, "entro nell'errorHandler in RFF pt 3 con codice %d\n",
+                            rc_rm);
+                    rc_t = errorHandler(rc_rm);
+                  }
                 }
               }
               pthread_mutex_unlock(&(sharedResources->mutex));
@@ -3120,23 +3113,12 @@ int main() {
   int rc_t = SUCCESS;
   int rc_am = SUCCESS;
   int rc_en = SUCCESS;
-  rc_am = addManagers(managers, defaultManagers);
-  rc_cwd = getCwd(cwd);
-  rc_cwd2 = getCwd(processCwd);
-  if (rc_cwd != SUCCESS || rc_cwd2 != SUCCESS) {
-    fprintf(stderr, "entro nell'errorHandler in Main pt 1 con codice %d\n",
-            rc_cwd);
-    rc_t = errorHandler(rc_cwd);
-  }
-  if (rc_t == SUCCESS && rc_am != SUCCESS) {
-    fprintf(stderr, "entro nell'errorHandler in Main pt 2 con codice %d\n",
-            rc_am);
-    rc_t = errorHandler(rc_am);
-  }
   if (rc_t == SUCCESS && rc_al != SUCCESS) {
     fprintf(stderr, "entro nell'errorHandler in Main pt 3 con codice %d\n",
             rc_al);
     rc_t = errorHandler(rc_al);
+  }  else {
+    rc_cwd = getCwd(cwd);
   }
   if (rc_t == SUCCESS && rc_al2 != SUCCESS) {
     fprintf(stderr, "entro nell'errorHandler in Main pt 4 con codice %d\n",
@@ -3147,15 +3129,29 @@ int main() {
     fprintf(stderr, "entro nell'errorHandler in Main pt 5 con codice %d\n",
             rc_al3);
     rc_t = errorHandler(rc_al3);
+  } else {
+    rc_cwd2 = getCwd(processCwd);
   }
   if (rc_t == SUCCESS && rc_al4 != SUCCESS) {
     fprintf(stderr, "entro nell'errorHandler in Main pt 6 con codice %d\n",
             rc_al4);
     rc_t = errorHandler(rc_al4);
   }
+  if (rc_t == SUCCESS && (rc_cwd != SUCCESS || rc_cwd2 != SUCCESS)) {
+    fprintf(stderr, "entro nell'errorHandler in Main pt 1 con codice %d\n",
+            rc_cwd);
+    rc_t = errorHandler(rc_cwd);
+  }
   if (rc_t == SUCCESS && (managers == NULL || candidateNode == NULL ||
                           fileToAssign == NULL || requestedFiles == NULL)) {
     rc_t = MALLOC_FAILURE;
+  } else {
+    rc_am = addManagers(managers, defaultManagers);
+  }
+  if (rc_t == SUCCESS && rc_am != SUCCESS) {
+    fprintf(stderr, "entro nell'errorHandler in Main pt 2 con codice %d\n",
+            rc_am);
+    rc_t = errorHandler(rc_am);
   }
   if (rc_t == SUCCESS) {
     root = initFileInfoRoot(&rc_ir);

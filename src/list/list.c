@@ -343,12 +343,9 @@ void map(List list, void function(void *)) {
   }
 }
 
-/**
- * BESTIA DI SATANA
- */
 int concat(List dst, List src) {
   int rc_t = SUCCESS;
-  if (dst != NULL || src != NULL) {
+  if (dst != NULL && src != NULL) {
     if(isEmptyList(dst) == EMPTY){
       swap(dst, src);
     }else{
@@ -368,121 +365,7 @@ int concat(List dst, List src) {
       }
     }
   } else {
-    rc_t = FAILURE; // TODO map into NULL_POINTER
+    rc_t = FAILURE;
   }
   return rc_t;
 }
-
-/*
-int int_eq(void *primo, void * secondo){
-    return ((*(int *)primo) == (*(int *)secondo)) ? 0 : -1;
-}
-
-void toString_int(void * toPrint){
-    printf("%d\n", *((int *)toPrint));
-}
-
-void delete_int(void *data){
-    free(data);
-}*/
-/**
- * MAIN TO TEST
- */
-/*
-int main(){
-  int i = 0;
-  int c;
-  int *toSearch;
-  int *el;
-  List l = newList();
-  List l2 = newList();
-  while(1){
-    printf("Inserisci il codice: \n");
-    scanf("%d", &c);
-    switch(c){
-      case 1:
-        el = (int *)front(l);
-        if(el != NULL){
-          printf("%d\n", *(el));
-        }
-        dequeue(l);
-        break;
-      case 2:
-        el = (int *)tail(l);
-        if(el != NULL){
-          printf("%d\n", *(el));
-        }
-        pop(l);
-        break;
-      case 3:
-        el = (int*) malloc(sizeof(int));
-        printf("Inserisci l'elemento da incodare:\n");
-        scanf("%d", el);
-        enqueue(l, (void*) el);
-        break;
-      case 4:
-        el = (int*) malloc(sizeof(int));
-        printf("Inserisci l'elemento da inserire in testa:\n");
-        scanf("%d", el);
-        push(l, (void*) el);
-        break;
-      case 5:
-        toSearch = (int*) malloc(sizeof(int));
-        printf("Searching for...\n");
-        scanf("%d", toSearch);
-        printf("%d\n ", isIn(l, (void *) toSearch, int_eq));
-        break;
-      case 6:
-        printList(l, toString_int);
-        break;
-      case 7:
-        toSearch = (int*) malloc(sizeof(int));
-        printf("Which Element to return?...\n");
-        scanf("%d", toSearch);
-        void *obtained = getData(l, (void *) toSearch, int_eq);
-        if(obtained!=NULL){
-            printf("%d\n ", *((int *) obtained));
-        }else{
-            printf("null\n");
-        }
-        break;
-      case 8:
-        toSearch = (int*) malloc(sizeof(int));
-        printf("At which index delete the element?...\n");
-        scanf("%d", toSearch);
-        printf("%d\n ", deleteAtIndex(l, *((int *) toSearch), delete_int));
-        break;
-      case 9:
-        toSearch = (int*) malloc(sizeof(int));
-        printf("Which Element to delete?...\n");
-        scanf("%d", toSearch);
-        printf("%d\n ", removeNode(l, (void *) toSearch, int_eq));
-        break;
-      case 10:
-        printList(l2, toString_int);
-        break;
-      case 11:
-        el = (int*) malloc(sizeof(int));
-        printf("Inserisci l'elemento da incodare:\n");
-        scanf("%d", el);
-        enqueue(l2, (void*) el);
-        break;
-      case 12:
-        printf("swap list\n");
-        swap(l, l2);
-        printf("lista 1\n");
-        printList(l, toString_int);
-        printf("lista 2\n");
-        printList(l2, toString_int);
-        break;
-      default:
-        printf("I am in the default\n");
-        destroyList(l, delete_int);
-        destroyList(l2, delete_int);
-        if(l == NULL){
-            printf("ciao\n");
-        }
-        exit(0);
-    }
-  }
-}*/
