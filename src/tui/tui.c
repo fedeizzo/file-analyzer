@@ -244,7 +244,7 @@ int commandFilter(const int cmd, const int counter) {
     if (counter >= 97 && counter <= 122)
       rc_t = 0;
   } else if (cmd == 3) {
-    if (((counter >= 32 && counter <= 47)) ||
+    if (((counter >= 33 && counter <= 47)) ||
         ((counter >= 58 && counter <= 64)) ||
         ((counter >= 91 && counter <= 96)) ||
         ((counter >= 123 && counter <= 126)))
@@ -256,7 +256,7 @@ int commandFilter(const int cmd, const int counter) {
     if (counter >= 0 && counter <= 128)
       rc_t = 0;
   } else if (cmd == 6) {
-    if ((counter >= 0 && counter <= 31) || counter == 127 || counter == 128)
+    if ((counter >= 0 && counter <= 32) || counter == 127 || counter == 128)
       rc_t = 0;
   }
 

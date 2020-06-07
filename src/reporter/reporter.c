@@ -403,16 +403,16 @@ void writeStats(unsigned long long *table) {
 
   int i;
   for (i = 0; i < NCHAR_TABLE; i++) {
-    if (i >= 97 && i <= 122)
+    if (i >= 65 && i <= 90)
+      minuscole += table[i];
+    else if (i >= 97 && i <= 122)
       maiuscole += table[i];
-    else if (((i >= 32 && i <= 47)) || ((i >= 58 && i <= 64)) ||
+    else if (((i >= 33 && i <= 47)) || ((i >= 58 && i <= 64)) ||
              ((i >= 91 && i <= 96)) || ((i >= 123 && i <= 126)))
       punteg += table[i];
     else if (i >= 48 && i <= 57)
       cifre += table[i];
-    else if (i >= 65 && i <= 90)
-      minuscole += table[i];
-    else
+    else if((i >= 0 && i <= 32) || i == 127 || i == 128)
       other += table[i];
     tutto += table[i];
   }
@@ -818,7 +818,7 @@ int readResult(List pathResults, char *cwd) {
     }
     path[--index] = '\0';
 
-    if (strncmp(path, "requ", 4) == 0) {
+    if (strcmp(path, "requ") == 0) {
       endFlag = 0;
     } else if (path[0] != '\0' && rc_t == SUCCESS) {
       char *newResult = malloc(PATH_MAX * sizeof(char));
