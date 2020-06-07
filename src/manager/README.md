@@ -21,7 +21,7 @@ The task of this thread is very simple:
 The task of this thread is composed by some sequentially steps:
 
 1. check if new directives were added
-2. assign to do work to a pending worker
+2. assign work to a pending worker
 3. read worker's work
 4. send to standard output a summary
 
@@ -36,7 +36,7 @@ Workers' works are read once for cycle. The manger try to read all worker's work
 #### Spawn process
 By default a manger spawns four worker. The spawn process consists in:
 
-1. creates two pipes (one for read, another for write)
+1. create two pipes (one for read, another for write)
 2. set pipes as non blocking
 3. fork a child
 4. override child's standard input and output

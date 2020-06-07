@@ -40,53 +40,75 @@ Project logic:
 
 Directories logic:
 .
-|-- Makefile
-|-- README
-|-- bin
-`-- src
-    |-- analyzer
-    |   |-- analyzer.c
-    |   `-- analyzer.h
-    |-- config
-    |   `-- config.h
-    |-- conteggio
-    |-- conteggio2
-    |-- list
-    |   |-- list.c
-    |   `-- list.h
-    |-- main.c
-    |-- manager
-    |   |-- README.md
-    |   |-- directivesThread.png
-    |   |-- manager.c
-    |   |-- manager.h
-    |   |-- manager.pdf
-    |   `-- workThread.png
-    |-- priorityQueue
-    |   |-- priorityQueue.c
-    |   `-- priorityQueue.h
-    |-- reporter
-    |   |-- reporter.c
-    |   `-- reporter.h
-    |-- table
-    |   |-- table.c
-    |   `-- table.h
-    |-- tree
-    |   |-- tree.c
-    |   `-- tree.h
-    |-- tui
-    |   |-- tui.c
-    |   `-- tui.h
-    |-- work
-    |   |-- work.c
-    |   `-- work.h
-    |-- worker
-    |   |-- README.md
-    |   |-- Worker.png
-    |   |-- worker.c
-    |   |-- worker.h
-    |   `-- worker.pdf
-    `-- wrapping
-        |-- wrapping.c
-        `-- wrapping.h
+├── bin
+├── Makefile
+├── README
+├── README.md
+├── RFC.pdf
+├── src
+│   ├── analyzer
+│   │   ├── analyzer.c
+│   │   ├── analyzer.h
+│   │   ├── analyzer.pdf
+│   │   ├── manageFileThread.png
+│   │   ├── readDirectivesThread.png
+│   │   ├── readFifoThread.png
+│   │   ├── README.md
+│   │   ├── sendFileThread.png
+│   │   ├── treeInsertion.png
+│   │   └── writeFifoThread.png
+│   ├── config
+│   │   └── config.h
+│   ├── list
+│   │   ├── list.c
+│   │   └── list.h
+│   ├── main.c
+│   ├── manager
+│   │   ├── directivesThread.png
+│   │   ├── manager.c
+│   │   ├── manager.h
+│   │   ├── manager.pdf
+│   │   ├── README.md
+│   │   └── workThread.png
+│   ├── priorityQueue
+│   │   ├── priorityQueue.c
+│   │   └── priorityQueue.h
+│   ├── reporter
+│   │   ├── readFifoLoop.png
+│   │   ├── README.md
+│   │   ├── reporter.c
+│   │   ├── reporter.h
+│   │   ├── reporter.pdf
+│   │   ├── userInputLoop.png
+│   │   └── writeFifoLoop.png
+│   ├── table
+│   │   ├── table.c
+│   │   └── table.h
+│   ├── tree
+│   │   ├── tree.c
+│   │   └── tree.h
+│   ├── tui
+│   │   ├── README.md
+│   │   ├── screenshot.png
+│   │   ├── tui.c
+│   │   ├── tui.h
+│   │   ├── tui.pdf
+│   │   └── UI.png
+│   ├── work
+│   │   ├── work.c
+│   │   └── work.h
+│   ├── worker
+│   │   ├── README.md
+│   │   ├── worker.c
+│   │   ├── worker.h
+│   │   ├── worker.pdf
+│   │   └── Worker.png
+│   └── wrapping
+│       ├── wrapping.c
+│       └── wrapping.h
+└── team
+    ├── EmanueleBeozzo.png
+    ├── FedericoIzzo.png
+    ├── SamueleBortolotti.png
+    └── SimoneAlghisi.png
 
