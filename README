@@ -20,6 +20,9 @@ Makefile help:
                     Then it creates the executable files
 
 -------------------------------------------------------------------
+
+BELOW ARE LISTED SOME INFORMATION. MORE (WITH CHARTS AND IMAGES) ARE INSIDE RFC.pdf
+
 Implementation choices:
 
 Memory:
