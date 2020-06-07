@@ -9,27 +9,34 @@ samuele.bortolotti@studenti.unitn.it, Samuele Bortolotti, 201647
 
 -------------------------------------------------------------------
 Makefile help:
-  * build    : compiles the program and creates an executable file named
-               counter
-  * clean    : removes all file creted during build operation
-  * cleanObj : removes all object files created during build operation
-  * help     : print this file
+  * build        : compiles the program and creates the executable files and object files
+  * buildMinimal : compiles the program and creates only the executable files
+  * clean        : removes all file created during any kind of build operation
+  * cleanObj     : removes all object files created during any kind of build operation
+  * help         : print this file
+  * log          : compiles the program with a preprocessor directive which redirects all components errors in a log file. Then it creates the executable files and object files
+  * speed        : compiles the program with a preprocessor directive which ignores all the sleeps. Then it creates the executable files
 
 Project logic:
-  * analyzer : analyzer forks managers and keeps anonymous pipes with them
-               in order to stay informed
-  * list     : a linked list implementation
-  * manager  : manager forks mulpiple workers and keeps anonymous pipes with
-               them in order to get the stats gatered from files
-  * reporter : reporters mantains mantains two pipes:
-                 * analyzer <-> reporter: in order to gathers data and computes
-                   a report
-                 * reporter <-> main: in oreder to sends report to the user
-  * table    : holds counting information
-  * work     : a work
-  * worker   : worker reads and computes the statistic operations on a portion
-               of a file assignet to it 
-  * wrapping : utility functions
+  * analyzer      : analyzer forks managers and keeps anonymous pipes with them
+                    in order to stay informed
+  * config        : contains preprocessor directives like error codes and flags
+  * list          : a linked list implementation
+  * manager       : manager forks mulpiple workers and keeps anonymous pipes with
+                    them in order to get the stats gathered from files
+  * priorityQueue : a prioriy queue (heap based) implementation
+  * reporter      : reporter mantains two pipes:
+                    * analyzer -> reporter: in order to gathers data and computes
+                      a report
+                    * reporter -> analyzer: in oreder to sends user's requests
+  * table         : holds counting information
+  * tree          : a n-ary tree with list of children implementation
+  * tui           : terminal user interface 
+  * work          : a worker's work
+  * worker        : worker reads and computes the statistic operations on a portion
+                    of a file assigned to it 
+  * wrapping      : utility functions
+  * main          : calls reporter and analyzer after a fork
 
 Directories logic:
 .

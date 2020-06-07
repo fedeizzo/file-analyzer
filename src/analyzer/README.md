@@ -51,11 +51,11 @@ In this thread two different operations are performed:
 ### Read FIFO Thread
 After checking if the "reporterToAnalyzer" file exists a FIFO is opened between the analyzer and the reporter in O_RDONLY mode in order to be able to read the operations sent from the reporter. There are three main operations that can be performed:
 
-* with "dire" the path, the number of managers and the number of workers are popped from the List of readed words and then an operation which is identical to the one described in the Read Directives Thread will be executed.
-* with "//" the element in the requestedFiles List and the requestedFilesTable are resetted and, while there are still element in the readed word List, the files with a matching path to the one popped are setted as requested and their table is summed with the requestedFilesTable. After this operation the flag sendChanges is setted.
-* with "tree" the path to retrieve is popped from the readed word List and it is then saved inside toRetrieve variable.
+* with "dire" the path, the number of managers and the number of workers are popped from the List of read words and then an operation which is identical to the one described in the Read Directives Thread will be executed.
+* with "//" the element in the requestedFiles List and the requestedFilesTable are resetted and, while there are still element in the read word List, the files with a matching path to the one popped are setted as requested and their table is summed with the requestedFilesTable. After this operation the flag sendChanges is setted.
+* with "tree" the path to retrieve is popped from the read word List and it is then saved inside toRetrieve variable.
 
-If the word read is different from the previous ones and also different from "" (empty string) then the word is enqueued into the readed words List ontherwise the FIFO is closed.
+If the word read is different from the previous ones and also different from "" (empty string) then the word is enqueued into the read words List ontherwise the FIFO is closed.
 
 ### Write FIFO Thread
 In this thread the informations requested from the reporter are sent. First thing first if the file "analyzerToReporter" doesn't exists then it's created. After this operation a FIFO in O_WRONLY mode is opened. In the first half of the loop the toRetrieve variable is checked and if it's different from NULL then a file with a matching path to the one saved in the variable is searched inside the tree and the children of the retrieved node are sent to the reporter using the format "tree" "number of children" "fileName1" "fileName2" ...
