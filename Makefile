@@ -56,7 +56,16 @@ $(BIN_FOLDER)main.o: ./src/main.c
 
 .SILENT:
 help:
-	cat README
+	echo -e "Makefile help\n \
+	* build        : compiles the program and creates the executable files and object files\n \
+	* buildMinimal : compiles the program and creates only the executable files\n \
+	* clean        : removes all file created during any kind of build operation\n \
+	* cleanObj     : removes all object files created during any kind of build operation\n \
+	* help         : print this file\n \
+	* log          : compiles the program with a preprocessor directive which redirects all components errors in a log file.\n \
+	                 Then it creates the executable files and object files\n \
+	* speed        : compiles the program with a preprocessor directive which ignores all the sleeps.\n \
+	                 Then it creates the executable files"
 
 makeDir:
 	[ -d bin ] || mkdir bin

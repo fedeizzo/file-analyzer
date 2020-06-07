@@ -3259,6 +3259,7 @@ int main() {
               rc_ir);
       rc_t = errorHandler(rc_ir);
     }
+    printf("Analyzer input syntax:\n-Path\n-Number of Manager\n-Number of Worker\n");
     sharedResources.processCwd = processCwd;
     sharedResources.cwd = cwd;
     sharedResources.requestedFiles = requestedFiles;

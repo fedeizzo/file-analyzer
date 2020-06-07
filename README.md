@@ -30,6 +30,35 @@ The only component that checks the amount of free memory is the worker. Before r
 
 The files were empty and all inside the same folder but we think that, also with different configurations, the memory usage is similar. The amount of memory was calculated after the workers ended their tasks. 
 
+### Empty folders
+We decided not to store information about empty fodlers. 
+If files are added later in a folder (that was previously empty) user needs to analyze it again
+
+### Changing file runtime
+If a file is changed while the workers are reading there are several possibilities:
+  * if the updated file is shorter/longer than the old one, we decided to handle the error but the statistic are not reliable,
+    so if the user want the correct one he/she needs to it analyze again.
+  * if the updated file has different permissions, workers are still able to read the file because
+    permissions are only verified when a file is opened and the statistic will be saved.
+  * if the file has been deleted, workers are still able to read the file because 
+    as long as there is an open file descriptor the file’s data will not be deleted and the inode will not be freed.
+    The statistic will be saved anyway.
+In any case the purpose of the program is to analyze files, so if the user changes them runtime
+it completely lose its original meaning (errors must be handled anyway).
+
+### Manager/Worker amount changes
+If the manager/worker amount changes during the program execution we decided not to kill them 
+(except the case when the user wants less processes, and rare occasions - i.e. communication errors), 
+instead we reorganized their jobs.
+If one or both of those amounts are equals (or below) zero, their task are stored until the number changes.
+
+### File distribution
+Files are scheduled to managers using a priority queue. In some cases this is the fairest way to assign them, 
+but, in some occasions (few and/or small files)  only a small amount of managers are involved (some/all files are analyzed before the whole distribution).
+This happens because the priority is based on the amount of file, assigned to the manager, which still needs to be processed.
+We thought about changing the priority with the total number of file assigned, but this isn't fair with big files 
+and analyzer shouldn't access files in any way to know their dimension.
+
 ### Thread
 We decided to use threads in all components in order to improve the user experience, giving them the impression of running every single component in a cuncurrent way, just like an Operating System does with processes. Every part of a component seems to be always running, but in reality there are a lot of context switching between several threads.
 
@@ -40,6 +69,7 @@ Here are listed some known issues:
     * there are files that have a specific amount of space on the disk (4096 bytes) but inside the file there is only one char (i.e. /sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages). Inside manager we first use lseek to compute the dimension but if a worker fails, we try to compute the dimension reading all file and take only the amount of read chars. This is against the professor's directives but is the only way to handle it (i.e. we saw wc unix command source code and also wc use this techniques).
     * there are files that have multiple EOF or other special chars that block the read from the file descriptor before the real amount is read
 * if analyzer and reporter are opened in two different terminals there is the possibility to close one and open it again. The two components keep the communication up but if reporter is closed and open again several times very quickly there is the possibility that the analyzer will die without any error message (we spread a lot of error messages inside all the code, but we didn't get the problem)
+* The executable files needs to be called inside the bin directory, otherwise the program won't work (except for the reporter and worker). 
 
 ## Team
 ![Federico Izzo](./team/FedericoIzzo.png)

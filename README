@@ -23,34 +23,40 @@ Makefile help:
 Implementation choices:
 
 Memory:
-In most cases if malloc fails we closed the program because we think that if a user saturated the RAM, 
+In most cases if malloc fails we closed the program because we think that if the user saturated the RAM, 
 he/she may prefer that some programs could free it to make the computer more usable.
 Before reading from a file only the worker checks if there is enough free space in memory in order to read its work amount. 
 If not it allocates 50% of the free memory and reads multiples times from the file moving the cursor.
 
 Empty folders:
 We decided not to store information about empty fodlers. 
-If files are added later on in a folder (that was previously empty) user needs to analyze it again
+If files are added later in a folder (that was previously empty) user needs to analyze it again
 
 Changing file runtime:
 If a file is changed while the workers are reading there are several possibilities:
-  * if the updated file is shorter than the old one, we decided that ...
-  * if the updated file is longer than the old one, we decided to return the statistics of the previous one
-  * if the updated file has different permissions, we decided ..
-  * if the file has been deleted, we decided ..
-In any case the purpose of the program is to analyze files, so if the user change them runtime it completely lose its original meaning 
-(errors must be handled anyway).
+  * if the updated file is shorter/longer than the old one, we decided to handle the error but the statistic are not reliable,
+    so if the user want the correct one he/she needs to it analyze again.
+  * if the updated file has different permissions, workers are still able to read the file because
+    permissions are only verified when a file is opened and the statistic will be saved.
+  * if the file has been deleted, workers are still able to read the file because 
+    as long as there is an open file descriptor the file’s data will not be deleted and the inode will not be freed.
+    The statistic will be saved anyway.
+In any case the purpose of the program is to analyze files, so if the user changes them runtime
+it completely lose its original meaning (errors must be handled anyway).
 
 Manager/Worker amount changes:
-If the manager/worker amount changes during the program execution we decided not to kill them (except the case when the user wants less processes, 
-and rare occasions - i.e. communication errors), instead we reorganized their jobs.
+If the manager/worker amount changes during the program execution we decided not to kill them 
+(except the case when the user wants less processes, and rare occasions - i.e. communication errors), 
+instead we reorganized their jobs.
 If one or both of those amounts are equals (or below) zero, their task are stored until the number changes.
 
-Work distribution:
-Files are scheduled to managers using a priority queue. In some cases this is the fairest way to assign them, but, in some occasions (few and/or small files) 
-only a small amount of managers are involved (some/all files are analyzed before the whole distribution).
+File distribution:
+Files are scheduled to managers using a priority queue. In some cases this is the fairest way to assign them, 
+but, in some occasions (few and/or small files)  only a small amount of managers are involved 
+(some/all files are analyzed before the whole distribution).
 This happens because the priority is based on the amount of file, assigned to the manager, which still needs to be processed.
-We thought about changing the priority with the total number of file assigned, but this isn't fair with big files and analyzer shouldn't know files' dimension.
+We thought about changing the priority with the total number of file assigned, but this isn't fair with big files 
+and analyzer shouldn't access files in any way to know their dimensions.
 
 Thread:
 We decided to use threads in all components in order to improve the user experience.
@@ -58,9 +64,21 @@ We decided to use threads in all components in order to improve the user experie
 -------------------------------------------------------------------
 Problems and difficulties:
 
-* If / is given as path the program interrupt itself in some random moment. This is caused by some strange file inside system's folders. 
-    We tried to "make a rule" in order to handle them but there are too many cases (we didn't have neither the time nor the means).
-* If reporter is closed and open again several times very quickly there is the possibility that the analyzer will die without any error message
+* If / is given as path the program interrupt itself in some random moment. 
+  This is caused by some strange file inside system's folders. 
+  We tried to "make a rule" in order to handle them but there are too many cases 
+  (we didn't have neither the time nor the means).
+* If reporter is closed and open again several times very quickly 
+  there is the possibility that the analyzer will die without any error message
+* The executable files needs to be called inside the bin directory, otherwise the program won't work 
+  (except for the reporter and worker). 
+
+-------------------------------------------------------------------
+How to use the program:
+
+All the main components of the project can be executed standalone.
+The user can build the program with different building option and executing it while being in the bin folder.
+Follow the instruction on the screen, use help or see RFC.pdf.
 
 -------------------------------------------------------------------
 Project logic:
