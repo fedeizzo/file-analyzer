@@ -15,7 +15,7 @@ Obs: With a small amount of work is possible to change the lowest component of t
 The goal of this project is to learn most of C system calls and to take confidence with GNU/Linux environment.
 
 ## Implementation choices
-There are several implementation choices inside all files in compontens' folder. Here are listed some common choices.
+There are several implementation choices inside all files in components' folder. Here are listed some common choices.
 
 ### Memory
 Inside all code, except worker, when we allocate some memory on the heap we always control if the memory was allocated correctly. In most cases if malloc fails we closed the program because we think that if a user saturated the RAM, he/she may prefer that some programs could free it to make the computer more usable.
@@ -33,20 +33,18 @@ The only component that checks the amount of free memory is the worker. Before r
 The files were empty and all inside the same folder but we think that, also with different configurations, the memory usage is similar. The amount of memory was calculated after the workers ended their tasks. 
 
 ### Empty folders
-We decided not to store information about empty fodlers. 
+We decided not to store information about empty folders. 
 If files are added later in a folder (that was previously empty) user needs to analyze it again
 
 ### Changing file runtime
 If a file is changed while the workers are reading there are several possibilities:
   * if the updated file is shorter/longer than the old one, we decided to handle the error but the statistic are not reliable,
-    so if the user want the correct one he/she needs to it analyze again.
+    so if the user want the correct one he/she needs to analyze it again.
   * if the updated file has different permissions, workers are still able to read the file because
     permissions are only verified when a file is opened and the statistic will be saved.
   * if the file has been deleted, workers are still able to read the file because 
-    as long as there is an open file descriptor the file’s data will not be deleted and the inode will not be freed.
-    The statistic will be saved anyway.
-In any case the purpose of the program is to analyze files, so if the user changes them runtime
-it completely lose its original meaning (errors must be handled anyway).
+    as long as there is an open file descriptor the file’s data will not be deleted and the inode will not be freed. The statistic will be saved anyway.
+In any case the purpose of the program is to analyze files, so if the user changes them runtime it completely lose its original meaning (errors must be handled anyway).
 
 ### Manager/Worker amount changes
 If the manager/worker amount changes during the program execution we decided not to kill them 
@@ -62,7 +60,7 @@ We thought about changing the priority with the total number of file assigned, b
 and analyzer shouldn't access files in any way to know their dimension.
 
 ### Thread
-We decided to use threads in all components in order to improve the user experience, giving them the impression of running every single component in a cuncurrent way, just like an Operating System does with processes. Every part of a component seems to be always running, but in reality there are a lot of context switching between several threads.
+We decided to use threads in all components in order to improve the user experience, giving them the impression of running every single component in a concurrent way, just like an Operating System does with processes. Every part of a component seems to be always running, but in reality there are a lot of context switching between several threads.
 
 ## Known issues
 Here are listed some known issues:
@@ -72,6 +70,8 @@ Here are listed some known issues:
     * there are files that have multiple EOF or other special chars that block the read from the file descriptor before the real amount is read
 * if analyzer and reporter are opened in two different terminals there is the possibility to close one and open it again. The two components keep the communication up but if reporter is closed and open again several times very quickly there is the possibility that the analyzer will die without any error message (we spread a lot of error messages inside all the code, but we didn't get the problem)
 * The executable files needs to be called inside the bin directory, otherwise the program won't work (except for the reporter and worker). 
+* There is the possibility that the user clear the FIFO manually. If so the analyzer/reporter communicate will be compromised (we tried to delete FIFOs after creation but other major problems were found)
+* If where we create the FIFOs does already exist a file with the same name owned by root with no reading/writing permission for the current user the FIFO can not be accessed
 
 ## GIF
 ![Fancy UI](./GIFME.gif)

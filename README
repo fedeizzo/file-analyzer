@@ -32,7 +32,7 @@ Before reading from a file only the worker checks if there is enough free space 
 If not it allocates 50% of the free memory and reads multiples times from the file moving the cursor.
 
 Empty folders:
-We decided not to store information about empty fodlers. 
+We decided not to store information about empty folders. 
 If files are added later in a folder (that was previously empty) user needs to analyze it again
 
 Changing file runtime:
@@ -75,6 +75,8 @@ Problems and difficulties:
   there is the possibility that the analyzer will die without any error message
 * The executable files needs to be called inside the bin directory, otherwise the program won't work 
   (except for the reporter and worker). 
+* There is the possibility that the user clear the FIFO manually. If so the analyzer/reporter communicate will be compromised (we tried to delete FIFOs after creation but other major problems were found)
+* If where we create the FIFOs does already exist a file with the same name owned by root with no reading/writing permission for the current user the FIFO can not be accessed
 
 -------------------------------------------------------------------
 How to use the program:
@@ -89,13 +91,13 @@ Project logic:
                     in order to stay informed
   * config        : contains preprocessor directives like error codes and flags
   * list          : a linked list implementation
-  * manager       : manager forks mulpiple workers and keeps anonymous pipes with
+  * manager       : manager forks multiple workers and keeps anonymous pipes with
                     them in order to get the stats gathered from files
-  * priorityQueue : a prioriy queue (heap based) implementation
-  * reporter      : reporter mantains two pipes:
+  * priorityQueue : a priority queue (heap based) implementation
+  * reporter      : reporter keeps two pipes:
                     * analyzer -> reporter: in order to gathers data and computes
                       a report
-                    * reporter -> analyzer: in oreder to sends user's requests
+                    * reporter -> analyzer: in order to sends user's requests
   * table         : holds counting information
   * tree          : a n-ary tree with list of children implementation
   * tui           : terminal user interface 
@@ -106,6 +108,7 @@ Project logic:
   * main          : calls reporter and analyzer after a fork
 
 Directories logic:
+
 .
 |-- GIFME.gif
 |-- Makefile
@@ -113,6 +116,24 @@ Directories logic:
 |-- README.md
 |-- RFC.pdf
 |-- WATCHME.mvk
+|-- bin
+|   |-- analyzer
+|   |-- analyzer.o
+|   |-- counter
+|   |-- list.o
+|   |-- main.o
+|   |-- manager
+|   |-- manager.o
+|   |-- priorityQueue.o
+|   |-- reporter
+|   |-- reporter.o
+|   |-- table.o
+|   |-- tree.o
+|   |-- tui.o
+|   |-- work.o
+|   |-- worker
+|   |-- worker.o
+|   `-- wrapping.o
 |-- img
 |   `-- structure.png
 |-- src
@@ -120,7 +141,6 @@ Directories logic:
 |   |   |-- README.md
 |   |   |-- analyzer.c
 |   |   |-- analyzer.h
-|   |   |-- analyzer.pdf
 |   |   |-- manageFileThread.png
 |   |   |-- readDirectivesThread.png
 |   |   |-- readFifoThread.png
@@ -138,7 +158,6 @@ Directories logic:
 |   |   |-- directivesThread.png
 |   |   |-- manager.c
 |   |   |-- manager.h
-|   |   |-- manager.pdf
 |   |   `-- workThread.png
 |   |-- priorityQueue
 |   |   |-- priorityQueue.c
@@ -148,7 +167,6 @@ Directories logic:
 |   |   |-- readFifoLoop.png
 |   |   |-- reporter.c
 |   |   |-- reporter.h
-|   |   |-- reporter.pdf
 |   |   |-- userInputLoop.png
 |   |   `-- writeFifoLoop.png
 |   |-- table
@@ -162,8 +180,7 @@ Directories logic:
 |   |   |-- UI.png
 |   |   |-- screenshot.png
 |   |   |-- tui.c
-|   |   |-- tui.h
-|   |   `-- tui.pdf
+|   |   `-- tui.h
 |   |-- work
 |   |   |-- work.c
 |   |   `-- work.h
@@ -171,8 +188,7 @@ Directories logic:
 |   |   |-- README.md
 |   |   |-- Worker.png
 |   |   |-- worker.c
-|   |   |-- worker.h
-|   |   `-- worker.pdf
+|   |   `-- worker.h
 |   `-- wrapping
 |       |-- wrapping.c
 |       `-- wrapping.h
@@ -181,4 +197,3 @@ Directories logic:
     |-- FedericoIzzo.png
     |-- SamueleBortolotti.png
     `-- SimoneAlghisi.png
-

@@ -404,9 +404,9 @@ void writeStats(unsigned long long *table) {
   int i;
   for (i = 0; i < NCHAR_TABLE; i++) {
     if (i >= 65 && i <= 90)
-      minuscole += table[i];
-    else if (i >= 97 && i <= 122)
       maiuscole += table[i];
+    else if (i >= 97 && i <= 122)
+      minuscole += table[i];
     else if (((i >= 33 && i <= 47)) || ((i >= 58 && i <= 64)) ||
              ((i >= 91 && i <= 96)) || ((i >= 123 && i <= 126)))
       punteg += table[i];
@@ -430,14 +430,14 @@ void writeStats(unsigned long long *table) {
       percentageMaiuscole =
           (double)((long double)maiuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %.2f%%\n",
+    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %.2f%%\n",
             maiuscole, percentageMaiuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && minuscole != 0) {
       percentageMinuscole =
           (double)((long double)minuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %.2f%%\n",
+    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %.2f%%\n",
             minuscole, percentageMinuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && punteg != 0) {
