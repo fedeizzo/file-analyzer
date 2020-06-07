@@ -7,6 +7,8 @@ Counter was our Operative System project for the second year of Bachelor in Comp
 * [**Manager**](./src/manager/README.md): the manager takes files and split them in several works. A work starts from a specific point of the file and ends in another. When works are ready they are sent to workers.
 * [**Worker**](./src/worker/README.md): the worker takes the file, the start point end the end point. After that he reads the portion of the file
 
+![Structure](./img/structure.png)
+
 Obs: With a small amount of work is possible to change the lowest component of the system, the worker, to allow the system to handle different types of problems, not only counting occurrences
 
 ## Goal

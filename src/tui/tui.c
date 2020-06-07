@@ -20,8 +20,8 @@ const char *helpMsg =
     "Usage: counter [OPTIONS] [FILES] [FOLDERS]\n\n"
     "OPTIONS:\n"
     "    -h, --help        : print this message\n"
-    "    -n, --number      : specify the managers amount\n"
-    "    -m, --mumber      : specify the workers amount\n"
+    "    -n, --number      : specify the workers amount\n"
+    "    -m, --mumber      : specify the managers amount\n"
     "    -f, --normal-mode : normal mode without fancy graphic\n";
 
 char *guiHelpMsg[] = {"Welcome, this is a list of command:",
@@ -119,7 +119,6 @@ int getWidth(int *width) {
       if (rc_al == SUCCESS) {
         rc_re = readDescriptor(fd[READ_CHANNEL], dst, 300);
         rc_ss = sscanf(dst, "%d", width);
-        wait(NULL);
         rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
         if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS ||
@@ -136,6 +135,7 @@ int getWidth(int *width) {
       if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_du < SUCCESS)
         rc_t = GET_SIZE_FAILURE;
       execlp("tput", "tput", "cols", NULL);
+      kill(getpid(), SIGKILL);
     }
   } else {
     rc_t = PIPE_FAILURE;
@@ -157,7 +157,6 @@ int getHeigth(int *heigth) {
       if (rc_al == SUCCESS) {
         rc_re = readDescriptor(fd[READ_CHANNEL], dst, 300);
         rc_ss = sscanf(dst, "%d", heigth);
-        wait(NULL);
         rc_cl2 = closeDescriptor(fd[READ_CHANNEL]);
         free(dst);
         if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_re < SUCCESS ||
@@ -174,6 +173,7 @@ int getHeigth(int *heigth) {
       if (rc_cl < SUCCESS || rc_cl2 < SUCCESS || rc_du < SUCCESS)
         rc_t = GET_SIZE_FAILURE;
       execlp("tput", "tput", "lines", NULL);
+      kill(getpid(), SIGKILL);
     }
   } else {
     rc_t = PIPE_FAILURE;
@@ -295,7 +295,6 @@ void lastDir(char *tmpCwd, char *cwd, int *start, int *end) {
   if (strlen(cwd) - lastSlash > 17) {
     int nextStart = (lastSlash + str) % (strlen(cwd) - lastSlash);
     lastSlash += nextStart;
-    // TODO implemnt little stop
   }
   index = 0;
   while (index < until && cwd[lastSlash] != '\0') {
@@ -497,7 +496,7 @@ void *graphicsLoop(void *ptr) {
     pthread_mutex_unlock(&(p->mutex));
     usleep(650000);
     if (scrollCounte % 2 == 0) {
-      if (p->screen->treeStartCol == PATH_MAX) {
+      if (p->screen->treeStartCol >= PATH_MAX) {
         p->screen->treeEndCol = 0;
         p->screen->treeStartCol = 0;
       } else {

@@ -398,7 +398,13 @@ void *workLoop(void *ptr) {
                                     sharedRes->directive->currentWorkers,
                                     sharedRes->directive->newNWorker,
                                     sharedRes->tables, sharedRes->todo);
-        sharedRes->directive->currentWorkers = sharedRes->directive->newNWorker;
+        if (sharedRes->directive->newNWorker >= 0) {
+          sharedRes->directive->currentWorkers =
+              sharedRes->directive->newNWorker;
+        } else {
+          sharedRes->directive->newNWorker =
+              sharedRes->directive->currentWorkers;
+        }
         remoduleWorks(sharedRes->todo, sharedRes->workers, sharedRes->tables);
         sharedRes->directive->directiveStatus = SUMMARY;
       }
@@ -466,15 +472,19 @@ int changeWorkersAmount(List workers, const int currentWorkers,
                         const int newWorkers, List tables, List todo) {
   int rc_t;
   int delta;
-  if (currentWorkers > 0)
-    delta = newWorkers - currentWorkers;
-  else
-    delta = newWorkers;
+  if (newWorkers >= 0) {
+    if (currentWorkers > 0)
+      delta = newWorkers - currentWorkers;
+    else
+      delta = newWorkers;
 
-  if (delta > 0) {
-    rc_t = addWorkers(workers, delta);
+    if (delta > 0) {
+      rc_t = addWorkers(workers, delta);
+    } else {
+      rc_t = removeWorkers(workers, -delta, tables, todo);
+    }
   } else {
-    rc_t = removeWorkers(workers, -delta, tables, todo);
+    rc_t = SUCCESS;
   }
 
   return rc_t;

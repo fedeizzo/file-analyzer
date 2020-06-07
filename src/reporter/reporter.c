@@ -23,8 +23,8 @@ const char *helpMsgV2 =
     "Usage: tui [OPTIONS] [FILES] [FOLDERS]\n\n"
     "OPTIONS:\n"
     "\t-h, --help        : print this message\n"
-    "\t-n, --number      : specify the managers amount\n"
-    "\t-m, --mumber      : specify the workers amount\n"
+    "\t-n, --number      : specify the workers amount\n"
+    "\t-m, --mumber      : specify the managers amount\n"
     "\t-f,,--normal-mode : normal mode without fancy graphic\n";
 
 UserInput newUserInput() {
