@@ -256,7 +256,7 @@ int commandFilter(const int cmd, const int counter) {
     if (counter >= 0 && counter <= 128)
       rc_t = 0;
   } else if (cmd == 6) {
-    if ((counter >= 0 && counter <= 31) || counter == 128)
+    if ((counter >= 0 && counter <= 31) || counter == 127 || counter == 128)
       rc_t = 0;
   }
 
@@ -597,6 +597,7 @@ void updateTable(Screen screen, unsigned long long *table) {
       count += table[i];
     }
     count += table[NCHAR_TABLE - 1];
+    count += table[NCHAR_TABLE - 2];
     sprintf(msg, "%llu", count);
     if (commandFilter(screen->cmd, 128) == 0) {
       if (count >= 1000000)
