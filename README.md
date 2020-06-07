@@ -21,14 +21,14 @@ There are several implementation choices inside all files in compontens' folder.
 Inside all code, except worker, when we allocate some memory on the heap we always control if the memory was allocated correctly. In most cases if malloc fails we closed the program because we think that if a user saturated the RAM, he/she may prefer that some programs could free it to make the computer more usable.
 The only component that checks the amount of free memory is the worker. Before reading from a file it checks if there is enough free space in memory in order to read its work amount. If not it allocates 50% of the free memory and reads multiples times from the file moving the cursor. This check is made only in the worker because it is the component with the highest memory usage. Nowadays computers have enough memory to support other components and the check seems, for us, an useless overhead. We made some test to prove our decision:
 
-| Number of files | size   |
-|-----------------|--------|
-|0                |2.83 MB |
-|1                |3.03 MB |
-|10               |3.08 MB |
-|100              |3.93 MB |
-|1000             |12.13 MB|
-|10000            |93.39 MB|
+| Number of files | size    |
+|-----------------|---------|
+|0                |3.93 MiB |
+|1                |4.13 MiB |
+|10               |4.38 MiB |
+|100              |5.19 MiB |
+|1000             |13.52 MiB|
+|10000            |94.05 MiB|
 
 The files were empty and all inside the same folder but we think that, also with different configurations, the memory usage is similar. The amount of memory was calculated after the workers ended their tasks. 
 
@@ -72,6 +72,9 @@ Here are listed some known issues:
     * there are files that have multiple EOF or other special chars that block the read from the file descriptor before the real amount is read
 * if analyzer and reporter are opened in two different terminals there is the possibility to close one and open it again. The two components keep the communication up but if reporter is closed and open again several times very quickly there is the possibility that the analyzer will die without any error message (we spread a lot of error messages inside all the code, but we didn't get the problem)
 * The executable files needs to be called inside the bin directory, otherwise the program won't work (except for the reporter and worker). 
+
+## GIF
+![Fancy UI](./GIFME.gif)
 
 ## Team
 ![Federico Izzo](./team/FedericoIzzo.png)
