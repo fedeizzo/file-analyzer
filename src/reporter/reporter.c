@@ -212,6 +212,7 @@ void writeStats(unsigned long long *table);
 void readString(int fd, char *dst);
 
 int main(int argc, char **argv) {
+  signal(SIGCHLD, SIG_IGN);
   int rc_t = SUCCESS;
   char *writeFifo = "/tmp/reporterToAnalyzer";
   char *readFifo = "/tmp/analyzerToReporter";
