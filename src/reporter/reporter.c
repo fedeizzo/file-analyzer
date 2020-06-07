@@ -412,7 +412,7 @@ void writeStats(unsigned long long *table) {
       punteg += table[i];
     else if (i >= 48 && i <= 57)
       cifre += table[i];
-    else if((i >= 0 && i <= 32) || i == 127 || i == 128)
+    else if ((i >= 0 && i <= 32) || i == 127 || i == 128)
       other += table[i];
     tutto += table[i];
   }
@@ -430,14 +430,14 @@ void writeStats(unsigned long long *table) {
       percentageMaiuscole =
           (double)((long double)maiuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %.2f%%\n",
+    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %.2f%%\n",
             maiuscole, percentageMaiuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && minuscole != 0) {
       percentageMinuscole =
           (double)((long double)minuscole / (long double)tutto * 100);
     }
-    sprintf(tmpString, "  Minuscole: %llu  -- percentage over total: %.2f%%\n",
+    sprintf(tmpString, "  Maiuscole: %llu  -- percentage over total: %.2f%%\n",
             minuscole, percentageMinuscole);
     strcat(outString, tmpString);
     if (tutto != 0 && punteg != 0) {
